@@ -185,16 +185,24 @@ export async function POST(req: Request) {
       status?: string;
     };
 
-    // If metadata shows parent role, update user (admin may have assigned role)
+    // Sync any role and status changes from Clerk (admin may have assigned role)
     const updateData: any = {
       email: email_addresses?.[0]?.email_address ?? "",
       name: nameOf(evt.data),
     };
 
-    if (metadata.role === "parent") {
-      updateData.role = "parent";
-      updateData.status = "active";
-      updateData.onboarded = true;
+    // Sync role if present in Clerk metadata
+    if (metadata.role) {
+      updateData.role = metadata.role;
+      // If parent role, mark as onboarded
+      if (metadata.role === "parent") {
+        updateData.onboarded = true;
+      }
+    }
+
+    // Sync status if present in Clerk metadata
+    if (metadata.status) {
+      updateData.status = metadata.status;
     }
 
     await User.updateOne(
@@ -211,8 +219,8 @@ export async function POST(req: Request) {
       { upsert: true },
     );
 
-    if (metadata.role === "parent") {
-      console.log(`[Webhook] Updated user ${clerkId} with parent role via user.updated`);
+    if (metadata.role || metadata.status) {
+      console.log(`[Webhook] Updated user ${clerkId} - role: ${metadata.role ?? 'unchanged'}, status: ${metadata.status ?? 'unchanged'}`);
     }
   } else if (evt.type === "user.deleted") {
     const { id: clerkId } = evt.data;
