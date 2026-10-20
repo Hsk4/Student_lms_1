@@ -29,6 +29,7 @@ export async function POST(req: Request) {
   const SIGNING_SECRET = process.env.CLERK_WEBHOOK_SIGNING_SECRET;
 
   if (!SIGNING_SECRET) {
+    console.error('[Webhook] Missing CLERK_WEBHOOK_SIGNING_SECRET');
     return new Response("Missing CLERK_WEBHOOK_SIGNING_SECRET", {
       status: 500,
     });
@@ -40,11 +41,15 @@ export async function POST(req: Request) {
   const svix_timestamp = headerPayload.get("svix-timestamp");
   const svix_signature = headerPayload.get("svix-signature");
 
+  console.log('[Webhook] Headers:', { svix_id: !!svix_id, svix_timestamp: !!svix_timestamp, svix_signature: !!svix_signature });
+
   if (!svix_id || !svix_timestamp || !svix_signature) {
+    console.error('[Webhook] Missing svix headers');
     return new Response("Missing svix headers", { status: 400 });
   }
 
   const body = await req.text();
+  console.log('[Webhook] Body length:', body.length);
   let evt: WebhookEvent;
 
   try {
@@ -54,12 +59,13 @@ export async function POST(req: Request) {
       "svix-signature": svix_signature,
     });
     if (!verified) {
-      console.error("Webhook verification returned falsy value");
+      console.error("[Webhook] Verification returned falsy value");
       return new Response("Webhook verification failed", { status: 400 });
     }
     evt = verified as unknown as WebhookEvent;
+    console.log('[Webhook] Verified event type:', evt.type);
   } catch (err) {
-    console.error("Webhook signature verification failed:", err);
+    console.error("[Webhook] Signature verification failed:", err);
     return new Response("Webhook signature verification failed", {
       status: 400,
     });
