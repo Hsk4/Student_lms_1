@@ -79,7 +79,7 @@ async function seedSuperAdmin() {
     }
   });
 
-  console.log(`✓ Super admin created/updated: ${email}`);
+  console.log(`130---" Super admin created/updated: ${email}`);
   process.exit(0);
 }
 

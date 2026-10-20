@@ -1,22 +1,46 @@
-import { Webhook } from 'svix';
-import { headers } from 'next/headers';
-import { WebhookEvent } from '@clerk/nextjs/server';
+import { Webhook } from "svix";
+import { headers } from "next/headers";
+import { connection } from "next/server";
+import { WebhookEvent } from "@clerk/nextjs/server";
+import { createClerkClient } from "@clerk/backend";
+import { connectDB } from "@/lib/db";
+import { User } from "@/models/user";
+import { ParentInvite } from "@/models/parent-invite";
+import { AuditLog } from "@/models/audit-log";
 
+function nameOf(data: {
+  first_name?: string | null;
+  last_name?: string | null;
+  username?: string | null;
+  email_addresses?: { email_address: string }[];
+}) {
+  return (
+    [data.first_name, data.last_name].filter(Boolean).join(" ") ||
+    data.username ||
+    data.email_addresses?.[0]?.email_address ||
+    "User"
+  );
+}
+
+/** Handlers are idempotent: Clerk retries on any non-2xx response. */
 export async function POST(req: Request) {
+  await connection();
   const SIGNING_SECRET = process.env.CLERK_WEBHOOK_SIGNING_SECRET;
 
   if (!SIGNING_SECRET) {
-    throw new Error('Missing CLERK_WEBHOOK_SIGNING_SECRET');
+    return new Response("Missing CLERK_WEBHOOK_SIGNING_SECRET", {
+      status: 500,
+    });
   }
 
   const wh = new Webhook(SIGNING_SECRET);
   const headerPayload = await headers();
-  const svix_id = headerPayload.get('svix-id');
-  const svix_timestamp = headerPayload.get('svix-timestamp');
-  const svix_signature = headerPayload.get('svix-signature');
+  const svix_id = headerPayload.get("svix-id");
+  const svix_timestamp = headerPayload.get("svix-timestamp");
+  const svix_signature = headerPayload.get("svix-signature");
 
   if (!svix_id || !svix_timestamp || !svix_signature) {
-    return new Response('Missing svix headers', { status: 400 });
+    return new Response("Missing svix headers", { status: 400 });
   }
 
   const body = await req.text();
@@ -24,25 +48,137 @@ export async function POST(req: Request) {
 
   try {
     evt = wh.verify(body, {
-      'svix-id': svix_id,
-      'svix-timestamp': svix_timestamp,
-      'svix-signature': svix_signature,
+      "svix-id": svix_id,
+      "svix-timestamp": svix_timestamp,
+      "svix-signature": svix_signature,
     }) as unknown as WebhookEvent;
   } catch (err) {
-    console.error('Webhook signature verification failed:', err);
-    return new Response('Webhook signature verification failed', { status: 400 });
+    console.error("Webhook signature verification failed:", err);
+    return new Response("Webhook signature verification failed", {
+      status: 400,
+    });
   }
 
-  const eventType = evt.type;
-  console.log(`Webhook event received: ${eventType}`);
+  await connectDB();
 
-  if (eventType === 'user.created') {
-    console.log(`User created: ${evt.data.id}`);
-  } else if (eventType === 'user.updated') {
-    console.log(`User updated: ${evt.data.id}`);
-  } else if (eventType === 'user.deleted') {
-    console.log(`User deleted: ${evt.data.id}`);
+  if (evt.type === "user.created") {
+    const { id: clerkId, email_addresses, public_metadata } = evt.data;
+    const metadata = (public_metadata ?? {}) as {
+      role?: string;
+      status?: string;
+      onboarded?: boolean;
+      studentId?: string;
+      parentName?: string;
+    };
+    const primaryEmailId = (evt.data as typeof evt.data & { primary_email_address_id?: string | null }).primary_email_address_id;
+    const primaryEmail = email_addresses?.find((address) => address.id === primaryEmailId) ?? email_addresses?.[0];
+    const email = primaryEmail?.email_address?.toLowerCase() ?? "";
+    const verifiedEmail = primaryEmail?.verification?.status === "verified";
+    const isParentInvite = metadata.role === "parent" && verifiedEmail && Boolean(email);
+
+    if (isParentInvite) {
+      const apiSecret = process.env.CLERK_SECRET_KEY;
+      if (!apiSecret) return new Response("Missing CLERK_SECRET_KEY", { status: 500 });
+      const clerk = createClerkClient({ secretKey: apiSecret });
+      const invitation = await clerk.invitations.getInvitationList({ query: email, status: "accepted" });
+      const invitedParent = invitation.data.find((item) => item.emailAddress.toLowerCase() === email && item.publicMetadata?.role === "parent");
+      const invite = invitedParent ? await ParentInvite.findOne({
+        clerkInvitationId: invitedParent.id,
+        parentEmail: email,
+        state: "sent",
+        ...(metadata.studentId ? { studentId: metadata.studentId } : {}),
+      }).sort({ createdAt: -1 }) : null;
+
+      if (invite) {
+        const parent = await User.findOneAndUpdate(
+          { clerkId },
+          {
+            $set: {
+              email,
+              name: nameOf(evt.data),
+              role: "parent",
+              status: "active",
+              onboarded: true,
+            },
+            $setOnInsert: { clerkId },
+          },
+          { upsert: true, new: true },
+        );
+
+        await User.updateOne(
+          { _id: invite.studentId },
+          { $addToSet: { "student.guardianIds": parent._id }, $set: { onboarded: true } },
+        );
+        await AuditLog.create({
+          actorId: parent._id,
+          action: "acceptParentInvite",
+          targetType: "ParentInvite",
+          targetId: invite._id,
+          before: { state: "sent" },
+          after: { state: "accepted", studentId: String(invite.studentId) },
+          at: new Date(),
+        });
+        invite.state = "accepted";
+        invite.acceptedBy = parent._id;
+        invite.acceptedAt = new Date();
+        await invite.save();
+      } else {
+        await User.updateOne(
+          { clerkId },
+          {
+            $setOnInsert: {
+              clerkId,
+              email,
+              name: nameOf(evt.data),
+              role: null,
+              status: "pending",
+              onboarded: false,
+            },
+          },
+          { upsert: true },
+        );
+      }
+    } else {
+      await User.updateOne(
+        { clerkId },
+        {
+          $setOnInsert: {
+            clerkId,
+            email,
+            name: nameOf(evt.data),
+            role: null,
+            status: "pending",
+            onboarded: false,
+          },
+        },
+        { upsert: true },
+      );
+    }
+  } else if (evt.type === "user.updated") {
+    const { id: clerkId, email_addresses } = evt.data;
+
+    // Role changes made through the admin panel already wrote role and status.
+    // Only the profile fields are refreshed here so the mirror is not stepped on.
+    await User.updateOne(
+      { clerkId },
+      {
+        $set: {
+          email: email_addresses?.[0]?.email_address ?? "",
+          name: nameOf(evt.data),
+        },
+        $setOnInsert: {
+          clerkId,
+          role: null,
+          status: "pending",
+          onboarded: false,
+        },
+      },
+      { upsert: true },
+    );
+  } else if (evt.type === "user.deleted") {
+    const { id: clerkId } = evt.data;
+    if (clerkId) await User.deleteOne({ clerkId });
   }
 
-  return new Response('Webhook received', { status: 200 });
+  return new Response("Webhook processed", { status: 200 });
 }

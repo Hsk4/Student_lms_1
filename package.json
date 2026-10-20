@@ -7,13 +7,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed:super-admin": "tsx scripts/seed-super-admin.ts"
+    "lint:colors": "node scripts/lint-colors.mjs",
+    "seed:super-admin": "tsx scripts/seed-super-admin.ts",
+    "seed:dev": "tsx --env-file=.env.local scripts/seed-dev.ts",
+    "tunnel": "ngrok http 3000"
   },
   "dependencies": {
     "@clerk/backend": "^3.25.0",
     "@clerk/nextjs": "^7.9.17",
     "mongoose": "^9.11.2",
-    "next": "16.4.2",
+    "next": "16.3.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "svix": "^2.8.0",
@@ -25,7 +28,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.4.2",
+    "eslint-config-next": "16.3.6",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"

@@ -1,26 +1,107 @@
 @import "tailwindcss";
 
+/* Nila design tokens (docs/objective.md section 9). Use only these semantic classes. */
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --surface: #f5f8fe;
+  --foreground: #0b1b3a;
+  --muted-foreground: #4a5878;
+  --primary: #1e4db7;
+  --primary-hover: #173d94;
+  --primary-foreground: #ffffff;
+  --tint: #eef3ff;
+  --tint-foreground: #173d94;
+  --navy: #0d2252;
+  --navy-foreground: #ffffff;
+  --firoza: #0b7f8f;
+  --border: #e2e8f4;
+  --field-border: #7f90b5;
+  --status-green: #146c3a;
+  --status-green-soft: #e7f4ec;
+  --status-amber: #8a4b08;
+  --status-amber-soft: #fbf0e3;
+  --status-red: #a32a1c;
+  --status-red-soft: #fbeceb;
+  --radius: 12px;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-tint: var(--tint);
+  --color-tint-foreground: var(--tint-foreground);
+  --color-navy: var(--navy);
+  --color-navy-foreground: var(--navy-foreground);
+  --color-firoza: var(--firoza);
+  --color-border: var(--border);
+  --color-field-border: var(--field-border);
+  --color-status-green: var(--status-green);
+  --color-status-green-soft: var(--status-green-soft);
+  --color-status-amber: var(--status-amber);
+  --color-status-amber-soft: var(--status-amber-soft);
+  --color-status-red: var(--status-red);
+  --color-status-red-soft: var(--status-red-soft);
+  --font-sans:
+    var(--font-geist-sans), "Noto Nastaliq Urdu", Arial, Helvetica, sans-serif;
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --radius-card: var(--radius);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+@layer components {
+  .card {
+    @apply rounded-[var(--radius-card)] border border-border bg-background;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-foreground;
+  }
+  .input {
+    @apply h-10 w-full rounded-[var(--radius-card)] border border-field-border bg-background px-3 text-sm text-foreground outline-none transition-colors duration-150 focus:border-primary;
+  }
+  .textarea {
+    @apply min-h-24 w-full rounded-[var(--radius-card)] border border-field-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors duration-150 focus:border-primary;
+  }
+  .btn {
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-card)] border border-transparent px-4 text-sm font-medium transition-colors duration-150 disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-card)] border border-transparent bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary-hover disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-card)] border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-tint disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-card)] border border-transparent px-4 text-sm font-medium text-primary transition-colors duration-150 hover:bg-tint disabled:opacity-50;
+  }
+  .btn-danger {
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-card)] border border-border bg-background px-4 text-sm font-medium text-status-red transition-colors duration-150 hover:bg-status-red-soft disabled:opacity-50;
+  }
+  .table {
+    @apply w-full text-sm;
+  }
+  .table th {
+    @apply border-b border-border bg-surface px-3 py-2 text-start text-xs font-semibold uppercase tracking-wide text-muted-foreground;
+  }
+  .table td {
+    @apply border-b border-border px-3 py-2 align-top text-foreground;
+  }
+  .chip {
+    @apply inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium;
+  }
+  .tab {
+    @apply inline-flex h-9 items-center rounded-[var(--radius-card)] px-3 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:text-primary;
+  }
+  .tab-active {
+    @apply bg-tint text-tint-foreground;
+  }
 }
