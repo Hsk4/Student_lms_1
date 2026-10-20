@@ -7,6 +7,7 @@ import { connectDB } from "@/lib/db";
 import { User } from "@/models/user";
 import { ParentInvite } from "@/models/parent-invite";
 import { AuditLog } from "@/models/audit-log";
+import { emitEvent } from "@/lib/socket";
 
 function nameOf(data: {
   first_name?: string | null;
@@ -248,7 +249,13 @@ export async function POST(req: Request) {
     }
   } else if (evt.type === "user.deleted") {
     const { id: clerkId } = evt.data;
-    if (clerkId) await User.deleteOne({ clerkId });
+    if (clerkId) {
+      await User.deleteOne({ clerkId });
+      console.log(`[Webhook] Deleted user ${clerkId}`);
+      
+      // Emit real-time event to all connected clients
+      emitEvent('user:deleted', { clerkId });
+    }
   }
 
   return new Response("Webhook processed", { status: 200 });

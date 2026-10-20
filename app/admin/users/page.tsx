@@ -5,6 +5,7 @@ import { Fragment } from "react";
 import { getTeacherCourseAssignments, listUsers } from "@/lib/queries/admin";
 import { TeacherCoursesForm } from "./teacher-courses";
 import { SyncUsersButton } from "./sync-button";
+import { UsersAutoRefresh } from "./auto-refresh";
 import {
   PageHeader,
   Card,
@@ -30,6 +31,7 @@ export default async function AdminUsersPage({
 
   return (
     <>
+      <UsersAutoRefresh />
       <PageHeader
         title="Users"
         description="Suspend, reinstate or open an account."
