@@ -6,7 +6,7 @@ import { Meeting } from '@/models/meeting';
 import { SupportTicket } from '@/models/support-ticket';
 import { User } from '@/models/user';
 import { AuditLog } from '@/models/audit-log';
-import { requireRole, getSessionUser, getCurrentUser } from '@/lib/auth/roles';
+import { checkAccess, getSessionUser, getCurrentUser } from '@/lib/auth/roles';
 import { z } from 'zod';
 
 // ============ INVOICES ============
@@ -19,7 +19,8 @@ const createInvoiceSchema = z.object({
 });
 
 export async function createInvoice(data: z.infer<typeof createInvoiceSchema>) {
-  await requireRole(['admin', 'super_admin']);
+  const { user, redirectTo } = await checkAccess(['admin', 'super_admin']);
+  if (redirectTo) throw new Error('Unauthorized');
 
   const validated = createInvoiceSchema.parse(data);
   const session = await getSessionUser();
@@ -54,7 +55,8 @@ const markInvoicePaidSchema = z.object({
 });
 
 export async function markInvoicePaid(data: z.infer<typeof markInvoicePaidSchema>) {
-  await requireRole(['admin', 'super_admin']);
+  const { user, redirectTo } = await checkAccess(['admin', 'super_admin']);
+  if (redirectTo) throw new Error('Unauthorized');
 
   const validated = markInvoicePaidSchema.parse(data);
   const session = await getSessionUser();
@@ -261,7 +263,8 @@ const escalateTicketSchema = z.object({
 });
 
 export async function escalateTicket(data: z.infer<typeof escalateTicketSchema>) {
-  await requireRole(['admin', 'super_admin']);
+  const { user, redirectTo } = await checkAccess(['admin', 'super_admin']);
+  if (redirectTo) throw new Error('Unauthorized');
 
   const validated = escalateTicketSchema.parse(data);
 
