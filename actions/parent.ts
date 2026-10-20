@@ -100,9 +100,18 @@ export async function listMyChildren() {
     .lean();
   if (!parent) throw new Error('Parent account not found');
 
-  return User.find({ 'student.guardianIds': parent._id, role: 'student', status: 'active' })
-    .select('name student.boardId student.levelId')
+  // Find all students where this parent is in guardianIds
+  const children = await User.find({ 
+    'student.guardianIds': parent._id, 
+    role: 'student', 
+    status: 'active' 
+  })
+    .select('_id name email student.boardId student.levelId student.guardianIds')
+    .populate('student.boardId', 'name')
+    .populate('student.levelId', 'name')
     .lean();
+  
+  return children;
 }
 
 /** Informational route: Clerk owns invitation validation and acceptance. */

@@ -126,7 +126,6 @@ export async function POST(req: Request) {
           let invite = await ParentInvite.findOne({
             clerkInvitationId: invitedParent.id,
             parentEmail: email,
-            state: "sent",
           }).sort({ createdAt: -1 });
 
           if (!invite && studentIdFromInvite) {
@@ -134,43 +133,50 @@ export async function POST(req: Request) {
             invite = await ParentInvite.findOne({
               studentId: studentIdFromInvite,
               parentEmail: email,
-              state: "sent",
             }).sort({ createdAt: -1 });
           }
 
           if (invite) {
-            // Link parent to student
-            await User.updateOne(
-              { _id: invite.studentId },
+            // Link parent to student if not already linked
+            const linkResult = await User.updateOne(
+              { _id: invite.studentId, "student.guardianIds": { $ne: parent._id } },
               { $addToSet: { "student.guardianIds": parent._id } }
             );
 
+            if (linkResult.modifiedCount > 0 || linkResult.matchedCount > 0) {
+              console.log(`[ParentInvite] Linked parent ${clerkId} to student ${invite.studentId}`);
+            } else {
+              console.log(`[ParentInvite] Parent ${clerkId} already linked to student ${invite.studentId}`);
+            }
             // Mark student as onboarded (parent link complete)
             await User.updateOne(
               { _id: invite.studentId },
               { $set: { onboarded: true } }
             );
 
-            // Create audit log
-            await AuditLog.create({
-              actorId: parent._id,
-              action: "acceptParentInvite",
-              targetType: "ParentInvite",
-              targetId: invite._id,
-              before: { state: "sent" },
-              after: { state: "accepted", studentId: String(invite.studentId) },
-              at: new Date(),
-            });
+            // Update invite state if not already accepted
+            if (invite.state !== "accepted") {
+              invite.state = "accepted";
+              invite.acceptedBy = parent._id;
+              invite.acceptedAt = new Date();
+              await invite.save();
+              console.log(`[ParentInvite] Marked invite as accepted for ${email}`);
+            }
 
-            // Update invite state
-            invite.state = "accepted";
-            invite.acceptedBy = parent._id;
-            invite.acceptedAt = new Date();
-            await invite.save();
-
-            console.log(`[ParentInvite] Linked parent ${clerkId} to student ${invite.studentId}`);
+            // Create audit log for linking (only once)
+            if (invite.state === "sent" || !invite.acceptedAt) {
+              await AuditLog.create({
+                actorId: parent._id,
+                action: "acceptParentInvite",
+                targetType: "ParentInvite",
+                targetId: invite._id,
+                before: { state: "sent" },
+                after: { state: "accepted", studentId: String(invite.studentId) },
+                at: new Date(),
+              });
+            }
           } else {
-            console.warn(`[ParentInvite] No Mongo invite found for ${email} / ${invitedParent.id}. StudentId from invitation: ${studentIdFromInvite}`);
+            console.warn(`[ParentInvite] No Mongo invite found for ${email}. Checked by clerkInvitationId: ${invitedParent.id}, studentId: ${studentIdFromInvite}`);
           }
         } else {
           console.warn(`[ParentInvite] No accepted invitation found in Clerk for ${email}`);
