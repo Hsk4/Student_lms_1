@@ -1,35 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-type StatusResponse = {
-  signedIn: boolean;
-  status: string;
-  home: string;
-};
-
 /**
- * Polls /api/status every five seconds. When the status leaves pending the
- * session is reloaded and the user is sent to the area their role unlocks.
+ * Simple redirect after status changes from pending.
+ * Called once on mount to check if user's status is no longer pending.
  */
 export function PendingPoller() {
   const router = useRouter();
-  const [note, setNote] = useState("Checking every 5 seconds...");
 
   useEffect(() => {
-    let stopped = false;
-
-    async function check() {
+    const checkStatus = async () => {
       try {
         const response = await fetch("/api/status", { cache: "no-store" });
         if (!response.ok) return;
-        const data = (await response.json()) as StatusResponse;
-        if (stopped) return;
+        const data = await response.json();
 
+        // If status is no longer pending, redirect
         if (data.status !== "pending") {
-          setNote("Status changed. Opening your panel...");
-          // Claims live in the session token, so reload the session before navigating.
+          // Reload session and navigate
           const clerk = (
             window as unknown as {
               Clerk?: { session?: { reload: () => Promise<void> } };
@@ -39,19 +29,14 @@ export function PendingPoller() {
           router.refresh();
           router.push(data.home);
         }
-      } catch {
-        setNote("Connection issue. Still trying...");
+      } catch (error) {
+        console.error("Status check failed:", error);
       }
-    }
-
-    const timer = setInterval(check, 5000);
-    check();
-
-    return () => {
-      stopped = true;
-      clearInterval(timer);
     };
+
+    // Single check on mount
+    checkStatus();
   }, [router]);
 
-  return <p className="mt-4 text-xs text-muted-foreground">{note}</p>;
+  return null;
 }
