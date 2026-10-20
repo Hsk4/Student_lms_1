@@ -18,6 +18,7 @@ async function Panel({ roles, children }: { roles: UserRole[]; children: React.R
       items: [
         { href: '/admin/requests', label: 'Requests', badge: pending },
         { href: '/admin/users', label: 'Users' },
+        { href: '/admin/parent-invites', label: 'Parent invites' },
         { href: '/admin/audit-log', label: 'Audit log' },
       ],
     },
