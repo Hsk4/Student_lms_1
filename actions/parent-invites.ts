@@ -1,6 +1,6 @@
 'use server';
 
-import { createClerkClient, ClerkAPIResponseError } from '@clerk/backend';
+import { createClerkClient } from '@clerk/backend';
 import { connectDB } from '@/lib/db';
 import { ParentInvite } from '@/models/parent-invite';
 import { requireRole } from '@/lib/auth/guards';
@@ -27,9 +27,9 @@ export async function revokeParentInvite(inviteId: string): Promise<ActionState>
     try {
       await clerk.invitations.revokeInvitation(invite.clerkInvitationId);
       console.log(`[Admin] Revoked Clerk invitation ${invite.clerkInvitationId}`);
-    } catch (clerkError) {
+    } catch (clerkError: any) {
       // If invitation not found in Clerk (404), that's OK - it's already expired/revoked
-      if (clerkError instanceof ClerkAPIResponseError && clerkError.status === 404) {
+      if (clerkError?.status === 404) {
         console.warn(`[Admin] Invitation not found in Clerk (already expired): ${invite.clerkInvitationId}`);
       } else {
         throw clerkError;
@@ -66,9 +66,9 @@ export async function resendParentInvite(inviteId: string): Promise<ActionState<
       try {
         await clerk.invitations.revokeInvitation(invite.clerkInvitationId);
         console.log(`[Admin] Revoked old invitation: ${invite.clerkInvitationId}`);
-      } catch (error) {
+      } catch (error: any) {
         // If it doesn't exist, that's fine
-        if (error instanceof ClerkAPIResponseError && error.status === 404) {
+        if (error?.status === 404) {
           console.warn(`[Admin] Old invitation not found in Clerk: ${invite.clerkInvitationId}`);
         } else {
           console.warn(`[Admin] Failed to revoke old invitation`, error);
