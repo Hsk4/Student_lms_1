@@ -113,7 +113,10 @@ export async function POST(req: Request) {
 
       // Try to find and update the student link
       try {
+        console.log(`[ParentInvite] Looking for invitation for ${email}`);
         const invitationList = await clerk.invitations.getInvitationList({ query: email, status: "accepted" });
+        console.log(`[ParentInvite] Found ${invitationList.data.length} accepted invitations for ${email}`);
+        
         const invitedParent = invitationList.data.find(
           (item) => item.emailAddress.toLowerCase() === email && item.publicMetadata?.role === "parent"
         );
@@ -122,8 +125,9 @@ export async function POST(req: Request) {
           console.log(`[ParentInvite] Found Clerk invitation for ${email}: ${invitedParent.id}`);
           const inviteMeta = invitedParent.publicMetadata as { studentId?: string } | undefined;
           const studentIdFromInvite = inviteMeta?.studentId;
+          console.log(`[ParentInvite] Invitation metadata:`, inviteMeta);
           
-          // Find Mongo invite record by invitation ID or by email+student
+          // Find Mongo invite record - first by invitation ID
           let invite = await ParentInvite.findOne({
             clerkInvitationId: invitedParent.id,
             parentEmail: email,
@@ -131,8 +135,17 @@ export async function POST(req: Request) {
 
           if (!invite && studentIdFromInvite) {
             // Fallback: find by student ID and email
+            console.log(`[ParentInvite] Trying fallback lookup with studentId: ${studentIdFromInvite}`);
             invite = await ParentInvite.findOne({
               studentId: studentIdFromInvite,
+              parentEmail: email,
+            }).sort({ createdAt: -1 });
+          }
+
+          if (!invite) {
+            // Last resort: find by email only, recent first
+            console.log(`[ParentInvite] Trying final fallback: search by email only`);
+            invite = await ParentInvite.findOne({
               parentEmail: email,
             }).sort({ createdAt: -1 });
           }
