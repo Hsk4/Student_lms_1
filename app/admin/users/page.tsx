@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Fragment } from "react";
 import { getTeacherCourseAssignments, listUsers } from "@/lib/queries/admin";
 import { TeacherCoursesForm } from "./teacher-courses";
+import { SyncUsersButton } from "./sync-button";
 import {
   PageHeader,
   Card,
@@ -33,6 +34,13 @@ export default async function AdminUsersPage({
         title="Users"
         description="Suspend, reinstate or open an account."
       />
+
+      <div className="mb-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-border pb-4">
+          <h2 className="text-sm font-semibold text-foreground">Sync with Clerk</h2>
+          <SyncUsersButton />
+        </div>
+      </div>
 
       <form className="mb-4 flex flex-wrap items-end gap-3">
         <div>
