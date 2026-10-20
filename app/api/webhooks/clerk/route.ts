@@ -74,71 +74,95 @@ export async function POST(req: Request) {
     const primaryEmail = email_addresses?.find((address) => address.id === primaryEmailId) ?? email_addresses?.[0];
     const email = primaryEmail?.email_address?.toLowerCase() ?? "";
     const verifiedEmail = primaryEmail?.verification?.status === "verified";
+    
+    // If metadata has parent role and verified email, treat as parent invite
     const isParentInvite = metadata.role === "parent" && verifiedEmail && Boolean(email);
 
     if (isParentInvite) {
       const apiSecret = process.env.CLERK_SECRET_KEY;
-      if (!apiSecret) return new Response("Missing CLERK_SECRET_KEY", { status: 500 });
+      if (!apiSecret) {
+        console.error("Missing CLERK_SECRET_KEY for parent invite");
+        return new Response("Missing CLERK_SECRET_KEY", { status: 500 });
+      }
+      
       const clerk = createClerkClient({ secretKey: apiSecret });
-      const invitation = await clerk.invitations.getInvitationList({ query: email, status: "accepted" });
-      const invitedParent = invitation.data.find((item) => item.emailAddress.toLowerCase() === email && item.publicMetadata?.role === "parent");
-      const invite = invitedParent ? await ParentInvite.findOne({
-        clerkInvitationId: invitedParent.id,
-        parentEmail: email,
-        state: "sent",
-        ...(metadata.studentId ? { studentId: metadata.studentId } : {}),
-      }).sort({ createdAt: -1 }) : null;
-
-      if (invite) {
-        const parent = await User.findOneAndUpdate(
-          { clerkId },
-          {
-            $set: {
-              email,
-              name: nameOf(evt.data),
-              role: "parent",
-              status: "active",
-              onboarded: true,
-            },
-            $setOnInsert: { clerkId },
+      
+      // Create parent user with role and status from invitation metadata
+      const parent = await User.findOneAndUpdate(
+        { clerkId },
+        {
+          $set: {
+            email,
+            name: nameOf(evt.data),
+            role: "parent",
+            status: "active",
+            onboarded: true,
           },
-          { upsert: true, new: true },
+          $setOnInsert: { clerkId },
+        },
+        { upsert: true, new: true },
+      );
+
+      console.log(`[ParentInvite] Created/updated parent: ${clerkId} (${email})`);
+
+      // Try to find and update the student link
+      try {
+        const invitationList = await clerk.invitations.getInvitationList({ query: email, status: "accepted" });
+        const invitedParent = invitationList.data.find(
+          (item) => item.emailAddress.toLowerCase() === email && item.publicMetadata?.role === "parent"
         );
 
-        await User.updateOne(
-          { _id: invite.studentId },
-          { $addToSet: { "student.guardianIds": parent._id }, $set: { onboarded: true } },
-        );
-        await AuditLog.create({
-          actorId: parent._id,
-          action: "acceptParentInvite",
-          targetType: "ParentInvite",
-          targetId: invite._id,
-          before: { state: "sent" },
-          after: { state: "accepted", studentId: String(invite.studentId) },
-          at: new Date(),
-        });
-        invite.state = "accepted";
-        invite.acceptedBy = parent._id;
-        invite.acceptedAt = new Date();
-        await invite.save();
-      } else {
-        await User.updateOne(
-          { clerkId },
-          {
-            $setOnInsert: {
-              clerkId,
-              email,
-              name: nameOf(evt.data),
-              role: null,
-              status: "pending",
-              onboarded: false,
-            },
-          },
-          { upsert: true },
-        );
+        if (invitedParent) {
+          // Find Mongo invite record
+          const invite = await ParentInvite.findOne({
+            clerkInvitationId: invitedParent.id,
+            parentEmail: email,
+            state: "sent",
+          }).sort({ createdAt: -1 });
+
+          if (invite) {
+            // Link parent to student
+            await User.updateOne(
+              { _id: invite.studentId },
+              { $addToSet: { "student.guardianIds": parent._id } }
+            );
+
+            // Mark student as onboarded (parent link complete)
+            await User.updateOne(
+              { _id: invite.studentId },
+              { $set: { onboarded: true } }
+            );
+
+            // Create audit log
+            await AuditLog.create({
+              actorId: parent._id,
+              action: "acceptParentInvite",
+              targetType: "ParentInvite",
+              targetId: invite._id,
+              before: { state: "sent" },
+              after: { state: "accepted", studentId: String(invite.studentId) },
+              at: new Date(),
+            });
+
+            // Update invite state
+            invite.state = "accepted";
+            invite.acceptedBy = parent._id;
+            invite.acceptedAt = new Date();
+            await invite.save();
+
+            console.log(`[ParentInvite] Linked parent ${clerkId} to student ${invite.studentId}`);
+          } else {
+            console.warn(`[ParentInvite] No Mongo invite found for ${email} / ${invitedParent.id}`);
+          }
+        } else {
+          console.warn(`[ParentInvite] No accepted invitation found in Clerk for ${email}`);
+        }
+      } catch (error) {
+        console.error("[ParentInvite] Error finding/linking invitation:", error);
+        // Don't fail - parent account is already created with correct role
       }
     } else {
+      // Not a parent invite - create as pending user
       await User.updateOne(
         { clerkId },
         {
@@ -155,17 +179,28 @@ export async function POST(req: Request) {
       );
     }
   } else if (evt.type === "user.updated") {
-    const { id: clerkId, email_addresses } = evt.data;
+    const { id: clerkId, email_addresses, public_metadata } = evt.data;
+    const metadata = (public_metadata ?? {}) as {
+      role?: string;
+      status?: string;
+    };
 
-    // Role changes made through the admin panel already wrote role and status.
-    // Only the profile fields are refreshed here so the mirror is not stepped on.
+    // If metadata shows parent role, update user (admin may have assigned role)
+    const updateData: any = {
+      email: email_addresses?.[0]?.email_address ?? "",
+      name: nameOf(evt.data),
+    };
+
+    if (metadata.role === "parent") {
+      updateData.role = "parent";
+      updateData.status = "active";
+      updateData.onboarded = true;
+    }
+
     await User.updateOne(
       { clerkId },
       {
-        $set: {
-          email: email_addresses?.[0]?.email_address ?? "",
-          name: nameOf(evt.data),
-        },
+        $set: updateData,
         $setOnInsert: {
           clerkId,
           role: null,
@@ -175,6 +210,10 @@ export async function POST(req: Request) {
       },
       { upsert: true },
     );
+
+    if (metadata.role === "parent") {
+      console.log(`[Webhook] Updated user ${clerkId} with parent role via user.updated`);
+    }
   } else if (evt.type === "user.deleted") {
     const { id: clerkId } = evt.data;
     if (clerkId) await User.deleteOne({ clerkId });
