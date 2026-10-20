@@ -1,6 +1,6 @@
 'use server';
 
-import { createClerkClient } from '@clerk/backend';
+import { createClerkClient, ClerkAPIResponseError } from '@clerk/backend';
 import { connectDB } from '@/lib/db';
 import { ParentInvite } from '@/models/parent-invite';
 import { requireRole } from '@/lib/auth/guards';
@@ -23,13 +23,17 @@ export async function revokeParentInvite(inviteId: string): Promise<ActionState>
     if (invite.state === 'revoked') throw new Error('Invite already revoked');
     if (invite.state === 'accepted') throw new Error('Cannot revoke accepted invite');
 
-    // Revoke in Clerk
+    // Revoke in Clerk (but don't fail if it doesn't exist - it's already gone)
     try {
       await clerk.invitations.revokeInvitation(invite.clerkInvitationId);
       console.log(`[Admin] Revoked Clerk invitation ${invite.clerkInvitationId}`);
     } catch (clerkError) {
-      console.error(`[Admin] Clerk revoke error:`, clerkError);
-      throw new Error(`Clerk revoke failed: ${clerkError instanceof Error ? clerkError.message : 'Unknown error'}`);
+      // If invitation not found in Clerk (404), that's OK - it's already expired/revoked
+      if (clerkError instanceof ClerkAPIResponseError && clerkError.status === 404) {
+        console.warn(`[Admin] Invitation not found in Clerk (already expired): ${invite.clerkInvitationId}`);
+      } else {
+        throw clerkError;
+      }
     }
 
     // Update in MongoDB
@@ -61,8 +65,14 @@ export async function resendParentInvite(inviteId: string): Promise<ActionState<
     if (invite.state === 'sent') {
       try {
         await clerk.invitations.revokeInvitation(invite.clerkInvitationId);
+        console.log(`[Admin] Revoked old invitation: ${invite.clerkInvitationId}`);
       } catch (error) {
-        console.warn(`[Admin] Failed to revoke old invitation ${invite.clerkInvitationId}`, error);
+        // If it doesn't exist, that's fine
+        if (error instanceof ClerkAPIResponseError && error.status === 404) {
+          console.warn(`[Admin] Old invitation not found in Clerk: ${invite.clerkInvitationId}`);
+        } else {
+          console.warn(`[Admin] Failed to revoke old invitation`, error);
+        }
       }
     }
 
@@ -89,6 +99,8 @@ export async function resendParentInvite(inviteId: string): Promise<ActionState<
 
     return { ok: true, data: { invitationUrl: newInvitation.invitation_url } };
   } catch (error) {
-    return toState(error);
+    const result = toState(error);
+    console.error(`[resendParentInvite] Error:`, result);
+    return result;
   }
 }
