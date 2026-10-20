@@ -3,12 +3,11 @@ export const instant = false;
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { PageHeader, Card, Empty } from '@/components/ui/nila';
-import { PanelShell } from '@/components/shell/shell';
+import { Shell, type SidebarGroup } from '@/components/shell/shell';
 import { getCurrentUser } from '@/lib/auth/roles';
-import { listMatchingTeachers } from '@/lib/queries/teaching';
 import { listEnrollments } from '@/lib/queries/enrollment';
 import { listStudentAssignments } from '@/lib/queries/assessment';
-import { RequestTeacherForm, SubmitAssignmentForm } from './student-forms';
+import { SubmitAssignmentForm } from './student-forms';
 
 async function Body() {
   const user = await getCurrentUser();
@@ -16,24 +15,41 @@ async function Body() {
   if (user.role !== 'student' || user.status !== 'active') redirect('/pending');
   if (!user.onboarded) redirect('/onboarding/parent');
 
-  const [teachers, enrollments] = await Promise.all([
-    listMatchingTeachers(user.id),
-    listEnrollments({ studentId: user.id }),
-  ]);
+  const enrollments = await listEnrollments({ studentId: user.id });
   const active = enrollments.find((item) => item.state === 'active');
   const pendingRequest = enrollments.find((item) => item.state === 'requested');
   const assignments = active ? await listStudentAssignments(user.id, active.courseId) : [];
 
+  const groups: SidebarGroup[] = [
+    {
+      title: 'Learning',
+      items: [
+        { href: '/student', label: 'My dashboard' },
+        { href: '/student/browse', label: 'Browse teachers' },
+        { href: '/student/materials', label: 'Materials' },
+        { href: '/student/quizzes', label: 'Quizzes' },
+      ],
+    },
+    {
+      title: 'Account',
+      items: [
+        { href: '/student/invoices', label: 'Invoices' },
+        { href: '/student/books', label: 'Books' },
+        { href: '/student/support', label: 'Support' },
+      ],
+    },
+  ];
+
   return (
-    <PanelShell title="Student" user={{ name: user.name, role: user.role }}>
+    <Shell groups={groups} user={{ name: user.name, email: user.email, role: user.role, status: user.status }}>
       <PageHeader
         title="My learning"
-        description="Pick a teacher for a course that matches your board and level, then submit assignments."
+        description="Your courses, assignments, and progress."
       />
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">My teacher</h2>
       {active ? (
-        <Card className="p-4 text-sm">
+        <Card className="p-4 text-sm mb-6">
           <p className="font-medium">{active.teacherName}</p>
           <p className="text-muted-foreground">
             {active.courseLabel}
@@ -41,35 +57,23 @@ async function Body() {
           </p>
         </Card>
       ) : pendingRequest ? (
-        <Empty>Request sent to {pendingRequest.teacherName}. Waiting for them to accept.</Empty>
+        <Card className="p-4 text-sm mb-6 border-status-amber bg-status-amber-soft">
+          <p className="text-status-amber font-medium">
+            Request sent to {pendingRequest.teacherName}. Waiting for them to accept.
+          </p>
+        </Card>
       ) : (
-        <Card className="p-5">
-          <h3 className="text-sm font-semibold">Teachers available to you</h3>
-          {teachers.length === 0 ? (
-            <p className="mt-2 text-sm text-muted-foreground">
-              No teacher currently teaches a course matching your board and level.
-            </p>
-          ) : (
-            <div className="mt-3 space-y-3">
-              {teachers.map((teacher) => (
-                <div key={teacher.id} className="rounded-[var(--radius-card)] border border-border p-3">
-                  <p className="font-medium">{teacher.name}</p>
-                  <ul className="mt-1 space-y-1 text-sm text-muted-foreground">
-                    {teacher.courses.map((course: { id: string; label: string }) => (
-                      <li key={course.id} className="flex flex-wrap items-center justify-between gap-2">
-                        <span>{course.label}</span>
-                        <RequestTeacherForm teacherId={teacher.id} courseId={course.id} />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )}
+        <Card className="p-4 text-sm mb-6 border-border">
+          <p className="text-muted-foreground">
+            No active teacher yet.{' '}
+            <a href="/student/browse" className="font-medium text-primary hover:underline">
+              Browse teachers →
+            </a>
+          </p>
         </Card>
       )}
 
-      <h2 className="mb-3 mt-10 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Assignments</h2>
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Assignments</h2>
       {!active ? (
         <Empty>You need an active teacher before assignments appear.</Empty>
       ) : assignments.length === 0 ? (
@@ -104,7 +108,7 @@ async function Body() {
           ))}
         </div>
       )}
-    </PanelShell>
+    </Shell>
   );
 }
 
