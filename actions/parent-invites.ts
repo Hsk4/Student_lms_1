@@ -24,16 +24,24 @@ export async function revokeParentInvite(inviteId: string): Promise<ActionState>
     if (invite.state === 'accepted') throw new Error('Cannot revoke accepted invite');
 
     // Revoke in Clerk
-    await clerk.invitations.revokeInvitation(invite.clerkInvitationId);
-    console.log(`[Admin] Revoked Clerk invitation ${invite.clerkInvitationId}`);
+    try {
+      await clerk.invitations.revokeInvitation(invite.clerkInvitationId);
+      console.log(`[Admin] Revoked Clerk invitation ${invite.clerkInvitationId}`);
+    } catch (clerkError) {
+      console.error(`[Admin] Clerk revoke error:`, clerkError);
+      throw new Error(`Clerk revoke failed: ${clerkError instanceof Error ? clerkError.message : 'Unknown error'}`);
+    }
 
     // Update in MongoDB
     invite.state = 'revoked';
     await invite.save();
+    console.log(`[Admin] Updated invite state to revoked: ${inviteId}`);
 
     return { ok: true };
   } catch (error) {
-    return toState(error);
+    const result = toState(error);
+    console.error(`[revokeParentInvite] Error:`, result);
+    return result;
   }
 }
 
