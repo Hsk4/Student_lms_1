@@ -26,6 +26,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       signUpUrl="/sign-up"
       signInFallbackRedirectUrl="/"
       signUpFallbackRedirectUrl="/"
+      afterSignUpUrl="/"
+      afterSignInUrl="/"
     >
       <html
         lang="en"
