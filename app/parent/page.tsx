@@ -6,7 +6,7 @@ import { PageHeader, Card, Empty } from '@/components/ui/nila';
 import { PanelShell } from '@/components/shell/shell';
 import { getCurrentUser } from '@/lib/auth/roles';
 import { listEnrollments } from '@/lib/queries/enrollment';
-import { listMyChildren } from '@/actions/teacher';
+import { listMyChildren } from '@/actions/parent';
 
 async function Body() {
   const user = await getCurrentUser();

@@ -91,6 +91,20 @@ export type InviteDetails = {
   message: string;
 };
 
+export async function listMyChildren() {
+  const session = await requireRole(['parent']);
+  await connectDB();
+
+  const parent = await User.findOne({ clerkId: session.clerkId, role: 'parent', status: 'active' })
+    .select('_id')
+    .lean();
+  if (!parent) throw new Error('Parent account not found');
+
+  return User.find({ 'student.guardianIds': parent._id, role: 'student', status: 'active' })
+    .select('name student.boardId student.levelId')
+    .lean();
+}
+
 /** Informational route: Clerk owns invitation validation and acceptance. */
 export async function getInviteDetails(invitationId: string): Promise<InviteDetails | null> {
   const parsed = acceptInviteSchema.safeParse({ invitationId });
