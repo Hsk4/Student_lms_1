@@ -1,108 +1,235 @@
 #!/usr/bin/env node
+
 /**
- * Development catalog only. Nothing in app code contains mock data; this script
- * is the one place dev data lives. Safe to run more than once.
- *
- *   bun run seed:dev
+ * Seed script for development data.
+ * Populates Karachi boards, levels, subjects, and commerce-focused courses.
+ * 
+ * Usage: npx tsx scripts/seed-dev.ts
  */
-import { connectDB } from "../lib/db";
-import { Board } from "../models/board";
-import { Level } from "../models/level";
-import { Subject } from "../models/subject";
-import { Course } from "../models/course";
-import { Book } from "../models/book";
 
-const BOARDS = [
-  { name: "Sindh Board", slug: "sindh-board" },
-  { name: "Aga Khan Board", slug: "aga-khan-board" },
-];
+import { connectDB } from '../lib/db';
+import { Board } from '@/models/board';
+import { Level } from '@/models/level';
+import { Subject } from '@/models/subject';
+import { Course } from '@/models/course';
 
-const LEVELS = [
-  { name: "Class 9", order: 1 },
-  { name: "Class 10", order: 2 },
-  { name: "O Level", order: 3 },
-  { name: "A Level", order: 4 },
-];
-
-const SUBJECTS = [
-  { name: "Mathematics", slug: "mathematics" },
-  { name: "Physics", slug: "physics" },
-  { name: "English", slug: "english" },
-  { name: "Urdu", slug: "urdu" },
-];
-
-async function main() {
+async function seedData() {
   await connectDB();
 
-  const boards: Record<string, string> = {};
-  for (const board of BOARDS) {
-    const doc = await Board.findOneAndUpdate(
-      { slug: board.slug },
-      { $setOnInsert: { ...board, active: true } },
-      { upsert: true, new: true },
-    );
-    boards[board.slug] = String(doc._id);
-  }
+  console.log('Seeding development data...');
 
-  const levels: Record<string, string> = {};
-  for (const level of LEVELS) {
-    const doc = await Level.findOneAndUpdate(
-      { name: level.name },
-      { $setOnInsert: { ...level, active: true } },
-      { upsert: true, new: true },
-    );
-    levels[level.name] = String(doc._id);
-  }
+  // ============ BOARDS ============
+  const boards = [
+    { name: 'Federal Board (FBISE)', slug: 'fbise' },
+    { name: 'Sindh Board (BISE Karachi)', slug: 'bise-karachi' },
+    { name: 'Aga Khan Examination Board', slug: 'akeb' },
+    { name: 'Cambridge (CAIE)', slug: 'cambridge' },
+  ];
 
-  const subjects: Record<string, string> = {};
-  for (const subject of SUBJECTS) {
-    const doc = await Subject.findOneAndUpdate(
-      { slug: subject.slug },
-      { $setOnInsert: { ...subject, active: true } },
-      { upsert: true, new: true },
-    );
-    subjects[subject.slug] = String(doc._id);
-  }
+  const boardDocs = await Promise.all(
+    boards.map(async (board) => {
+      return (
+        (await Board.findOne({ slug: board.slug })) ||
+        (await Board.create(board))
+      );
+    })
+  );
 
-  const courseIds: string[] = [];
-  for (const slug of Object.keys(boards)) {
-    for (const level of ["Class 9", "Class 10"]) {
-      for (const subject of ["mathematics"]) {
-        const doc = await Course.findOneAndUpdate(
-          {
-            boardId: boards[slug],
-            levelId: levels[level],
-            subjectId: subjects[subject],
-            medium: "English",
-          },
-          { $setOnInsert: { active: true } },
-          { upsert: true, new: true },
-        );
-        courseIds.push(String(doc._id));
-      }
+  console.log(`✓ Created/found ${boardDocs.length} boards`);
+
+  // ============ LEVELS ============
+  const levels = [
+    { name: 'Matric (Grade 9)', order: 1 },
+    { name: 'Matric (Grade 10)', order: 2 },
+    { name: 'Intermediate (Grade 11)', order: 3 },
+    { name: 'Intermediate (Grade 12)', order: 4 },
+  ];
+
+  const levelDocs = await Promise.all(
+    levels.map(async (level) => {
+      return (
+        (await Level.findOne({ name: level.name })) ||
+        (await Level.create(level))
+      );
+    })
+  );
+
+  console.log(`✓ Created/found ${levelDocs.length} levels`);
+
+  // ============ SUBJECTS ============
+  const subjects = [
+    // Commerce core
+    { name: 'Accounting', slug: 'accounting' },
+    { name: 'Commerce', slug: 'commerce' },
+    { name: 'Economics', slug: 'economics' },
+    { name: 'Business Studies', slug: 'business-studies' },
+
+    // General subjects
+    { name: 'English', slug: 'english' },
+    { name: 'Urdu', slug: 'urdu' },
+    { name: 'Islamic Studies', slug: 'islamic-studies' },
+    { name: 'Pakistan Studies', slug: 'pakistan-studies' },
+    { name: 'Mathematics', slug: 'mathematics' },
+
+    // Science
+    { name: 'Physics', slug: 'physics' },
+    { name: 'Chemistry', slug: 'chemistry' },
+    { name: 'Biology', slug: 'biology' },
+  ];
+
+  const subjectDocs = await Promise.all(
+    subjects.map(async (subject) => {
+      return (
+        (await Subject.findOne({ slug: subject.slug })) ||
+        (await Subject.create(subject))
+      );
+    })
+  );
+
+  console.log(`✓ Created/found ${subjectDocs.length} subjects`);
+
+  // ============ COURSES ============
+  // Get IDs for easier reference
+  const boardMap = Object.fromEntries(
+    boardDocs.map((b) => [b.slug, b._id])
+  );
+  const levelMap = Object.fromEntries(
+    levelDocs.map((l) => [l.order, l._id])
+  );
+  const subjectMap = Object.fromEntries(
+    subjectDocs.map((s) => [s.slug, s._id])
+  );
+
+  const courses = [
+    // Matric (Grade 9) - Commerce Track - FBISE
+    { board: 'fbise', level: 1, subject: 'accounting', medium: 'English' },
+    { board: 'fbise', level: 1, subject: 'accounting', medium: 'Urdu' },
+    { board: 'fbise', level: 1, subject: 'commerce', medium: 'English' },
+    { board: 'fbise', level: 1, subject: 'commerce', medium: 'Urdu' },
+    { board: 'fbise', level: 1, subject: 'english', medium: 'English' },
+    { board: 'fbise', level: 1, subject: 'urdu', medium: 'Urdu' },
+    { board: 'fbise', level: 1, subject: 'mathematics', medium: 'English' },
+    { board: 'fbise', level: 1, subject: 'islamic-studies', medium: 'English' },
+    { board: 'fbise', level: 1, subject: 'pakistan-studies', medium: 'English' },
+
+    // Matric (Grade 10) - Commerce Track - FBISE
+    { board: 'fbise', level: 2, subject: 'accounting', medium: 'English' },
+    { board: 'fbise', level: 2, subject: 'accounting', medium: 'Urdu' },
+    { board: 'fbise', level: 2, subject: 'commerce', medium: 'English' },
+    { board: 'fbise', level: 2, subject: 'commerce', medium: 'Urdu' },
+    { board: 'fbise', level: 2, subject: 'economics', medium: 'English' },
+    { board: 'fbise', level: 2, subject: 'english', medium: 'English' },
+    { board: 'fbise', level: 2, subject: 'urdu', medium: 'Urdu' },
+    { board: 'fbise', level: 2, subject: 'mathematics', medium: 'English' },
+    { board: 'fbise', level: 2, subject: 'islamic-studies', medium: 'English' },
+    { board: 'fbise', level: 2, subject: 'pakistan-studies', medium: 'English' },
+
+    // Intermediate (Grade 11) - Commerce - FBISE
+    { board: 'fbise', level: 3, subject: 'accounting', medium: 'English' },
+    { board: 'fbise', level: 3, subject: 'accounting', medium: 'Urdu' },
+    { board: 'fbise', level: 3, subject: 'business-studies', medium: 'English' },
+    { board: 'fbise', level: 3, subject: 'economics', medium: 'English' },
+    { board: 'fbise', level: 3, subject: 'english', medium: 'English' },
+    { board: 'fbise', level: 3, subject: 'urdu', medium: 'Urdu' },
+    { board: 'fbise', level: 3, subject: 'mathematics', medium: 'English' },
+
+    // Intermediate (Grade 12) - Commerce - FBISE
+    { board: 'fbise', level: 4, subject: 'accounting', medium: 'English' },
+    { board: 'fbise', level: 4, subject: 'accounting', medium: 'Urdu' },
+    { board: 'fbise', level: 4, subject: 'business-studies', medium: 'English' },
+    { board: 'fbise', level: 4, subject: 'economics', medium: 'English' },
+    { board: 'fbise', level: 4, subject: 'english', medium: 'English' },
+    { board: 'fbise', level: 4, subject: 'urdu', medium: 'Urdu' },
+    { board: 'fbise', level: 4, subject: 'mathematics', medium: 'English' },
+
+    // Sindh Board (BISE Karachi) - Commerce
+    { board: 'bise-karachi', level: 1, subject: 'accounting', medium: 'English' },
+    { board: 'bise-karachi', level: 1, subject: 'commerce', medium: 'English' },
+    { board: 'bise-karachi', level: 1, subject: 'english', medium: 'English' },
+    { board: 'bise-karachi', level: 1, subject: 'urdu', medium: 'Urdu' },
+    { board: 'bise-karachi', level: 1, subject: 'mathematics', medium: 'English' },
+    
+    { board: 'bise-karachi', level: 2, subject: 'accounting', medium: 'English' },
+    { board: 'bise-karachi', level: 2, subject: 'commerce', medium: 'English' },
+    { board: 'bise-karachi', level: 2, subject: 'economics', medium: 'English' },
+    { board: 'bise-karachi', level: 2, subject: 'english', medium: 'English' },
+    { board: 'bise-karachi', level: 2, subject: 'urdu', medium: 'Urdu' },
+    { board: 'bise-karachi', level: 2, subject: 'mathematics', medium: 'English' },
+    
+    { board: 'bise-karachi', level: 3, subject: 'accounting', medium: 'English' },
+    { board: 'bise-karachi', level: 3, subject: 'business-studies', medium: 'English' },
+    { board: 'bise-karachi', level: 3, subject: 'economics', medium: 'English' },
+    { board: 'bise-karachi', level: 3, subject: 'english', medium: 'English' },
+    { board: 'bise-karachi', level: 3, subject: 'mathematics', medium: 'English' },
+    
+    { board: 'bise-karachi', level: 4, subject: 'accounting', medium: 'English' },
+    { board: 'bise-karachi', level: 4, subject: 'business-studies', medium: 'English' },
+    { board: 'bise-karachi', level: 4, subject: 'economics', medium: 'English' },
+    { board: 'bise-karachi', level: 4, subject: 'english', medium: 'English' },
+    { board: 'bise-karachi', level: 4, subject: 'mathematics', medium: 'English' },
+
+    // Cambridge/CAIE - Commerce
+    { board: 'cambridge', level: 1, subject: 'accounting', medium: 'English' },
+    { board: 'cambridge', level: 1, subject: 'business-studies', medium: 'English' },
+    { board: 'cambridge', level: 1, subject: 'english', medium: 'English' },
+    
+    { board: 'cambridge', level: 3, subject: 'accounting', medium: 'English' },
+    { board: 'cambridge', level: 3, subject: 'business-studies', medium: 'English' },
+    { board: 'cambridge', level: 3, subject: 'economics', medium: 'English' },
+    { board: 'cambridge', level: 3, subject: 'english', medium: 'English' },
+
+    // Aga Khan Examination Board - Commerce
+    { board: 'akeb', level: 1, subject: 'accounting', medium: 'English' },
+    { board: 'akeb', level: 1, subject: 'commerce', medium: 'English' },
+    { board: 'akeb', level: 1, subject: 'english', medium: 'English' },
+    { board: 'akeb', level: 1, subject: 'urdu', medium: 'Urdu' },
+    { board: 'akeb', level: 1, subject: 'mathematics', medium: 'English' },
+    
+    { board: 'akeb', level: 2, subject: 'accounting', medium: 'English' },
+    { board: 'akeb', level: 2, subject: 'commerce', medium: 'English' },
+    { board: 'akeb', level: 2, subject: 'economics', medium: 'English' },
+    { board: 'akeb', level: 2, subject: 'english', medium: 'English' },
+    { board: 'akeb', level: 2, subject: 'urdu', medium: 'Urdu' },
+    { board: 'akeb', level: 2, subject: 'mathematics', medium: 'English' },
+  ];
+
+  let createdCount = 0;
+
+  for (const courseData of courses) {
+    const existing = await Course.findOne({
+      boardId: boardMap[courseData.board],
+      levelId: levelMap[courseData.level],
+      subjectId: subjectMap[courseData.subject],
+      medium: courseData.medium || '',
+    });
+
+    if (!existing) {
+      await Course.create({
+        boardId: boardMap[courseData.board],
+        levelId: levelMap[courseData.level],
+        subjectId: subjectMap[courseData.subject],
+        medium: courseData.medium || '',
+        active: true,
+      });
+      createdCount++;
     }
   }
 
-  await Book.findOneAndUpdate(
-    { title: "Mathematics for Class 9" },
-    {
-      $setOnInsert: {
-        author: "Punjab Textbook Board",
-        courseIds: [courseIds[0]],
-        note: "Recommended courseware. Students buy their own copy.",
-      },
-    },
-    { upsert: true },
-  );
+  console.log(`✓ Created ${createdCount} courses`);
 
-  console.log(
-    `Seeded ${Object.keys(boards).length} boards, ${Object.keys(levels).length} levels, ` +
-      `${Object.keys(subjects).length} subjects, ${courseIds.length} courses and 1 book.`,
-  );
+  console.log('\n✓ Development data seeding complete!');
+  console.log('\nSummary:');
+  console.log(`- ${boardDocs.length} boards`);
+  console.log(`- ${levelDocs.length} levels`);
+  console.log(`- ${subjectDocs.length} subjects`);
+  console.log(`- ${createdCount} new courses + existing`);
+  console.log('\nBoards: FBISE, Sindh Board (BISE Karachi), Aga Khan, Cambridge');
+  console.log('Specialization: Commerce (Accounting, Economics, Business Studies)');
+
   process.exit(0);
 }
 
-main().catch((error) => {
-  console.error(error);
+seedData().catch((error) => {
+  console.error('Seed error:', error.message);
   process.exit(1);
 });
