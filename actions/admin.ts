@@ -20,7 +20,7 @@ if (!secretKey) throw new Error('Missing CLERK_SECRET_KEY');
 const clerk = createClerkClient({ secretKey });
 
 async function updateMetadata(clerkId: string, publicMetadata: Record<string, unknown>) {
-  await clerk.users.updateUser(clerkId, { publicMetadata });
+  await clerk.users.updateUserMetadata(clerkId, { publicMetadata });
 }
 
 function canManage(actorRole: 'super_admin' | 'admin', targetRole: string | null) {

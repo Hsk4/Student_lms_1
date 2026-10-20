@@ -47,11 +47,16 @@ export async function POST(req: Request) {
   let evt: WebhookEvent;
 
   try {
-    evt = wh.verify(body, {
+    const verified = wh.verify(body, {
       "svix-id": svix_id,
       "svix-timestamp": svix_timestamp,
       "svix-signature": svix_signature,
-    }) as unknown as WebhookEvent;
+    });
+    if (!verified) {
+      console.error("Webhook verification returned falsy value");
+      return new Response("Webhook verification failed", { status: 400 });
+    }
+    evt = verified as unknown as WebhookEvent;
   } catch (err) {
     console.error("Webhook signature verification failed:", err);
     return new Response("Webhook signature verification failed", {
@@ -113,12 +118,25 @@ export async function POST(req: Request) {
         );
 
         if (invitedParent) {
-          // Find Mongo invite record
-          const invite = await ParentInvite.findOne({
+          console.log(`[ParentInvite] Found Clerk invitation for ${email}: ${invitedParent.id}`);
+          const inviteMeta = invitedParent.publicMetadata as { studentId?: string } | undefined;
+          const studentIdFromInvite = inviteMeta?.studentId;
+          
+          // Find Mongo invite record by invitation ID or by email+student
+          let invite = await ParentInvite.findOne({
             clerkInvitationId: invitedParent.id,
             parentEmail: email,
             state: "sent",
           }).sort({ createdAt: -1 });
+
+          if (!invite && studentIdFromInvite) {
+            // Fallback: find by student ID and email
+            invite = await ParentInvite.findOne({
+              studentId: studentIdFromInvite,
+              parentEmail: email,
+              state: "sent",
+            }).sort({ createdAt: -1 });
+          }
 
           if (invite) {
             // Link parent to student
@@ -152,7 +170,7 @@ export async function POST(req: Request) {
 
             console.log(`[ParentInvite] Linked parent ${clerkId} to student ${invite.studentId}`);
           } else {
-            console.warn(`[ParentInvite] No Mongo invite found for ${email} / ${invitedParent.id}`);
+            console.warn(`[ParentInvite] No Mongo invite found for ${email} / ${invitedParent.id}. StudentId from invitation: ${studentIdFromInvite}`);
           }
         } else {
           console.warn(`[ParentInvite] No accepted invitation found in Clerk for ${email}`);
