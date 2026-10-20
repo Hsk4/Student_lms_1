@@ -7,6 +7,7 @@ import { PanelShell } from '@/components/shell/shell';
 import { getCurrentUser } from '@/lib/auth/roles';
 import { listEnrollments } from '@/lib/queries/enrollment';
 import { listMyChildren } from '@/actions/parent';
+import { ParentDebugButton } from '@/components/parent-debug-button';
 
 async function Body() {
   const user = await getCurrentUser();
@@ -30,7 +31,10 @@ async function Body() {
     <PanelShell title="Parent" user={{ name: user.name, role: user.role }}>
       <PageHeader title="Your children" description="Read-only view of each child's teacher and course." />
       {perChild.length === 0 ? (
-        <Empty>No linked children yet. Ask your child to send you an invitation.</Empty>
+        <>
+          <Empty>No linked children yet. Ask your child to send you an invitation.</Empty>
+          <ParentDebugButton />
+        </>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {perChild.map((child) => (
