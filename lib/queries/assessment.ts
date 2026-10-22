@@ -8,11 +8,21 @@ import { Class } from "@/models/class";
 
 const shortId = (reference: unknown) => String(reference);
 
+export type StudentAssignmentRow = {
+  id: string;
+  title: string;
+  description: string;
+  dueAt: string | null;
+  submissionId: string | null;
+  score: number | null;
+  feedback: string;
+};
+
 /** Students can see assignments for a class they are enrolled in, or for their one-on-one enrollment. */
 export async function listStudentAssignments(
   studentId: string,
   courseId: string,
-) {
+): Promise<StudentAssignmentRow[]> {
   await connectDB();
   const enrollments = await Enrollment.find({
     studentId,

@@ -1,74 +1,98 @@
 export const instant = false;
 
-import { redirect } from 'next/navigation';
-import { Suspense } from 'react';
-import { PageHeader, Card, Empty } from '@/components/ui/nila';
-import { requireSignedIn, getCurrentUser } from '@/lib/auth/roles';
-import { getStudentInvoices } from '@/actions/tuition-support';
+import {
+  Card,
+  Chip,
+  Empty,
+  PageHeader,
+  Stat,
+  formatDay,
+} from "@/components/ui/nila";
+import { getMyProfile } from "@/actions/student-panel";
+import { getStudentInvoices } from "@/actions/tuition-support";
 
-async function Body() {
-  const user = await requireSignedIn();
-  if (user.role !== 'student' || user.status !== 'active') redirect('/pending');
+export default async function StudentInvoicesPage() {
+  const profile = await getMyProfile();
+  // Row guard: this action rejects any id other than the caller's own.
+  const invoices = await getStudentInvoices(profile.id);
 
-  const invoices = await getStudentInvoices(user.id);
-
-  const unpaid = invoices.filter((inv: any) => inv.state === 'unpaid');
-  const paid = invoices.filter((inv: any) => inv.state === 'paid');
+  const unpaid = invoices.filter((invoice) => invoice.state === "unpaid");
+  const paid = invoices.filter((invoice) => invoice.state === "paid");
+  const due = unpaid.reduce((sum, invoice) => sum + invoice.amount, 0);
 
   return (
     <div>
       <PageHeader
-        title="My invoices"
-        description="Tuition fees and payments."
+        title="Invoices"
+        description="Tuition invoices and the payments the office recorded."
       />
 
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        Outstanding ({unpaid.length})
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Stat
+          label="Outstanding"
+          value={`PKR ${due.toLocaleString("en-PK")}`}
+        />
+        <Stat label="Unpaid invoices" value={unpaid.length} />
+        <Stat label="Paid invoices" value={paid.length} />
+      </div>
+
+      <h2 className="mb-3 mt-8 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        Outstanding
       </h2>
       {unpaid.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No outstanding invoices.</p>
+        <Empty>Nothing outstanding.</Empty>
       ) : (
-        <div className="space-y-2 mb-6">
-          {unpaid.map((inv: any) => (
-            <Card key={String(inv._id)} className="p-3">
-              <div className="flex items-center justify-between text-sm">
-                <span>
-                  {inv.period} • PKR {inv.amount.toLocaleString()}
+        <div className="space-y-2">
+          {unpaid.map((invoice) => (
+            <Card
+              key={String(invoice._id)}
+              className="flex flex-wrap items-center justify-between gap-2 p-3"
+            >
+              <div>
+                <p className="font-medium">{invoice.period}</p>
+                <p className="text-xs text-muted-foreground">
+                  Due {formatDay(invoice.dueDate)}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-semibold tabular-nums">
+                  PKR {invoice.amount.toLocaleString("en-PK")}
                 </span>
-                <span className="status-red">Due {new Date(inv.dueDate).toLocaleDateString()}</span>
+                <Chip tone="amber">Unpaid</Chip>
               </div>
             </Card>
           ))}
         </div>
       )}
 
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        Payment history ({paid.length})
+      <h2 className="mb-3 mt-8 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        Payment history
       </h2>
       {paid.length === 0 ? (
-        <Empty>No payments yet.</Empty>
+        <Empty>No payments recorded yet.</Empty>
       ) : (
         <div className="space-y-2">
-          {paid.map((inv: any) => (
-            <Card key={String(inv._id)} className="p-3">
-              <div className="flex items-center justify-between text-sm">
-                <span>
-                  {inv.period} • PKR {inv.amount.toLocaleString()}
+          {paid.map((invoice) => (
+            <Card
+              key={String(invoice._id)}
+              className="flex flex-wrap items-center justify-between gap-2 p-3"
+            >
+              <div>
+                <p className="font-medium">{invoice.period}</p>
+                <p className="text-xs text-muted-foreground">
+                  Paid {formatDay(invoice.paidAt)}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-semibold tabular-nums">
+                  PKR {invoice.amount.toLocaleString("en-PK")}
                 </span>
-                <span className="status-green">Paid {new Date(inv.paidAt).toLocaleDateString()}</span>
+                <Chip tone="green">Paid</Chip>
               </div>
             </Card>
           ))}
         </div>
       )}
     </div>
-  );
-}
-
-export default function StudentInvoicesPage() {
-  return (
-    <Suspense fallback={<div className="p-10 text-sm text-muted-foreground">Loading...</div>}>
-      <Body />
-    </Suspense>
   );
 }

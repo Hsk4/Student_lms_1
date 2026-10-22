@@ -68,6 +68,8 @@ export async function listMatchingTeachers(studentId: string) {
   }));
 }
 
+export type MatchingTeacher = Awaited<ReturnType<typeof listMatchingTeachers>>[number];
+
 export async function listTeacherClasses(teacherId: string) {
   await connectDB();
   const classes = await Class.find({ teacherId })

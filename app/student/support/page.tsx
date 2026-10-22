@@ -1,68 +1,81 @@
 export const instant = false;
 
-import { redirect } from 'next/navigation';
-import { Suspense } from 'react';
-import { PageHeader, Card, Empty } from '@/components/ui/nila';
-import { requireSignedIn } from '@/lib/auth/roles';
-import { getMyTickets } from '@/actions/tuition-support';
+import {
+  Card,
+  Chip,
+  Empty,
+  PageHeader,
+  formatDay,
+  toneFor,
+} from "@/components/ui/nila";
+import { requireRole } from "@/lib/auth/guards";
+import { connectDB } from "@/lib/db";
+import { SupportTicket } from "@/models/support-ticket";
+import { NewTicketForm, TicketReplyForm } from "@/components/support/support-forms";
 
-async function Body() {
-  const user = await requireSignedIn();
-  if (user.role !== 'student' || user.status !== 'active') redirect('/pending');
+type TicketMessage = { authorId?: { name?: string } | null; text: string };
 
-  const tickets = await getMyTickets();
+export default async function StudentSupportPage() {
+  const session = await requireRole(["student"]);
+  await connectDB();
+
+  const rawTickets = await SupportTicket.find({ createdBy: session.actorId })
+    .populate("messages.authorId", "name")
+    .sort({ createdAt: -1 })
+    .lean();
+  const tickets = rawTickets as unknown as {
+    _id: unknown;
+    subject: string;
+    state: string;
+    createdAt: Date;
+    messages: TicketMessage[];
+  }[];
 
   return (
     <div>
       <PageHeader
         title="Support"
-        description="Contact the school office with questions or concerns."
+        description="Questions for the school office, including account and parent-link problems."
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div>
-          {tickets.length === 0 ? (
-            <Empty>No support tickets yet.</Empty>
-          ) : (
-            <div className="space-y-4">
-              {tickets.map((ticket: any) => (
-                <Card key={String(ticket._id)} className="p-4">
-                  <h3 className="font-semibold">{ticket.subject}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {new Date(ticket.createdAt).toLocaleDateString()}
+      {tickets.length === 0 ? (
+        <Empty>No tickets yet.</Empty>
+      ) : (
+        <div className="space-y-4">
+          {tickets.map((ticket) => (
+            <Card key={String(ticket._id)} className="p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h2 className="font-semibold">{ticket.subject}</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Opened {formatDay(ticket.createdAt)}
                   </p>
-
-                  <div className="mt-3 space-y-2 border-t border-border pt-3">
-                    {ticket.messages.map((msg: any, idx: number) => (
-                      <p key={idx} className="text-sm">
-                        <span className="font-medium">{msg.authorId?.name || 'Unknown'}:</span>{' '}
-                        {msg.text}
-                      </p>
-                    ))}
-                  </div>
-
-                  <span className={`status-${ticket.state === 'resolved' ? 'green' : 'amber'} mt-3 inline-block`}>
-                    {ticket.state}
-                  </span>
-                </Card>
-              ))}
-            </div>
-          )}
+                </div>
+                <Chip tone={toneFor(ticket.state)}>{ticket.state}</Chip>
+              </div>
+              <div className="mt-3 space-y-2 border-t border-border pt-3">
+                {ticket.messages.map((message: TicketMessage, index: number) => (
+                  <p key={index} className="text-sm">
+                    <span className="font-medium">
+                      {(message.authorId)?.name ?? "School"}
+                      :
+                    </span>{" "}
+                    {message.text}
+                  </p>
+                ))}
+              </div>
+              <TicketReplyForm ticketId={String(ticket._id)} />
+            </Card>
+          ))}
         </div>
+      )}
 
-        <Card className="h-fit p-5">
-          <h3 className="text-sm font-semibold">Create ticket</h3>
-          <p className="mt-2 text-xs text-muted-foreground">Form coming soon.</p>
-        </Card>
-      </div>
+      <Card className="mt-8 h-fit p-5">
+        <h2 className="text-sm font-semibold">Open a ticket</h2>
+        <div className="mt-3">
+          <NewTicketForm />
+        </div>
+      </Card>
     </div>
-  );
-}
-
-export default function StudentSupportPage() {
-  return (
-    <Suspense fallback={<div className="p-10 text-sm text-muted-foreground">Loading...</div>}>
-      <Body />
-    </Suspense>
   );
 }

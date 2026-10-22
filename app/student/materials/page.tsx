@@ -1,107 +1,63 @@
 export const instant = false;
 
-import { redirect } from 'next/navigation';
-import { Suspense } from 'react';
-import { PageHeader, Card, Empty } from '@/components/ui/nila';
-import { Shell, type SidebarGroup } from '@/components/shell/shell';
-import { getCurrentUser } from '@/lib/auth/roles';
-import { Material } from '@/models/material';
-import { Enrollment } from '@/models/enrollment';
-import { connectDB } from '@/lib/db';
-import { User } from '@/models/user';
+import { Card, Empty, PageHeader, formatDay } from "@/components/ui/nila";
+import { listMyMaterials } from "@/actions/student-panel";
 
-async function Body() {
-  const user = await getCurrentUser();
-  if (!user) redirect('/sign-in');
-  if (user.role !== 'student' || user.status !== 'active') redirect('/pending');
-  if (!user.onboarded) redirect('/onboarding/parent');
+const TYPES = [
+  { key: "notes", label: "Notes" },
+  { key: "past_paper", label: "Past papers" },
+  { key: "worksheet", label: "Worksheets" },
+  { key: "other", label: "Other" },
+] as const;
 
-  await connectDB();
-
-  const student = await User.findOne({ clerkId: user.clerkId }).lean();
-
-  const enrollments = await Enrollment.find({
-    studentId: student?._id,
-    state: 'active',
-  })
-    .populate('courseId', 'name')
-    .lean();
-
-  const courseIds = enrollments.map((e: any) => e.courseId._id);
-
-  const materials = await Material.find({ courseId: { $in: courseIds } })
-    .populate('courseId', 'name')
-    .sort({ createdAt: -1 })
-    .lean();
-
-  const byType = {
-    notes: materials.filter((m: any) => m.type === 'notes'),
-    past_paper: materials.filter((m: any) => m.type === 'past_paper'),
-    worksheet: materials.filter((m: any) => m.type === 'worksheet'),
-  };
-
-  const groups: SidebarGroup[] = [
-    {
-      title: 'Learning',
-      items: [
-        { href: '/student', label: 'My dashboard' },
-        { href: '/student/browse', label: 'Browse teachers' },
-        { href: '/student/materials', label: 'Materials' },
-        { href: '/student/quizzes', label: 'Quizzes' },
-      ],
-    },
-    {
-      title: 'Account',
-      items: [
-        { href: '/student/invoices', label: 'Invoices' },
-        { href: '/student/books', label: 'Books' },
-        { href: '/student/support', label: 'Support' },
-      ],
-    },
-  ];
+export default async function StudentMaterialsPage() {
+  const materials = await listMyMaterials();
 
   return (
-    <Shell groups={groups} user={{ name: user.name, email: user.email, role: user.role, status: user.status }}>
+    <div>
       <PageHeader
         title="Course materials"
-        description="Download notes, past papers and worksheets."
+        description="Notes, past papers and worksheets for your active courses."
       />
 
-      {['notes', 'past_paper', 'worksheet'].map((type) => (
-        <div key={type}>
-          <h2 className="mb-3 mt-6 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            {type === 'past_paper'
-              ? 'Past Papers'
-              : type.charAt(0).toUpperCase() + type.slice(1)}
-          </h2>
+      {materials.length === 0 ? (
+        <Empty>No materials yet for your courses.</Empty>
+      ) : null}
 
-          {byType[type as keyof typeof byType].length === 0 ? (
-            <p className="text-sm text-muted-foreground mb-6">None available yet.</p>
-          ) : (
-            <div className="space-y-2 mb-6">
-              {byType[type as keyof typeof byType].map((mat: any) => (
-                <Card key={String(mat._id)} className="p-3 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{mat.title}</p>
-                    <p className="text-xs text-muted-foreground">{mat.courseId?.name}</p>
+      {TYPES.map((type) => {
+        const rows = materials.filter((item) => item.type === type.key);
+        if (!rows.length) return null;
+        return (
+          <section key={type.key} className="mb-8">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              {type.label} ({rows.length})
+            </h2>
+            <div className="space-y-2">
+              {rows.map((item) => (
+                <Card
+                  key={item.id}
+                  className="flex flex-wrap items-center justify-between gap-3 p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium">{item.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.courseLabel} / {formatDay(item.createdAt)}
+                    </p>
                   </div>
-                  <a href={mat.fileUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary text-xs">
-                    Download
+                  <a
+                    href={item.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-secondary h-9"
+                  >
+                    Open
                   </a>
                 </Card>
               ))}
             </div>
-          )}
-        </div>
-      ))}
-    </Shell>
-  );
-}
-
-export default function StudentMaterialsPage() {
-  return (
-    <Suspense fallback={<div className="p-10 text-sm text-muted-foreground">Loading...</div>}>
-      <Body />
-    </Suspense>
+          </section>
+        );
+      })}
+    </div>
   );
 }
