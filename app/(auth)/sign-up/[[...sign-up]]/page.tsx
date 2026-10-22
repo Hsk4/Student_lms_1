@@ -15,7 +15,8 @@ async function Gate() {
         routing="path"
         path="/sign-up"
         signInUrl="/sign-in"
-        redirectUrl="/"
+        fallbackRedirectUrl="/"
+        forceRedirectUrl="/"
       />
     </div>
   );

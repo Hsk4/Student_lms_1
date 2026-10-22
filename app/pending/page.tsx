@@ -1,6 +1,7 @@
 export const instant = false;
 
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth/roles";
 import { PageHeader, Card, Notice } from "@/components/ui/nila";
@@ -29,6 +30,10 @@ async function Body() {
   }
 
   const status = await getOwnRequestStatus();
+  const isParentRequest = status?.requestedRole === "parent";
+  const steps = isParentRequest
+    ? ["Account created", "Parent access under review", "Enter your child's code"]
+    : STEPS;
 
   return (
     <PanelShell
@@ -37,12 +42,16 @@ async function Body() {
     >
       <PageHeader
         title="Your account is pending"
-        description="An admin has to approve you before you can use the school. This page updates on its own."
+        description={
+          isParentRequest
+            ? "The school office reviews parent accounts before activation. This page updates on its own."
+            : "An admin has to approve you before you can use the school. This page updates on its own."
+        }
       />
 
       <Card className="p-6">
         <ol className="space-y-4">
-          {STEPS.map((step, index) => {
+          {steps.map((step, index) => {
             const done =
               index === 0
                 ? true
@@ -67,9 +76,13 @@ async function Body() {
                       ? "Signed in with Clerk."
                       : index === 1
                         ? status?.hasOpenRequest
-                          ? "Submitted. Nothing else to do."
-                          : "Submit the access request first."
-                        : "You will be sent to your panel."}
+                          ? "Submitted. Nothing else to do here."
+                          : isParentRequest
+                            ? "Send it from the parent page."
+                            : "Submit the access request first."
+                        : isParentRequest
+                          ? "After approval, enter the code your child gave you."
+                          : "You will be sent to your panel."}
                   </p>
                 </div>
               </li>
@@ -82,10 +95,22 @@ async function Body() {
             <Notice tone="info">
               You have not sent an access request yet.
             </Notice>
-            <a href="/request" className="btn-primary">
-              Fill in the request form
-            </a>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/request" className="btn-primary">
+                Fill in the request form
+              </Link>
+              <Link href="/sign-up/parent" className="btn-secondary">
+                I am a parent
+              </Link>
+            </div>
           </div>
+        ) : null}
+
+        {status?.hasOpenRequest && isParentRequest ? (
+          <p className="mt-6 text-xs text-muted-foreground">
+            Once approved you come back here and open <strong>Link a child</strong> to enter the
+            code. Approval alone does not link anyone.
+          </p>
         ) : null}
       </Card>
 

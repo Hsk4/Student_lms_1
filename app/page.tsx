@@ -46,6 +46,16 @@ async function Gate({ error }: { error?: string }) {
             I already have one
           </Link>
         </div>
+        <p className="text-sm text-muted-foreground">
+          A parent or guardian?{" "}
+          <Link
+            href="/sign-up/parent"
+            className="font-medium text-primary hover:underline"
+          >
+            Start here
+          </Link>{" "}
+          — you only need to ask for access.
+        </p>
       </main>
     </div>
   );
