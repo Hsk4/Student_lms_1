@@ -2,12 +2,8 @@ import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { connection } from "next/server";
 import { WebhookEvent } from "@clerk/nextjs/server";
-import { createClerkClient } from "@clerk/backend";
 import { connectDB } from "@/lib/db";
 import { User } from "@/models/user";
-import { ParentInvite } from "@/models/parent-invite";
-import { AuditLog } from "@/models/audit-log";
-import { emitEvent } from "@/lib/socket";
 
 function nameOf(data: {
   first_name?: string | null;
@@ -71,157 +67,54 @@ export async function POST(req: Request) {
     });
   }
 
-  await connectDB();
+  // Everything below touches the database. Without this guard a connection or
+  // write failure escaped as a bare 500 with no log line, which is exactly the
+  // failure that was invisible in production. Clerk retries any non-2xx, so the
+  // handler must be idempotent (it is: all writes are upserts or $addToSet).
+  try {
+    await connectDB();
+    await handleEvent(evt);
+    return new Response("Webhook processed", { status: 200 });
+  } catch (error) {
+    const cause = error instanceof Error ? error : new Error(String(error));
+    console.error(
+      `[Webhook] Handling ${evt.type} for ${evt.data?.id ?? "unknown user"} failed:`,
+      cause.message,
+      cause.stack ?? "",
+    );
+    // 500 asks Clerk to retry; the handler is idempotent so a retry is safe.
+    return new Response("Webhook handler failed", { status: 500 });
+  }
+}
 
+async function handleEvent(evt: WebhookEvent) {
   if (evt.type === "user.created") {
-    const { id: clerkId, email_addresses, public_metadata } = evt.data;
-    const metadata = (public_metadata ?? {}) as {
-      role?: string;
-      status?: string;
-      onboarded?: boolean;
-      studentId?: string;
-      parentName?: string;
-    };
-    const primaryEmailId = (evt.data as typeof evt.data & { primary_email_address_id?: string | null }).primary_email_address_id;
-    const primaryEmail = email_addresses?.find((address) => address.id === primaryEmailId) ?? email_addresses?.[0];
+    const { id: clerkId, email_addresses } = evt.data;
+    const primaryEmailId = (
+      evt.data as typeof evt.data & { primary_email_address_id?: string | null }
+    ).primary_email_address_id;
+    const primaryEmail =
+      email_addresses?.find((address) => address.id === primaryEmailId) ??
+      email_addresses?.[0];
     const email = primaryEmail?.email_address?.toLowerCase() ?? "";
-    const verifiedEmail = primaryEmail?.verification?.status === "verified";
-    
-    // If metadata has parent role and verified email, treat as parent invite
-    const isParentInvite = metadata.role === "parent" && verifiedEmail && Boolean(email);
 
-    if (isParentInvite) {
-      const apiSecret = process.env.CLERK_SECRET_KEY;
-      if (!apiSecret) {
-        console.error("Missing CLERK_SECRET_KEY for parent invite");
-        return new Response("Missing CLERK_SECRET_KEY", { status: 500 });
-      }
-      
-      const clerk = createClerkClient({ secretKey: apiSecret });
-      
-      // Create parent user with role and status from invitation metadata
-      const parent = await User.findOneAndUpdate(
-        { clerkId },
-        {
-          $set: {
-            email,
-            name: nameOf(evt.data),
-            role: "parent",
-            status: "active",
-            onboarded: true,
-          },
-          $setOnInsert: { clerkId },
+    // Every new account starts pending and without a role. A parent is no
+    // longer activated by an invitation: they redeem a link code from inside
+    // their own panel (`redeemLinkCode`), so no role is granted here.
+    await User.updateOne(
+      { clerkId },
+      {
+        $setOnInsert: {
+          clerkId,
+          email,
+          name: nameOf(evt.data),
+          role: null,
+          status: "pending",
+          onboarded: false,
         },
-        { upsert: true, new: true },
-      );
-
-      console.log(`[ParentInvite] Created/updated parent: ${clerkId} (${email})`);
-
-      // Try to find and update the student link
-      try {
-        console.log(`[ParentInvite] Looking for invitation for ${email}`);
-        const invitationList = await clerk.invitations.getInvitationList({ query: email, status: "accepted" });
-        console.log(`[ParentInvite] Found ${invitationList.data.length} accepted invitations for ${email}`);
-        
-        const invitedParent = invitationList.data.find(
-          (item) => item.emailAddress.toLowerCase() === email && item.publicMetadata?.role === "parent"
-        );
-
-        if (invitedParent) {
-          console.log(`[ParentInvite] Found Clerk invitation for ${email}: ${invitedParent.id}`);
-          const inviteMeta = invitedParent.publicMetadata as { studentId?: string } | undefined;
-          const studentIdFromInvite = inviteMeta?.studentId;
-          console.log(`[ParentInvite] Invitation metadata:`, inviteMeta);
-          
-          // Find Mongo invite record - first by invitation ID
-          let invite = await ParentInvite.findOne({
-            clerkInvitationId: invitedParent.id,
-            parentEmail: email,
-          }).sort({ createdAt: -1 });
-
-          if (!invite && studentIdFromInvite) {
-            // Fallback: find by student ID and email
-            console.log(`[ParentInvite] Trying fallback lookup with studentId: ${studentIdFromInvite}`);
-            invite = await ParentInvite.findOne({
-              studentId: studentIdFromInvite,
-              parentEmail: email,
-            }).sort({ createdAt: -1 });
-          }
-
-          if (!invite) {
-            // Last resort: find by email only, recent first
-            console.log(`[ParentInvite] Trying final fallback: search by email only`);
-            invite = await ParentInvite.findOne({
-              parentEmail: email,
-            }).sort({ createdAt: -1 });
-          }
-
-          if (invite) {
-            // Link parent to student if not already linked
-            const linkResult = await User.updateOne(
-              { _id: invite.studentId, "student.guardianIds": { $ne: parent._id } },
-              { $addToSet: { "student.guardianIds": parent._id } }
-            );
-
-            if (linkResult.modifiedCount > 0 || linkResult.matchedCount > 0) {
-              console.log(`[ParentInvite] Linked parent ${clerkId} to student ${invite.studentId}`);
-            } else {
-              console.log(`[ParentInvite] Parent ${clerkId} already linked to student ${invite.studentId}`);
-            }
-            // Mark student as onboarded (parent link complete)
-            await User.updateOne(
-              { _id: invite.studentId },
-              { $set: { onboarded: true } }
-            );
-
-            // Update invite state if not already accepted
-            if (invite.state !== "accepted") {
-              invite.state = "accepted";
-              invite.acceptedBy = parent._id;
-              invite.acceptedAt = new Date();
-              await invite.save();
-              console.log(`[ParentInvite] Marked invite as accepted for ${email}`);
-            }
-
-            // Create audit log for linking (only once)
-            if (invite.state === "sent" || !invite.acceptedAt) {
-              await AuditLog.create({
-                actorId: parent._id,
-                action: "acceptParentInvite",
-                targetType: "ParentInvite",
-                targetId: invite._id,
-                before: { state: "sent" },
-                after: { state: "accepted", studentId: String(invite.studentId) },
-                at: new Date(),
-              });
-            }
-          } else {
-            console.warn(`[ParentInvite] No Mongo invite found for ${email}. Checked by clerkInvitationId: ${invitedParent.id}, studentId: ${studentIdFromInvite}`);
-          }
-        } else {
-          console.warn(`[ParentInvite] No accepted invitation found in Clerk for ${email}`);
-        }
-      } catch (error) {
-        console.error("[ParentInvite] Error finding/linking invitation:", error);
-        // Don't fail - parent account is already created with correct role
-      }
-    } else {
-      // Not a parent invite - create as pending user
-      await User.updateOne(
-        { clerkId },
-        {
-          $setOnInsert: {
-            clerkId,
-            email,
-            name: nameOf(evt.data),
-            role: null,
-            status: "pending",
-            onboarded: false,
-          },
-        },
-        { upsert: true },
-      );
-    }
+      },
+      { upsert: true },
+    );
   } else if (evt.type === "user.updated") {
     const { id: clerkId, email_addresses, public_metadata } = evt.data;
     const metadata = (public_metadata ?? {}) as {
@@ -230,7 +123,7 @@ export async function POST(req: Request) {
     };
 
     // Sync any role and status changes from Clerk (admin may have assigned role)
-    const updateData: any = {
+    const updateData: { email: string; name: string; role?: string; status?: string; onboarded?: boolean } = {
       email: email_addresses?.[0]?.email_address ?? "",
       name: nameOf(evt.data),
     };
@@ -271,11 +164,6 @@ export async function POST(req: Request) {
     if (clerkId) {
       await User.deleteOne({ clerkId });
       console.log(`[Webhook] Deleted user ${clerkId}`);
-      
-      // Emit real-time event to all connected clients
-      emitEvent('user:deleted', { clerkId });
     }
   }
-
-  return new Response("Webhook processed", { status: 200 });
 }
