@@ -3,10 +3,13 @@ export const instant = false;
 import { connectDB } from '@/lib/db';
 import { ParentInvite } from '@/models/parent-invite';
 import { User } from '@/models/user';
+import { requireRequestTime } from '@/lib/auth/panels';
 import { PageHeader, Card, Empty, formatDay } from '@/components/ui/nila';
 import { InviteActions } from './invite-actions';
+import { LinkGuardianForm } from './link-form';
 
 export default async function AdminParentInvitesPage() {
+  await requireRequestTime();
   await connectDB();
 
   const invites = await ParentInvite.find()
@@ -14,29 +17,58 @@ export default async function AdminParentInvitesPage() {
     .sort({ createdAt: -1 })
     .lean();
 
-  const invitesWithStudent = await Promise.all(
-    invites.map(async (invite: any) => ({
+  const [parents, students] = await Promise.all([
+    User.find({ role: 'parent', status: 'active' }).select('name email').sort({ name: 1 }).lean(),
+    User.find({ role: 'student', status: 'active' }).select('name email').sort({ name: 1 }).lean(),
+  ]);
+
+  const invitesWithStudent = invites.map((invite) => {
+    const student = invite.studentId as unknown as {
+      name?: string;
+      email?: string;
+    } | null;
+    return {
       id: String(invite._id),
-      studentName: invite.studentId?.name || 'Unknown',
-      studentEmail: invite.studentId?.email || '',
+      studentName: student?.name ?? 'Unknown',
+      studentEmail: student?.email ?? '',
       parentName: invite.parentName,
       parentEmail: invite.parentEmail,
+      code: invite.code,
       state: invite.state,
       createdAt: invite.createdAt,
       acceptedAt: invite.acceptedAt,
-      clerkInvitationId: invite.clerkInvitationId,
-    }))
-  );
+    };
+  });
 
   return (
     <>
       <PageHeader
-        title="Parent invitations"
-        description="View and manage parent invite links."
+        title="Guardian link codes"
+        description="Codes issued by students, and the parent accounts linked through them."
       />
 
+      <Card className="mb-6 p-5">
+        <h2 className="text-sm font-semibold">Repair a guardian link</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Use this when a parent accepted an invitation but the student does not appear in
+          their panel. The link is written on both sides and audit-logged.
+        </p>
+        <div className="max-w-md">
+          <LinkGuardianForm
+            parents={parents.map((parent) => ({
+              id: String(parent._id),
+              label: `${parent.name} (${parent.email})`,
+            }))}
+            students={students.map((student) => ({
+              id: String(student._id),
+              label: `${student.name} (${student.email})`,
+            }))}
+          />
+        </div>
+      </Card>
+
       {invitesWithStudent.length === 0 ? (
-        <Empty>No invitations yet.</Empty>
+        <Empty>No link codes yet.</Empty>
       ) : (
         <Card className="overflow-hidden">
           <table className="table">
@@ -44,6 +76,7 @@ export default async function AdminParentInvitesPage() {
               <tr>
                 <th>Parent</th>
                 <th>Student</th>
+                <th>Code</th>
                 <th>Status</th>
                 <th>Created</th>
                 <th>Accepted</th>
@@ -61,6 +94,7 @@ export default async function AdminParentInvitesPage() {
                     <p className="font-medium">{invite.studentName}</p>
                     <p className="text-xs text-muted-foreground">{invite.studentEmail}</p>
                   </td>
+                  <td className="font-mono text-xs tracking-wider">{invite.code}</td>
                   <td>
                     <span
                       className={`inline-block rounded-full px-2 py-1 text-xs font-medium ${
@@ -82,9 +116,8 @@ export default async function AdminParentInvitesPage() {
                   </td>
                   <td className="text-end">
                     {invite.state === 'sent' && (
-                      <InviteActions inviteId={invite.id} parentEmail={invite.parentEmail} />
-                    )}
-                  </td>
+                      <InviteActions inviteId={invite.id} />
+                    )}                  </td>
                 </tr>
               ))}
             </tbody>

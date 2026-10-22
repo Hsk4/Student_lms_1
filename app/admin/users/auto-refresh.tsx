@@ -1,31 +1,39 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSocket } from '@/hooks/use-socket';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 /**
- * Listens for real-time user changes via Socket.io.
- * Refreshes page when users are deleted (via webhook).
+ * Re-fetches the user list when the admin comes back to the tab.
+ *
+ * The list is a server component, so `router.refresh()` re-runs it on the
+ * server. This fires only on `visibilitychange` and `focus` — browser events,
+ * not an interval — so an idle admin tab costs nothing and there is no polling
+ * loop. A stale tab that is left open but never focused simply shows what it
+ * last rendered, which is the same as any other server-rendered page.
+ *
+ * There is no push channel: Next 16.3 closes WebSocket upgrades for app and
+ * pages routes (`router-server.js`: "TODO: allow upgrade requests to
+ * pages/app paths?"), and Socket.IO's long-polling fallback hid that. If live
+ * push is needed later, it requires a custom Node server that owns the
+ * `upgrade` event — not a polling workaround.
  */
 export function UsersAutoRefresh() {
   const router = useRouter();
-  const socket = useSocket();
 
   useEffect(() => {
-    if (!socket) return;
-
-    const handleUserDeleted = () => {
-      console.log('[UsersAutoRefresh] User deleted, refreshing page...');
-      router.refresh();
+    const refresh = () => {
+      if (document.visibilityState === "visible") router.refresh();
     };
 
-    socket.on('user:deleted', handleUserDeleted);
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
 
     return () => {
-      socket.off('user:deleted', handleUserDeleted);
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
     };
-  }, [socket, router]);
+  }, [router]);
 
   return null;
 }

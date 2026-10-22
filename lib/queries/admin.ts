@@ -1,4 +1,5 @@
 import "server-only";
+import { connection } from "next/server";
 import { connectDB } from "@/lib/db";
 import { User, type UserRole } from "@/models/user";
 import { AccessRequest } from "@/models/access-request";
@@ -30,9 +31,12 @@ export type RequestRow = {
   subjects: string;
   userStatus: string;
   userRole: string | null;
+  requestedRole: string | null;
 };
 
 export async function listAccessRequests(state: "open" | "approved" | "rejected"): Promise<RequestRow[]> {
+  // Date arithmetic below is request-time data, so never prerender this page.
+  await connection();
   await connectDB();
   const requests = await AccessRequest.find({ state }).sort({ createdAt: -1 }).limit(200).lean();
   if (!requests.length) return [];
@@ -64,6 +68,7 @@ export async function listAccessRequests(state: "open" | "approved" | "rejected"
       subjects: (request.subjectIds ?? []).map((id: { toString(): string }) => subjectNames.get(shortId(id)) ?? "-").join(", "),
       userStatus: user?.status ?? "unknown",
       userRole: user?.role ?? null,
+      requestedRole: request.requestedRole ?? null,
     };
   });
 }

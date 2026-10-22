@@ -4,11 +4,13 @@ import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { PageHeader, Card, Empty } from '@/components/ui/nila';
 import { checkAccess } from '@/lib/auth/roles';
+import { requireRequestTime } from '@/lib/auth/panels';
 import { Invoice } from '@/models/invoice';
 import { connectDB } from '@/lib/db';
 import { User } from '@/models/user';
 
 async function Body() {
+  await requireRequestTime();
   const { user, redirectTo } = await checkAccess(['admin', 'super_admin']);
   if (redirectTo) redirect(redirectTo);
 
@@ -44,7 +46,7 @@ async function Body() {
                   </tr>
                 </thead>
                 <tbody>
-                  {invoices.map((invoice: any) => (
+                  {invoices.map((invoice: { _id: unknown; studentId?: { name?: string; email?: string } | null; period: string; amount: number; dueDate: string; state: string }) => (
                     <tr key={String(invoice._id)}>
                       <td>
                         <p className="font-medium">{invoice.studentId?.name}</p>
@@ -54,7 +56,9 @@ async function Body() {
                       <td className="font-mono">{invoice.amount.toLocaleString()}</td>
                       <td>{new Date(invoice.dueDate).toLocaleDateString()}</td>
                       <td>
-                        <span className={`status-${invoice.state === 'paid' ? 'green' : invoice.state === 'void' ? 'amber' : 'red'}`}>
+                        <span
+                          className={`status-${invoice.state === 'paid' ? 'green' : invoice.state === 'void' ? 'amber' : 'red'}`}
+                        >
                           {invoice.state}
                         </span>
                       </td>

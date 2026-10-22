@@ -45,7 +45,7 @@ async function Body() {
                   </tr>
                 </thead>
                 <tbody>
-                  {materials.map((mat: any) => (
+                  {materials.map((mat: { _id: unknown; title: string; courseId?: { name?: string } | null; type: string; uploadedBy?: { name?: string } | null }) => (
                     <tr key={String(mat._id)}>
                       <td className="font-medium">{mat.title}</td>
                       <td>{mat.courseId?.name}</td>

@@ -6,8 +6,14 @@ import { ActionButton } from "@/components/ui/action-form";
 
 const ROLES = ["student", "teacher", "parent", "admin"] as const;
 
-export function RequestActions({ requestId }: { requestId: string }) {
-  const [role, setRole] = useState<string>("student");
+export function RequestActions({
+  requestId,
+  defaultRole = "student",
+}: {
+  requestId: string;
+  defaultRole?: string;
+}) {
+  const [role, setRole] = useState<string>(defaultRole);
   const [reason, setReason] = useState("");
 
   return (
@@ -36,7 +42,6 @@ export function RequestActions({ requestId }: { requestId: string }) {
       >
         Approve
       </ActionButton>
-
       <div className="grow">
         <label className="label" htmlFor={`reason-${requestId}`}>
           Reject reason

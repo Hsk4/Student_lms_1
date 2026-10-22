@@ -5,8 +5,10 @@ import { Invoice } from '@/models/invoice';
 import { Meeting } from '@/models/meeting';
 import { SupportTicket } from '@/models/support-ticket';
 import { User } from '@/models/user';
+import { Enrollment } from '@/models/enrollment';
 import { AuditLog } from '@/models/audit-log';
 import { checkAccess, getSessionUser, getCurrentUser } from '@/lib/auth/roles';
+import { isGuardianOf } from '@/lib/guardians';
 import { z } from 'zod';
 
 // ============ INVOICES ============
@@ -19,7 +21,7 @@ const createInvoiceSchema = z.object({
 });
 
 export async function createInvoice(data: z.infer<typeof createInvoiceSchema>) {
-  const { user, redirectTo } = await checkAccess(['admin', 'super_admin']);
+  const { redirectTo } = await checkAccess(['admin', 'super_admin']);
   if (redirectTo) throw new Error('Unauthorized');
 
   const validated = createInvoiceSchema.parse(data);
@@ -55,7 +57,7 @@ const markInvoicePaidSchema = z.object({
 });
 
 export async function markInvoicePaid(data: z.infer<typeof markInvoicePaidSchema>) {
-  const { user, redirectTo } = await checkAccess(['admin', 'super_admin']);
+  const { redirectTo } = await checkAccess(['admin', 'super_admin']);
   if (redirectTo) throw new Error('Unauthorized');
 
   const validated = markInvoicePaidSchema.parse(data);
@@ -96,18 +98,18 @@ export async function getStudentInvoices(studentId: string) {
 
   await connectDB();
 
-  // Only student themselves or admin/parent can see
+  // Admins read any invoice. A student reads only their own. A parent reads
+  // only a linked child. Anything else is rejected.
+  if (['admin', 'super_admin'].includes(user.role ?? '')) {
+    return Invoice.find({ studentId }).sort({ dueDate: -1 }).lean();
+  }
+
   if (user.role === 'student' && user.id !== studentId) {
     throw new Error('Unauthorized');
   }
 
-  if (user.role === 'parent') {
-    const parent = await User.findOne({ clerkId: user.clerkId }).lean();
-    const student = await User.findById(studentId).lean();
-
-    if (!parent?._id || !student?.student?.guardianIds?.includes(parent._id)) {
-      throw new Error('Unauthorized');
-    }
+  if (user.role === 'parent' && !(await isGuardianOf(user.id, studentId))) {
+    throw new Error('Unauthorized: student not linked to this parent');
   }
 
   return Invoice.find({ studentId }).sort({ dueDate: -1 }).lean();
@@ -129,16 +131,24 @@ export async function requestMeeting(data: z.infer<typeof requestMeetingSchema>)
 
   await connectDB();
 
-  const parent = await User.findOne({ clerkId: user.clerkId }).lean();
-  const student = await User.findById(validated.studentId).lean();
-
-  if (!parent?._id || !student?.student?.guardianIds?.includes(parent._id)) {
+  if (!(await isGuardianOf(user.id, validated.studentId))) {
     throw new Error('Unauthorized: student not linked to this parent');
+  }
+
+  const enrollment = await Enrollment.findOne({
+    studentId: validated.studentId,
+    teacherId: validated.teacherId,
+    state: 'active',
+  })
+    .select('_id')
+    .lean();
+  if (!enrollment) {
+    throw new Error('That teacher does not teach this student');
   }
 
   await withTransaction(async (session_db) => {
     const meeting = new Meeting({
-      parentId: parent._id,
+      parentId: user.id,
       teacherId: validated.teacherId,
       studentId: validated.studentId,
       requestedSlots: validated.requestedSlots,
@@ -249,11 +259,10 @@ export async function addTicketMessage(data: z.infer<typeof addTicketMessageSche
     }
 
     ticket.messages.push({
-      authorId: author?._id as any,
+      authorId: (author?._id ?? ticket.createdBy) as typeof ticket.createdBy,
       text: validated.text,
       createdAt: new Date(),
     });
-
     await ticket.save({ session: session_db });
   });
 }
@@ -263,7 +272,7 @@ const escalateTicketSchema = z.object({
 });
 
 export async function escalateTicket(data: z.infer<typeof escalateTicketSchema>) {
-  const { user, redirectTo } = await checkAccess(['admin', 'super_admin']);
+  const { redirectTo } = await checkAccess(['admin', 'super_admin']);
   if (redirectTo) throw new Error('Unauthorized');
 
   const validated = escalateTicketSchema.parse(data);
@@ -290,7 +299,7 @@ export async function getAdminTickets() {
 
   await connectDB();
 
-  const filter: any = { state: { $ne: 'resolved' } };
+  const filter: Record<string, unknown> = { state: { $ne: 'resolved' } };
 
   if (user.role === 'admin') {
     filter.assignedTo = 'admin';

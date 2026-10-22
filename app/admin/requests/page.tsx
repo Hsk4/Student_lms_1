@@ -47,6 +47,14 @@ export default async function AdminRequestsPage() {
                 <dd>{request.level ?? "-"}</dd>
                 <dt className="text-muted-foreground">Subjects</dt>
                 <dd>{request.subjects || "-"}</dd>
+                <dt className="text-muted-foreground">Requested</dt>
+                <dd>
+                  {request.requestedRole ? (
+                    <RoleChip role={request.requestedRole} />
+                  ) : (
+                    <span className="text-muted-foreground">Not stated</span>
+                  )}
+                </dd>
                 <dt className="text-muted-foreground">Account</dt>
                 <dd className="flex items-center gap-2">
                   <span className="capitalize">{request.userStatus}</span>
@@ -61,7 +69,10 @@ export default async function AdminRequestsPage() {
               ) : null}
 
               <div className="mt-4">
-                <RequestActions requestId={request.id} />
+                <RequestActions
+                  requestId={request.id}
+                  defaultRole={request.requestedRole ?? "student"}
+                />
               </div>
             </Card>
           ))}
