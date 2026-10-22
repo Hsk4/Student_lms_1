@@ -1,68 +1,85 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { revokeParentInvite, resendParentInvite } from '@/actions/parent-invites';
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import {
+  reissueParentInvite,
+  revokeParentInvite,
+} from "@/actions/parent-invites";
 
-export function InviteActions({ inviteId, parentEmail }: { inviteId: string; parentEmail: string }) {
-  const [loading, setLoading] = useState<'revoke' | 'resend' | null>(null);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+/**
+ * Admin controls for one link code: cancel it, or issue a fresh code when the
+ * student lost it. No email is involved in either.
+ */
+export function InviteActions({ inviteId }: { inviteId: string }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
-  const handleRevoke = async () => {
-    setLoading('revoke');
+  const handleRevoke = () => {
     setMessage(null);
-
-    const result = await revokeParentInvite(inviteId);
-    if (result.ok) {
-      setMessage({ type: 'success', text: 'Invitation revoked.' });
-      // Reload page after a short delay
-      setTimeout(() => window.location.reload(), 500);
-    } else {
-      setMessage({ type: 'error', text: result.error || 'Failed to revoke' });
-    }
-    setLoading(null);
+    startTransition(async () => {
+      const result = await revokeParentInvite(inviteId);
+      if (result.ok) {
+        setMessage({ type: "success", text: "Code cancelled." });
+        router.refresh();
+      } else {
+        setMessage({
+          type: "error",
+          text: result.error ?? result.message ?? "Failed to cancel",
+        });
+      }
+    });
   };
 
-  const handleResend = async () => {
-    setLoading('resend');
+  const handleReissue = () => {
     setMessage(null);
-
-    const result = await resendParentInvite(inviteId);
-    if (result.ok) {
-      setMessage({ type: 'success', text: `New link sent to ${parentEmail}` });
-      setTimeout(() => window.location.reload(), 500);
-    } else {
-      setMessage({ type: 'error', text: result.error || 'Failed to resend' });
-    }
-    setLoading(null);
+    startTransition(async () => {
+      const result = await reissueParentInvite(inviteId);
+      if (result.ok && result.data) {
+        setMessage({ type: "success", text: `New code: ${result.data.code}` });
+        router.refresh();
+      } else {
+        setMessage({
+          type: "error",
+          text: result.error ?? result.message ?? "Failed to reissue",
+        });
+      }
+    });
   };
 
   return (
     <div className="flex flex-col items-end gap-2">
       <div className="flex gap-2">
         <button
+          type="button"
           onClick={handleRevoke}
-          disabled={loading === 'revoke'}
+          disabled={pending}
           className="btn-ghost h-8 text-xs"
         >
-          {loading === 'revoke' ? 'Revoking...' : 'Revoke'}
+          Cancel
         </button>
         <button
-          onClick={handleResend}
-          disabled={loading === 'resend'}
-          className="btn-ghost h-8 text-xs"
+          type="button"
+          onClick={handleReissue}
+          disabled={pending}
+          className="btn-secondary h-8 text-xs"
         >
-          {loading === 'resend' ? 'Resending...' : 'Resend'}
+          New code
         </button>
       </div>
-      {message && (
+      {message ? (
         <p
           className={`text-xs font-medium ${
-            message.type === 'success' ? 'text-status-green' : 'text-status-red'
+            message.type === "success" ? "text-status-green" : "text-status-red"
           }`}
         >
           {message.text}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }
