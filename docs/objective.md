@@ -77,7 +77,7 @@ Allowed status changes:
 | Books | Recommended courseware only. Students buy them themselves. No prices, no payments. |
 | Past papers | No separate model. A `Material` with type `past_paper`. |
 | Payments | Tuition invoices only. Amounts are whole PKR, stored as integers. Admin marks paid. |
-| Parents | Join by invite token sent by the student. No admin approval. Token is single use, expires after 7 days, is stored hashed, and the accepting user's verified email must match the invited email. |
+| Parents | Student invites by email using Clerk's backend invitation API. No admin approval. Clerk handles delivery, one-use acceptance, and 7-day expiry; store the Clerk invitation id in Mongo. Public metadata grants the parent role only through this invite; the webhook links the accepting verified-email user to the student. Do not use `ignoreExisting` until existing-account linking is deliberately supported. |
 | Enrollment | `requested`, then `active` when the teacher accepts (with or without a class), or `declined`. Later `cancelled` or `ended`. |
 | Grades | Numeric, 0 to 100, plus optional feedback text. |
 | Rejected users | May re-apply after 30 days. |
@@ -117,7 +117,7 @@ Baseline schema. Fields are the minimum needed. Add fields here before adding th
 `userId`, `name`, `email`, `boardId`, `levelId`, `subjectIds[]`, `note`, `state` (`open` | `approved` | `rejected`), `decidedBy`, `decidedAt`, `reason`.
 
 **ParentInvite**
-`studentId`, `parentName`, `parentEmail`, `tokenHash`, `state` (`sent` | `accepted` | `expired` | `revoked`), `expiresAt`, `acceptedBy`.
+`studentId`, `parentName`, `parentEmail`, `clerkInvitationId`, `state` (`sent` | `accepted` | `expired` | `revoked`), `expiresAt`, `acceptedBy`, `acceptedAt`.
 
 **AuditLog** (append only)
 `actorId`, `action`, `targetType`, `targetId`, `before`, `after`, `at`.
@@ -181,7 +181,7 @@ Baseline schema. Fields are the minimum needed. Add fields here before adding th
 **Claims.** Set once in the Clerk dashboard: the session token includes `{ "metadata": "{{user.public_metadata}}" }`.
 
 **Webhook** at `/api/webhooks/clerk`. Verify the signature with Clerk's signing secret. Handlers are idempotent.
-- `user.created`: create the `User` with `status: pending`, no role. Set `publicMetadata.status = "pending"`.
+- `user.created`: if public metadata grants `role: parent` and a matching sent `ParentInvite` exists for the verified email (and invited student), create/update the parent as active, link through `guardianIds`, and mark the invite accepted. Otherwise create the `User` with `status: pending`, no role, and set `publicMetadata.status = "pending"`.
 - `user.updated` and `user.deleted`: keep the mirror in sync.
 
 **Seed.** `scripts/seed-super-admin.ts` takes an email, checks that the Clerk account exists and its email is verified, then sets `role: super_admin`, `status: active` in both Clerk and Mongo.
@@ -262,11 +262,11 @@ Children · Invoices · Meetings.
 ## 8. Core flows
 
 **1. Sign-up to linked parent**
-1. User signs up. Webhook creates `User` as pending.
+1. User signs up. Webhook creates `User` as pending unless Clerk invitation metadata marks a matching parent invite.
 2. User fills `/request`. An `AccessRequest` is created.
 3. Admin assigns a role (status `active`) or rejects with a reason. Audit entry written.
-4. A new student enters a parent's name and email. A `ParentInvite` is created and `onboarded` becomes true.
-5. Parent opens the invite link, signs up, and the invite is accepted. The user becomes `parent`, `active`, and is added to the student's `guardianIds`.
+4. An active student enters the parent's name and email. The server creates a Clerk invitation with parent metadata and stores its invitation id in `ParentInvite`.
+5. Clerk sends the invitation email. On invited parent's `user.created` webhook, the server verifies a matching sent invite and email, activates the mirror, links the parent in `guardianIds`, and marks the invite accepted.
 
 **2. Student to teacher**
 1. Student sees teachers whose `courseIds` match their board and level.
@@ -360,10 +360,11 @@ Each phase ends with a passing build, passing authorization tests for its guards
 - **Done when:** an admin creates a board, level, subject, course and recommended books with no code change.
 
 ### Phase 3: Student onboarding and parents
-- [ ] `/onboarding/parent`, `ParentInvite`, invite email.
-- [ ] `/invite/[token]` acceptance: role `parent`, `active`, linked through `guardianIds`.
+- [ ] `/onboarding/parent` creates a Mongo `ParentInvite`, then calls Clerk `createInvitation` with `role: parent`, `status: active`, `onboarded: true`, a seven-day expiry, and a redirect containing Clerk's invitation id.
+- [ ] Clerk sends the invitation email. The `user.created` webhook matches the verified email to a sent invite, activates the parent mirror, links `guardianIds`, and marks the invite accepted; unmatched users remain pending.
+- [ ] Handle already-registered emails/open invitations explicitly; keep `ignoreExisting` false until safe existing-account linking is implemented.
 - [ ] Parent panel shell. `requireParentOf` and its tests.
-- **Done when:** request, approval and parent link work with two test accounts.
+- **Done when:** request, approval and Clerk-delivered parent linking work with two test accounts.
 
 ### Phase 4: Teacher matching and classes
 - [ ] Teacher `courseIds`, editable by admin.
@@ -397,7 +398,7 @@ Each phase ends with a passing build, passing authorization tests for its guards
 | Question | Default until decided |
 |---|---|
 | Where are uploaded files stored (materials, submissions)? | Object storage with signed URLs. Provider not chosen. |
-| How are invite emails sent? | A transactional email provider. Not chosen. |
+| How are parent invite emails sent? | Clerk's invitation email. Other transactional email is not currently required. |
 | Which AI provider generates quizzes? | Not chosen. Decide before Phase 7. |
 | What are the allowed values for course `medium`? | Free text, admin-managed later if needed. |
 | Is there a cap on guardians per student? | No cap. |
