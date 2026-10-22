@@ -22,6 +22,8 @@ export const accessRequestSchema = z.object({
     .max(1000)
     .optional()
     .transform((v) => v || undefined),
+  /** Advisory only; the admin still picks the role they approve. */
+  requestedRole: z.enum(["teacher", "student", "parent"]).optional(),
 });
 
 export type AccessRequestInput = z.input<typeof accessRequestSchema>;

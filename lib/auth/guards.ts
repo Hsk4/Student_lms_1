@@ -2,6 +2,7 @@ import { getSessionUser, type UserRole } from "./roles";
 import { User } from "@/models/user";
 import { Enrollment } from "@/models/enrollment";
 import { connectDB } from "@/lib/db";
+import { isGuardianOf } from "@/lib/guardians";
 import { z } from "zod";
 
 const objectIdSchema = z.string().regex(/^[a-f\d]{24}$/i);
@@ -114,14 +115,7 @@ export async function requireEnrollmentAccess(enrollmentId: string) {
   }
 
   if (session.role === "parent") {
-    const parent = await User.findOne({ clerkId: session.clerkId, role: "parent", status: "active" })
-      .select("_id")
-      .lean();
-    if (!parent) throw new AuthzError("Unauthorized: not a parent or not active");
-    const student = await User.findById(enrollment.studentId).select("student.guardianIds").lean();
-    const isGuardian = (student?.student?.guardianIds ?? []).some(
-      (guardianId: unknown) => String(guardianId) === String(parent._id)
-    );
+    const isGuardian = await isGuardianOf(actor._id.toString(), String(enrollment.studentId));
     if (isGuardian) return { session, enrollment };
   }
 
@@ -138,22 +132,30 @@ export async function requireParentOf(clerkId: string, studentId: string) {
 
   await connectDB();
 
-  // Check if parent is linked to student
   const parent = await User.findOne({
     clerkId,
     role: "parent",
     status: "active",
-  }).lean();
+  })
+    .select("_id")
+    .lean();
 
   if (!parent) {
     throw new AuthzError("Unauthorized: not a parent or not active");
   }
 
-  const student = await User.findById(studentId).lean();
-  const guardianIds = (student?.student?.guardianIds ?? []) as unknown as { toString(): string }[];
-  if (!student || !guardianIds.some((id) => String(id) === String(parent._id))) {
+  if (!(await isGuardianOf(String(parent._id), studentId))) {
     throw new AuthzError("Unauthorized: student not linked to this parent");
   }
 
   return session;
+}
+
+/** The Mongo _id of the signed-in parent, or an error. */
+export async function requireParentActor(): Promise<{
+  actorId: string;
+  session: Awaited<ReturnType<typeof requireRole>>;
+}> {
+  const session = await requireRole(["parent"]);
+  return { actorId: session.actorId, session };
 }

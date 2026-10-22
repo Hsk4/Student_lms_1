@@ -27,6 +27,14 @@ export interface IUser extends Document {
   teacher?: {
     courseIds?: Schema.Types.ObjectId[];
   };
+  /**
+   * Parent side of the guardian relation. The child's `student.guardianIds` is
+   * the source of truth; this mirror lets a parent list its children without a
+   * collection scan and keeps both directions in step.
+   */
+  parent?: {
+    childIds?: Schema.Types.ObjectId[];
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -60,9 +68,15 @@ const userSchema = new Schema<IUser>(
     teacher: {
       courseIds: [{ type: Schema.Types.ObjectId, ref: "Course" }],
     },
+    parent: {
+      childIds: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    },
   },
   { timestamps: true },
 );
+
+userSchema.index({ "student.guardianIds": 1 });
+userSchema.index({ "parent.childIds": 1 });
 
 export const User =
   mongoose.models.User || mongoose.model<IUser>("User", userSchema);

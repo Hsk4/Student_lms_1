@@ -8,6 +8,8 @@ export interface IAccessRequest extends Document {
   levelId?: Schema.Types.ObjectId | null;
   subjectIds: Schema.Types.ObjectId[];
   note?: string;
+  /** The role the applicant asked for. Advisory: an admin still decides. */
+  requestedRole?: "teacher" | "student" | "parent" | null;
   state: "open" | "approved" | "rejected";
   decidedBy?: Schema.Types.ObjectId;
   decidedAt?: Date;
@@ -30,6 +32,11 @@ const accessRequestSchema = new Schema<IAccessRequest>(
     levelId: { type: Schema.Types.ObjectId, ref: "Level" },
     subjectIds: [{ type: Schema.Types.ObjectId, ref: "Subject" }],
     note: { type: String },
+    requestedRole: {
+      type: String,
+      enum: ["teacher", "student", "parent", null],
+      default: null,
+    },
     state: {
       type: String,
       enum: ["open", "approved", "rejected"],

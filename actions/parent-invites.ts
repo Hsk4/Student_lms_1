@@ -1,106 +1,91 @@
-'use server';
+"use server";
 
-import { createClerkClient } from '@clerk/backend';
-import { connectDB } from '@/lib/db';
-import { ParentInvite } from '@/models/parent-invite';
-import { requireRole } from '@/lib/auth/guards';
-import { toState, type ActionState } from '@/lib/actions';
-
-const secretKey = process.env.CLERK_SECRET_KEY;
-if (!secretKey) throw new Error('Missing CLERK_SECRET_KEY');
-const clerk = createClerkClient({ secretKey });
+import { revalidatePath } from "next/cache";
+import { connectDB } from "@/lib/db";
+import { ParentInvite } from "@/models/parent-invite";
+import { writeAudit } from "@/lib/audit";
+import { requireRole } from "@/lib/auth/guards";
+import { uniqueLinkCode, LINK_CODE_TTL_DAYS } from "@/lib/link-codes";
+import { toState, type ActionState } from "@/lib/actions";
 
 /**
- * Revoke a parent invite (expires the Clerk invitation link).
+ * Cancel a link code. No external service is involved: the code simply stops
+ * matching in `redeemLinkCode`.
  */
-export async function revokeParentInvite(inviteId: string): Promise<ActionState> {
+export async function revokeParentInvite(
+  inviteId: string,
+): Promise<ActionState> {
   try {
-    await requireRole(['super_admin', 'admin']);
+    const actor = await requireRole(["super_admin", "admin"]);
     await connectDB();
 
     const invite = await ParentInvite.findById(inviteId);
-    if (!invite) throw new Error('Invite not found');
-    if (invite.state === 'revoked') throw new Error('Invite already revoked');
-    if (invite.state === 'accepted') throw new Error('Cannot revoke accepted invite');
+    if (!invite) throw new Error("Invite not found");
+    if (invite.state === "revoked") throw new Error("Invite already revoked");
+    if (invite.state === "accepted")
+      throw new Error("Cannot revoke an accepted invite");
 
-    // Revoke in Clerk (but don't fail if it doesn't exist - it's already gone)
-    try {
-      await clerk.invitations.revokeInvitation(invite.clerkInvitationId);
-      console.log(`[Admin] Revoked Clerk invitation ${invite.clerkInvitationId}`);
-    } catch (clerkError: any) {
-      // If invitation not found in Clerk (404), that's OK - it's already expired/revoked
-      if (clerkError?.status === 404) {
-        console.warn(`[Admin] Invitation not found in Clerk (already expired): ${invite.clerkInvitationId}`);
-      } else {
-        throw clerkError;
-      }
-    }
-
-    // Update in MongoDB
-    invite.state = 'revoked';
+    invite.state = "revoked";
     await invite.save();
-    console.log(`[Admin] Updated invite state to revoked: ${inviteId}`);
 
+    await writeAudit({
+      actorId: actor.actorId,
+      action: "revokeParentInvite",
+      targetType: "ParentInvite",
+      targetId: invite._id,
+      before: { state: "sent" },
+      after: { state: "revoked" },
+    });
+
+    revalidatePath("/admin/parent-invites");
+    revalidatePath("/student/guardians");
     return { ok: true };
   } catch (error) {
-    const result = toState(error);
-    console.error(`[revokeParentInvite] Error:`, result);
-    return result;
+    return toState(error);
   }
 }
 
 /**
- * Resend a parent invite (creates a new Clerk invitation link).
+ * Issue a fresh code for an existing invite, for when the student lost it or it
+ * expired. The old code stops working immediately.
  */
-export async function resendParentInvite(inviteId: string): Promise<ActionState<{ invitationUrl?: string }>> {
+export async function reissueParentInvite(
+  inviteId: string,
+): Promise<ActionState<{ code: string }>> {
   try {
-    await requireRole(['super_admin', 'admin']);
+    const actor = await requireRole(["super_admin", "admin"]);
     await connectDB();
 
     const invite = await ParentInvite.findById(inviteId);
-    if (!invite) throw new Error('Invite not found');
-    if (invite.state === 'accepted') throw new Error('Cannot resend accepted invite');
+    if (!invite) throw new Error("Invite not found");
+    if (invite.state === "accepted")
+      throw new Error("This guardian is already linked");
 
-    // Revoke old invitation if still pending
-    if (invite.state === 'sent') {
-      try {
-        await clerk.invitations.revokeInvitation(invite.clerkInvitationId);
-        console.log(`[Admin] Revoked old invitation: ${invite.clerkInvitationId}`);
-      } catch (error: any) {
-        // If it doesn't exist, that's fine
-        if (error?.status === 404) {
-          console.warn(`[Admin] Old invitation not found in Clerk: ${invite.clerkInvitationId}`);
-        } else {
-          console.warn(`[Admin] Failed to revoke old invitation`, error);
-        }
-      }
-    }
+    const previousCode = invite.code;
+    invite.code = await uniqueLinkCode();
+    invite.state = "sent";
+    invite.expiresAt = new Date(
+      Date.now() + LINK_CODE_TTL_DAYS * 24 * 60 * 60 * 1000,
+    );
+    invite.attempts = 0;
+    await invite.save();
 
-    // Create new invitation
-    const newInvitation = await clerk.invitations.createInvitation({
-      emailAddress: invite.parentEmail,
-      expiresInDays: 7,
-      ignoreExisting: false,
-      publicMetadata: {
-        role: 'parent',
-        status: 'active',
-        onboarded: true,
-        studentId: String(invite.studentId),
-        parentName: invite.parentName,
+    await writeAudit({
+      actorId: actor.actorId,
+      action: "reissueParentInvite",
+      targetType: "ParentInvite",
+      targetId: invite._id,
+      before: { code: previousCode, state: "sent" },
+      after: {
+        code: invite.code,
+        expiresAt: invite.expiresAt?.toISOString() ?? null,
       },
     });
 
-    console.log(`[Admin] Resent invitation for ${invite.parentEmail}: ${newInvitation.id}`);
-
-    // Update in MongoDB
-    invite.clerkInvitationId = newInvitation.id;
-    invite.state = 'sent';
-    await invite.save();
-
-    return { ok: true, data: { invitationUrl: newInvitation.invitation_url } };
+    revalidatePath("/admin/parent-invites");
+    revalidatePath("/student/guardians");
+    return { ok: true, data: { code: invite.code } };
   } catch (error) {
-    const result = toState(error);
-    console.error(`[resendParentInvite] Error:`, result);
-    return result;
+    return toState(error);
   }
 }

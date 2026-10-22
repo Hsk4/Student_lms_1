@@ -1,146 +1,185 @@
-'use server';
+"use server";
 
-import { createClerkClient } from '@clerk/backend';
-import type { ClientSession } from 'mongoose';
-import { connectDB, withTransaction } from '@/lib/db';
-import { User } from '@/models/user';
-import { ParentInvite } from '@/models/parent-invite';
-import { writeAudit } from '@/lib/audit';
-import { requireRole } from '@/lib/auth/guards';
-import { getCurrentUser } from '@/lib/auth/roles';
-import { studentParentSchema, acceptInviteSchema } from '@/lib/validators/parent';
-import { toState, type ActionState } from '@/lib/actions';
+import { revalidatePath } from "next/cache";
+import { connectDB, withTransaction } from "@/lib/db";
+import { User } from "@/models/user";
+import { ParentInvite } from "@/models/parent-invite";
+import { writeAudit } from "@/lib/audit";
+import { requireRole } from "@/lib/auth/guards";
+import { uniqueLinkCode, LINK_CODE_TTL_DAYS } from "@/lib/link-codes";
+import { studentParentSchema } from "@/lib/validators/parent";
+import { toState, type ActionState } from "@/lib/actions";
 
-const secretKey = process.env.CLERK_SECRET_KEY;
-const clerk = secretKey ? createClerkClient({ secretKey }) : null;
-
-/** Create the Mongo mirror and let Clerk deliver and manage the invitation. */
-export async function createParentInvite(raw: unknown): Promise<ActionState> {
+/**
+ * The student issues a link code for a guardian.
+ *
+ * No email is sent and no Clerk invitation is created: the parent signs up as a
+ * normal account, then redeems the code from their own panel
+ * (`redeemLinkCode` in `actions/parent-link.ts`). The whole relation stays in
+ * our own database, so it does not depend on an inbox, on Clerk's invitation
+ * delivery, or on a webhook arriving.
+ */
+export async function createParentLink(
+  raw: unknown,
+): Promise<ActionState<{ code: string; expiresAt: string }>> {
   try {
-    const actor = await requireRole(['student']);
+    const actor = await requireRole(["student"]);
     const input = studentParentSchema.parse(raw);
-    if (!clerk) throw new Error('Missing CLERK_SECRET_KEY');
     await connectDB();
 
-    const student = await User.findOne({ clerkId: actor.clerkId, role: 'student', status: 'active' });
-    if (!student) throw new Error('Student account not found');
+    const student = await User.findOne({
+      clerkId: actor.clerkId,
+      role: "student",
+      status: "active",
+    });
+    if (!student) throw new Error("Student account not found");
 
-    const existingUser = await User.findOne({ email: input.parentEmail }).select('_id role status').lean();
-    if (existingUser) {
-      throw new Error(existingUser.role === 'parent'
-        ? 'This email already has a parent account. Ask them to sign in; linking existing accounts is not enabled.'
-        : 'This email belongs to an existing account. Ask an admin for help.');
+    const alreadyLinked = await User.countDocuments({
+      "parent.childIds": student._id,
+    });
+    if (alreadyLinked >= 5) {
+      throw new Error(
+        "You already have the maximum number of guardians linked",
+      );
     }
-    const openInvite = await ParentInvite.findOne({ parentEmail: input.parentEmail, state: 'sent' }).lean();
-    if (openInvite) throw new Error('An invitation is already open for this email. Ask the parent to check their inbox.');
 
-    const invitation = await clerk.invitations.createInvitation({
-      emailAddress: input.parentEmail,
-      expiresInDays: 7,
-      ignoreExisting: false,
-      publicMetadata: {
-        role: 'parent',
-        status: 'active',
-        onboarded: true,
-        studentId: String(student._id),
-        parentName: input.parentName,
-      },
+    if (input.parentEmail) {
+      const existing = await User.findOne({ email: input.parentEmail })
+        .select("_id")
+        .lean();
+      if (existing) {
+        throw new Error(
+          "That email already has an account. They should sign in and enter your link code from their own panel.",
+        );
+      }
+    }
+
+    const code = await uniqueLinkCode();
+    const expiresAt = new Date(
+      Date.now() + LINK_CODE_TTL_DAYS * 24 * 60 * 60 * 1000,
+    );
+
+    const invite = await withTransaction(async (dbSession) => {
+      const [created] = await ParentInvite.create(
+        [
+          {
+            studentId: student._id,
+            parentName: input.parentName,
+            parentEmail: input.parentEmail ?? "",
+            code,
+            state: "sent",
+            expiresAt,
+          },
+        ],
+        { session: dbSession },
+      );
+
+      await writeAudit(
+        {
+          actorId: student._id,
+          action: "createParentLink",
+          targetType: "ParentInvite",
+          targetId: created._id,
+          after: {
+            studentId: String(student._id),
+            parentName: input.parentName,
+            code,
+            expiresAt: expiresAt.toISOString(),
+          },
+        },
+        dbSession,
+      );
+
+      return created;
     });
 
-    try {
-      await withTransaction(async (dbSession: ClientSession) => {
-        const [invite] = await ParentInvite.create([{
-          studentId: student._id,
-          parentName: input.parentName,
-          parentEmail: input.parentEmail,
-          clerkInvitationId: invitation.id,
-          state: 'sent',
-        }], { session: dbSession });
-        await writeAudit({
-          actorId: student._id,
-          action: 'createParentInvite',
-          targetType: 'ParentInvite',
-          targetId: invite._id,
-          after: { studentId: String(student._id), parentEmail: input.parentEmail, clerkInvitationId: invitation.id },
-        }, dbSession);
-      });
-    } catch (error) {
-      try {
-        await clerk.invitations.revokeInvitation(invitation.id);
-      } catch (revokeError) {
-        console.error('Failed to revoke Clerk invitation after Mongo write failure', revokeError);
-      }
-      throw error;
-    }
-
-    return { ok: true };
+    revalidatePath("/student/guardians");
+    revalidatePath("/onboarding/parent");
+    return {
+      ok: true,
+      data: { code: invite.code, expiresAt: expiresAt.toISOString() },
+    };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Could not create invitation';
-    const existing = /already|exists|invitation/i.test(message);
-    return toState(new Error(existing
-      ? 'This email already has an account or open invitation. Ask them to sign in; existing-account linking is not enabled.'
-      : message));
+    return toState(error);
   }
 }
 
-export type InviteDetails = {
-  parentName: string;
-  parentEmail: string;
-  studentName: string;
-  acceptingEmail: string | null;
-  message: string;
-};
+/** Revoke a code the student no longer wants to share. */
+export async function revokeParentLink(inviteId: string): Promise<ActionState> {
+  try {
+    const actor = await requireRole(["student"]);
+    await connectDB();
 
-export async function listMyChildren() {
-  const session = await requireRole(['parent']);
-  await connectDB();
+    const invite = await ParentInvite.findOne({
+      _id: inviteId,
+      studentId: actor.actorId,
+      state: "sent",
+    });
+    if (!invite) throw new Error("That code is no longer active");
 
-  const parent = await User.findOne({ clerkId: session.clerkId, role: 'parent', status: 'active' })
-    .select('_id')
-    .lean();
-  if (!parent) throw new Error('Parent account not found');
+    invite.state = "revoked";
+    await invite.save();
 
-  // Find all students where this parent is in guardianIds
-  const children = await User.find({ 
-    'student.guardianIds': parent._id, 
-    role: 'student', 
-    status: 'active' 
-  })
-    .select('_id name email student.boardId student.levelId student.guardianIds')
-    .populate('student.boardId', 'name')
-    .populate('student.levelId', 'name')
-    .lean();
-  
-  return children;
+    await writeAudit({
+      actorId: actor.actorId,
+      action: "revokeParentLink",
+      targetType: "ParentInvite",
+      targetId: invite._id,
+      before: { state: "sent" },
+      after: { state: "revoked" },
+    });
+
+    revalidatePath("/student/guardians");
+    return { ok: true };
+  } catch (error) {
+    return toState(error);
+  }
 }
 
-/** Informational route: Clerk owns invitation validation and acceptance. */
-export async function getInviteDetails(invitationId: string): Promise<InviteDetails | null> {
-  const parsed = acceptInviteSchema.safeParse({ invitationId });
-  if (!parsed.success) return null;
-  await connectDB();
-  const invite = await ParentInvite.findOne({ clerkInvitationId: parsed.data.invitationId }).lean();
-  if (!invite) return null;
-  const [student, user] = await Promise.all([
-    User.findById(invite.studentId).select('name').lean(),
-    getCurrentUser(),
-  ]);
-  const email = user?.email.toLowerCase() ?? null;
-  const message = invite.state === 'accepted'
-    ? 'Your invitation has been accepted and the student link is active.'
-    : invite.state === 'revoked' || (invite.expiresAt && invite.expiresAt <= new Date())
-      ? 'This invitation has expired or was revoked. Ask the student to send a new one.'
-      : !user
-        ? 'Complete sign-up from the Clerk invitation email using the invited email address.'
-        : email !== invite.parentEmail.toLowerCase()
-          ? `This invitation is for ${invite.parentEmail}. Sign in with that account.`
-          : 'Clerk will activate your parent account; its webhook links the student after sign-up.';
+export type GuardianRow = {
+  id: string;
+  name: string | null;
+  email: string;
+  state: "active" | "sent" | "expired" | "revoked";
+  /** Only present for an unused, unexpired code. */
+  code?: string;
+  expiresAt?: string;
+};
 
-  return {
-    parentName: invite.parentName,
-    parentEmail: invite.parentEmail,
-    studentName: student?.name ?? 'Student',
-    acceptingEmail: email,
-    message,
-  };
+/** Guardians of the signed-in student: linked accounts first, then open codes. */
+export async function listMyGuardians(): Promise<GuardianRow[]> {
+  const actor = await requireRole(["student"]);
+  await connectDB();
+
+  const [parents, invites] = await Promise.all([
+    User.find({ role: "parent", "parent.childIds": actor.actorId })
+      .select("name email")
+      .lean(),
+    ParentInvite.find({ studentId: actor.actorId, state: { $ne: "accepted" } })
+      .sort({ createdAt: -1 })
+      .lean(),
+  ]);
+
+  const rows: GuardianRow[] = parents.map((parent) => ({
+    id: String(parent._id),
+    name: parent.name,
+    email: parent.email,
+    state: "active",
+  }));
+
+  for (const invite of invites) {
+    const expired = invite.expiresAt ? invite.expiresAt <= new Date() : false;
+    const state =
+      invite.state === "revoked" ? "revoked" : expired ? "expired" : "sent";
+    rows.push({
+      id: String(invite._id),
+      name: invite.parentName,
+      email: invite.parentEmail,
+      state,
+      code: state === "sent" ? invite.code : undefined,
+      expiresAt: invite.expiresAt?.toISOString(),
+    });
+  }
+
+  return rows;
 }
