@@ -1,95 +1,139 @@
 export const instant = false;
 
-import { redirect } from 'next/navigation';
-import { Suspense } from 'react';
-import { PageHeader, Card, Empty } from '@/components/ui/nila';
-import { requireSignedIn, getCurrentUser } from '@/lib/auth/roles';
-import { getStudentInvoices } from '@/actions/tuition-support';
-import { User } from '@/models/user';
-import { connectDB } from '@/lib/db';
+import Link from "next/link";
+import {
+  Card,
+  Chip,
+  Empty,
+  PageHeader,
+  Stat,
+  formatDay,
+} from "@/components/ui/nila";
+import { listChildOverviews } from "@/actions/parent-panel";
+import { getStudentInvoices } from "@/actions/tuition-support";
+import { ChildSwitcher } from "@/components/shell/shell";
 
-async function Body() {
-  const user = await requireSignedIn();
-  if (user.role !== 'parent' || user.status !== 'active') redirect('/pending');
-
-  await connectDB();
-
-  const parent = await User.findOne({ clerkId: user.clerkId }).lean();
-  const children = await User.find({
-    'student.guardianIds': parent?._id,
-  }).lean();
+export default async function ParentInvoicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ child?: string }>;
+}) {
+  const { child: selected } = await searchParams;
+  const children = await listChildOverviews();
+  const visible = selected
+    ? children.filter((item) => item.id === selected)
+    : children;
 
   const perChild = await Promise.all(
-    children.map(async (child) => {
-      const invoices = await getStudentInvoices(String(child._id));
-      const unpaid = invoices.filter((inv: any) => inv.state === 'unpaid');
-      const totalDue = unpaid.reduce((sum: number, inv: any) => sum + inv.amount, 0);
-
-      return {
-        id: String(child._id),
-        name: child.name,
-        invoices,
-        totalDue,
-      };
-    })
+    visible.map(async (child) => ({
+      child,
+      // Row guard inside the action: a parent may only read a linked child.
+      invoices: await getStudentInvoices(child.id),
+    })),
   );
+
+  const totalDue = visible.reduce((sum, child) => sum + child.dueAmount, 0);
 
   return (
     <div>
       <PageHeader
         title="Invoices"
-        description="View tuition fees for your children."
+        description="Tuition invoices for your children. Payments are recorded by the school office."
       />
 
-      {perChild.length === 0 ? (
-        <Empty>No linked children.</Empty>
-      ) : (
-        <div className="space-y-6">
-          {perChild.map((child) => (
-            <div key={child.id}>
-              <h2 className="mb-3 text-sm font-semibold">{child.name}</h2>
+      <ChildSwitcher
+        basePath="/parent/invoices"
+        activeId={selected}
+        childRows={children.map(({ id, name }) => ({ id, name }))}
+      />
 
-              {child.totalDue > 0 && (
-                <Card className="mb-3 p-3 bg-status-red-soft">
-                  <p className="text-sm font-medium text-status-red">
-                    Outstanding: PKR {child.totalDue.toLocaleString()}
-                  </p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Stat
+          label="Outstanding"
+          value={`PKR ${totalDue.toLocaleString("en-PK")}`}
+        />
+        <Stat label="Children shown" value={visible.length} />
+        <Stat
+          label="Unpaid invoices"
+          value={perChild.reduce(
+            (sum, item) =>
+              sum +
+              item.invoices.filter((invoice) => invoice.state === "unpaid")
+                .length,
+            0,
+          )}
+        />
+      </div>
+
+      {visible.length === 0 ? (
+        <div className="mt-6">
+          <Empty>No linked children.</Empty>
+        </div>
+      ) : null}
+
+      <div className="mt-8 space-y-8">
+        {perChild.map(({ child, invoices }) => {
+          const unpaid = invoices.filter(
+            (invoice) => invoice.state === "unpaid",
+          );
+          const paid = invoices.filter((invoice) => invoice.state === "paid");
+
+          return (
+            <section key={child.id}>
+              <div className="mb-3 flex items-end justify-between">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  {child.name}
+                </h2>
+                <Link
+                  href={`/parent/children/${child.id}`}
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  Child overview
+                </Link>
+              </div>
+
+              {invoices.length === 0 ? (
+                <Empty>No invoice issued yet.</Empty>
+              ) : (
+                <Card className="overflow-x-auto">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Period</th>
+                        <th>Amount</th>
+                        <th>Due</th>
+                        <th>State</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...unpaid, ...paid].map((invoice) => (
+                        <tr key={String(invoice._id)}>
+                          <td className="font-medium">{invoice.period}</td>
+                          <td className="tabular-nums">
+                            PKR {invoice.amount.toLocaleString("en-PK")}
+                          </td>
+                          <td className="text-muted-foreground">
+                            {formatDay(invoice.dueDate)}
+                          </td>
+                          <td>
+                            <Chip
+                              tone={
+                                invoice.state === "paid" ? "green" : "amber"
+                              }
+                            >
+                              {invoice.state}
+                            </Chip>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </Card>
               )}
-
-              <div className="space-y-2">
-                {child.invoices.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No invoices.</p>
-                ) : (
-                  child.invoices.map((inv: any) => (
-                    <Card
-                      key={String(inv._id)}
-                      className={`p-3 ${inv.state === 'unpaid' ? 'border-status-red' : ''}`}
-                    >
-                      <div className="flex items-center justify-between text-sm">
-                        <span>
-                          {inv.period} • PKR {inv.amount.toLocaleString()}
-                        </span>
-                        <span className={`status-${inv.state === 'paid' ? 'green' : 'red'}`}>
-                          {inv.state}
-                        </span>
-                      </div>
-                    </Card>
-                  ))
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+            </section>
+          );
+        })}
+      </div>
     </div>
-  );
-}
-
-export default function ParentInvoicesPage() {
-  return (
-    <Suspense fallback={<div className="p-10 text-sm text-muted-foreground">Loading...</div>}>
-      <Body />
-    </Suspense>
   );
 }
