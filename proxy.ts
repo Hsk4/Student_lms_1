@@ -1,11 +1,17 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
 /**
  * Clerk's auth() helper requires its middleware/proxy to have run for each route.
  * Authorization remains in layouts, pages, actions, and handlers; this proxy
- * intentionally does only the Clerk session bootstrap.
+ * intentionally does only the Clerk session bootstrap, plus forwarding the
+ * pathname so server layouts can highlight the active navigation item.
  */
-export default clerkMiddleware();
+export default clerkMiddleware(async (_auth, request) => {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+  return NextResponse.next({ request: { headers: requestHeaders } });
+});
 
 export const config = {
   matcher: [

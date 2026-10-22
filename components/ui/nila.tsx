@@ -124,3 +124,93 @@ export function formatDay(value?: string | Date | null) {
     dateStyle: "medium",
   });
 }
+
+const CHIP_TONES: Record<string, string> = {
+  green: "border-status-green bg-status-green-soft text-status-green",
+  amber: "border-status-amber bg-status-amber-soft text-status-amber",
+  red: "border-status-red bg-status-red-soft text-status-red",
+  neutral: "border-border bg-surface text-muted-foreground",
+  primary: "border-primary bg-tint text-tint-foreground",
+};
+
+export type ChipTone = keyof typeof CHIP_TONES;
+
+/** A small status pill with the Nila status colours. */
+export function Chip({
+  tone = "neutral",
+  children,
+}: {
+  tone?: ChipTone;
+  children: ReactNode;
+}) {
+  return <span className={`chip ${CHIP_TONES[tone] ?? CHIP_TONES.neutral}`}>{children}</span>;
+}
+
+/** Maps a domain state string to a chip tone. */
+export function toneFor(state: string): ChipTone {
+  switch (state) {
+    case "active":
+    case "paid":
+    case "confirmed":
+    case "present":
+    case "current":
+    case "accepted":
+    case "done":
+    case "resolved":
+      return "green";
+    case "requested":
+    case "pending":
+    case "sent":
+    case "rescheduled":
+    case "unpaid":
+    case "escalated":
+      return "amber";
+    case "declined":
+    case "cancelled":
+    case "revoked":
+    case "suspended":
+    case "rejected":
+    case "void":
+    case "expired":
+    case "past":
+    case "ended":
+      return "red";
+    default:
+      return "neutral";
+  }
+}
+
+/** One label/value pair in a summary card. */
+export function Stat({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: ReactNode;
+  hint?: string;
+}) {
+  return (
+    <Card className="p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-foreground">
+        {value}
+      </p>
+      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+    </Card>
+  );
+}
+
+const SCORE_TONE = (score: number) =>
+  score >= 70 ? "green" : score >= 40 ? "amber" : "red";
+
+/** A score out of 100 with a traffic-light tone. */
+export function Score({ value }: { value: number }) {
+  return (
+    <span className={`chip tabular-nums ${CHIP_TONES[SCORE_TONE(value)]}`}>
+      {value}/100
+    </span>
+  );
+}

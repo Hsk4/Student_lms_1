@@ -95,7 +95,7 @@ export async function getCurrentUser(): Promise<GateUser | null> {
           onboarded: false,
         },
       },
-      { upsert: true, new: true, lean: true },
+      { upsert: true, returnDocument: "after", lean: true },
     );
   }
 
