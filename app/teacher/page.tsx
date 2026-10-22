@@ -1,126 +1,253 @@
 export const instant = false;
 
-import { redirect } from 'next/navigation';
-import { Suspense } from 'react';
-import { PageHeader, Card, Empty } from '@/components/ui/nila';
-import { PanelShell } from '@/components/shell/shell';
-import { getCurrentUser } from '@/lib/auth/roles';
-import { listEnrollments } from '@/lib/queries/enrollment';
-import { listTeacherClasses, listCourseChoicesForTeacher } from '@/lib/queries/teaching';
-import { DecisionForm, ClassForm } from './teacher-forms';
+import Link from "next/link";
+import {
+  Card,
+  Chip,
+  Empty,
+  PageHeader,
+  Stat,
+  formatDate,
+} from "@/components/ui/nila";
+import {
+  getTeacherDashboard,
+  listClasses,
+  listMyAssignments,
+  listMyMeetings,
+  listStudentRequests,
+} from "@/actions/teacher-panel";
 
-async function Body() {
-  const user = await getCurrentUser();
-  if (!user) redirect('/sign-in');
-  if (user.role !== 'teacher' || user.status !== 'active') redirect('/pending');
+export default async function TeacherDashboardPage() {
+  const [dashboard, requests, classes, assignments, meetings] =
+    await Promise.all([
+      getTeacherDashboard(),
+      listStudentRequests(),
+      listClasses(),
+      listMyAssignments(),
+      listMyMeetings(),
+    ]);
 
-  const [requests, active, classes, courseChoices] = await Promise.all([
-    listEnrollments({ teacherId: user.id, state: 'requested' }),
-    listEnrollments({ teacherId: user.id, state: 'active' }),
-    listTeacherClasses(user.id),
-    listCourseChoicesForTeacher(user.id),
-  ]);
+  const current = classes.filter((item) => item.state === "current");
+  const upcoming = meetings
+    .filter(
+      (item) =>
+        item.state === "requested" ||
+        (item.confirmedAt !== null && new Date(item.confirmedAt) >= new Date()),
+    )
+    .slice(0, 4);
 
   return (
-    <PanelShell title="Teacher" user={{ name: user.name, role: user.role }}>
+    <div>
       <PageHeader
         title="Teaching"
-        description="Accept student requests as a class or one-on-one, then publish assignments."
+        description="Accept requests, run classes and give feedback."
       >
-        <a href="/teacher/assignments" className="btn-primary">Assignments</a>
+        <Link href="/teacher/assignments" className="btn-primary">
+          New assignment
+        </Link>
       </PageHeader>
 
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        Student requests ({requests.length})
-      </h2>
-      {requests.length === 0 ? (
-        <Empty>No pending requests.</Empty>
-      ) : (
-        <div className="space-y-3">
-          {requests.map((request) => (
-            <Card key={request.id} className="p-4">
-              <p className="font-medium">{request.studentName}</p>
-              <p className="text-sm text-muted-foreground">{request.studentEmail}</p>
-              <p className="mt-1 text-sm">{request.courseLabel}</p>
-              <div className="mt-3">
-                <DecisionForm enrollmentId={request.id} classes={classes} />
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat
+          label="Students"
+          value={dashboard.students}
+          hint={`${dashboard.classes} current classes`}
+        />
+        <Stat
+          label="Requests"
+          value={dashboard.pendingRequests}
+          hint={
+            requests.length ? "Waiting for your decision" : "Nothing waiting"
+          }
+        />
+        <Stat
+          label="Ungraded"
+          value={dashboard.ungradedSubmissions}
+          hint={
+            dashboard.ungradedSubmissions
+              ? "Submissions to grade"
+              : "All graded"
+          }
+        />
+        <Stat
+          label="Average score"
+          value={
+            dashboard.averageScore === null ? "-" : `${dashboard.averageScore}%`
+          }
+          hint="Across graded submissions"
+        />
+      </div>
 
-      <h2 className="mb-3 mt-10 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        My students ({active.length})
-      </h2>
-      {active.length === 0 ? (
-        <Empty>No students yet.</Empty>
-      ) : (
-        <Card className="overflow-hidden">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Course</th>
-                <th>Class</th>
-              </tr>
-            </thead>
-            <tbody>
-              {active.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <p className="font-medium">{item.studentName}</p>
-                    <p className="text-xs text-muted-foreground">{item.studentEmail}</p>
-                  </td>
-                  <td>{item.courseLabel}</td>
-                  <td>{item.className ?? 'One-on-one'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
-      )}
-
-      <h2 className="mb-3 mt-10 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        My classes ({classes.length})
-      </h2>
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div>
-          {classes.length === 0 ? (
-            <Empty>No classes yet. Create one on the right.</Empty>
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        <section>
+          <div className="mb-3 flex items-end justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Student requests
+            </h2>
+            <Link
+              href="/teacher/requests"
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Review all
+            </Link>
+          </div>
+          {requests.length === 0 ? (
+            <Empty>No pending requests.</Empty>
           ) : (
-            <Card className="overflow-hidden">
-              <table className="table">
-                <thead>
-                  <tr><th>Name</th><th>Course</th><th>Schedule</th><th>State</th></tr>
-                </thead>
-                <tbody>
-                  {classes.map((item) => (
-                    <tr key={item.id}>
-                      <td className="font-medium">{item.name}</td>
-                      <td>{item.courseLabel}</td>
-                      <td>{item.schedule || '-'}</td>
-                      <td className="capitalize">{item.state}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <Card className="divide-y divide-border">
+              {requests.slice(0, 4).map((request) => (
+                <div
+                  key={request.id}
+                  className="flex items-center justify-between gap-3 p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">
+                      {request.studentName}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {request.courseLabel}
+                    </p>
+                  </div>
+                  <Chip tone="amber">Requested</Chip>
+                </div>
+              ))}
             </Card>
           )}
-        </div>
-        <Card className="h-fit p-5">
-          <h3 className="text-sm font-semibold">New class</h3>
-          <ClassForm courses={courseChoices} />
-        </Card>
-      </div>
-    </PanelShell>
-  );
-}
+        </section>
 
-export default function TeacherPage() {
-  return (
-    <Suspense fallback={<div className="p-10 text-sm text-muted-foreground">Loading...</div>}>
-      <Body />
-    </Suspense>
+        <section>
+          <div className="mb-3 flex items-end justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Meetings
+            </h2>
+            <Link
+              href="/teacher/meetings"
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Open
+            </Link>
+          </div>
+          {upcoming.length === 0 ? (
+            <Empty>No meeting requests.</Empty>
+          ) : (
+            <Card className="divide-y divide-border">
+              {upcoming.map((meeting) => (
+                <div
+                  key={meeting.id}
+                  className="flex items-center justify-between gap-3 p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">
+                      {meeting.parentName}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      For {meeting.studentName} /{" "}
+                      {meeting.confirmedAt
+                        ? formatDate(meeting.confirmedAt)
+                        : meeting.slots}
+                    </p>
+                  </div>
+                  <Chip
+                    tone={meeting.state === "confirmed" ? "green" : "amber"}
+                  >
+                    {meeting.state}
+                  </Chip>
+                </div>
+              ))}
+            </Card>
+          )}
+        </section>
+      </div>
+
+      <section className="mt-8">
+        <div className="mb-3 flex items-end justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Current classes
+          </h2>
+          <Link
+            href="/teacher/classes"
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            Manage classes
+          </Link>
+        </div>
+        {current.length === 0 ? (
+          <Empty>
+            No class yet. Create one from Classes, then accept students into it.
+          </Empty>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {current.map((klass) => (
+              <Link
+                key={klass.id}
+                href={`/teacher/classes/${klass.id}`}
+                className="block"
+              >
+                <Card className="p-4 transition-colors duration-150 hover:bg-tint">
+                  <p className="font-medium">{klass.name}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {klass.courseLabel}
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {klass.schedule || "Schedule not set"} /{" "}
+                    {klass.studentCount} students
+                  </p>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mt-8">
+        <div className="mb-3 flex items-end justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Recent assignments
+          </h2>
+          <Link
+            href="/teacher/assignments"
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            All assignments
+          </Link>
+        </div>
+        {assignments.length === 0 ? (
+          <Empty>Nothing published yet.</Empty>
+        ) : (
+          <Card className="divide-y divide-border">
+            {assignments.slice(0, 5).map((assignment) => (
+              <div
+                key={assignment.id}
+                className="flex items-center justify-between gap-3 p-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">
+                    {assignment.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {assignment.classId ? "Class" : "One student"} /{" "}
+                    {assignment.submissions.length} submission
+                    {assignment.submissions.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <Chip
+                  tone={
+                    assignment.submissions.some((row) => row.score === null)
+                      ? "amber"
+                      : "neutral"
+                  }
+                >
+                  {
+                    assignment.submissions.filter((row) => row.score === null)
+                      .length
+                  }{" "}
+                  to grade
+                </Chip>
+              </div>
+            ))}
+          </Card>
+        )}
+      </section>
+    </div>
   );
 }
