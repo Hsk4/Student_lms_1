@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { and, desc, eq, ne } from "drizzle-orm";
@@ -14,8 +14,8 @@ import {
   findUserByEmail,
   findUserById,
 } from "@/lib/queries/users";
-import { recordIdSchema } from "@/lib/validators/common";
-import { studentParentSchema } from "@/lib/validators/parent";
+import { recordIdSchema } from "@lms/shared";
+import { studentParentSchema } from "@lms/shared";
 import { toState, type ActionState } from "@/lib/actions";
 
 /**

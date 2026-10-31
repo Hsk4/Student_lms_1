@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { createClerkClient } from "@clerk/backend";
 import { and, eq } from "drizzle-orm";
@@ -15,7 +15,7 @@ import {
   rejectUserSchema,
   requestDecisionSchema,
   userActionSchema,
-} from "@/lib/validators/admin";
+} from "@lms/shared";
 
 const secretKey = process.env.CLERK_SECRET_KEY;
 if (!secretKey) throw new Error("Missing CLERK_SECRET_KEY");
@@ -60,7 +60,7 @@ async function deleteAudit(
 /**
  * These actions are two-phase: Postgres commits, then Clerk is updated, and if
  * Clerk fails the Postgres half is rolled back by a compensating transaction.
- * That ordering is deliberate — a Clerk failure must not leave a role granted
+ * That ordering is deliberate â€” a Clerk failure must not leave a role granted
  * in the database that the session claims do not reflect.
  */
 

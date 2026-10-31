@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { createClerkClient } from "@clerk/backend";
@@ -10,7 +10,7 @@ import {
   setRequestSubjects,
 } from "@/lib/queries/access-requests";
 import { findUserById, updateUser } from "@/lib/queries/users";
-import { accessRequestSchema } from "@/lib/validators/admin";
+import { accessRequestSchema } from "@lms/shared";
 import type { UserRole, UserStatus } from "@/lib/types";
 import { accessRequests } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -161,7 +161,7 @@ export async function getOwnRequestStatus(): Promise<RequestStatus | null> {
  *
  * A parent has nothing to pick from the catalog, so the full `/request` form is
  * friction for them. This goes through the same path (`pending` account, an open
- * `AccessRequest`, an admin decision, the 30-day re-apply rule) — it only skips
+ * `AccessRequest`, an admin decision, the 30-day re-apply rule) â€” it only skips
  * the fields that do not apply, and records `requestedRole: "parent"` so the
  * admin queue pre-selects the right role.
  */

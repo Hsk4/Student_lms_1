@@ -1,11 +1,11 @@
-import { getSessionUser, type UserRole } from "./roles";
+﻿import { getSessionUser, type UserRole } from "./roles";
 import { findUserByClerkId } from "@/lib/queries/users";
 import {
   findActiveEnrollmentBetween,
   findEnrollmentById,
 } from "@/lib/queries/enrollment";
 import { isGuardianOf } from "@/lib/queries/guardianships";
-import { recordIdSchema } from "@/lib/validators/common";
+import { recordIdSchema } from "@lms/shared";
 import type { Id } from "@/lib/types";
 
 export class AuthzError extends Error {

@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -12,7 +12,7 @@ import {
   unlinkParentFromStudent,
 } from "@/lib/queries/guardianships";
 import { findUserById } from "@/lib/queries/users";
-import { recordIdSchema } from "@/lib/validators/common";
+import { recordIdSchema } from "@lms/shared";
 import { toState, type ActionState } from "@/lib/actions";
 
 const linkSchema = z.object({
@@ -23,8 +23,8 @@ const linkSchema = z.object({
 const unlinkSchema = linkSchema;
 
 /**
- * Admin repair: link an existing parent account to a student. Idempotent — the
- * `guardianships` composite key makes the insert a no-op on repeat — and the
+ * Admin repair: link an existing parent account to a student. Idempotent â€” the
+ * `guardianships` composite key makes the insert a no-op on repeat â€” and the
  * link, the invite acceptance and the audit entry commit together.
  */
 export async function linkGuardian(raw: unknown): Promise<ActionState> {

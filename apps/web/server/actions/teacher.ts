@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { z } from "zod";
 import { db } from "@/db/client";
@@ -11,7 +11,7 @@ import {
   replaceTeacherCourses,
 } from "@/lib/queries/teacher-courses";
 import { findUserByClerkId, findUserById } from "@/lib/queries/users";
-import { recordIdSchema } from "@/lib/validators/common";
+import { recordIdSchema } from "@lms/shared";
 import { toState, type ActionState } from "@/lib/actions";
 
 const teacherCoursesSchema = z.object({

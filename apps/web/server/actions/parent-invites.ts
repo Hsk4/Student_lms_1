@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
@@ -8,7 +8,7 @@ import { writeAudit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/guards";
 import { uniqueLinkCode, LINK_CODE_TTL_DAYS } from "@/lib/link-codes";
 import { findInviteById } from "@/lib/queries/parent-invites";
-import { recordIdSchema } from "@/lib/validators/common";
+import { recordIdSchema } from "@lms/shared";
 import { toState, type ActionState } from "@/lib/actions";
 
 /**

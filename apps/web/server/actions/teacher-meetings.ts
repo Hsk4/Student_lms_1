@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -9,7 +9,7 @@ import {
   findMeetingById,
   updateMeetingForTeacher,
 } from "@/lib/queries/meetings";
-import { recordIdSchema } from "@/lib/validators/common";
+import { recordIdSchema } from "@lms/shared";
 import { toState, type ActionState } from "@/lib/actions";
 
 const meetingSchema = z.object({ meetingId: recordIdSchema });

@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { getCurrentUser } from "@/lib/auth/roles";
 import { requireRole } from "@/lib/auth/guards";
@@ -13,7 +13,7 @@ import {
   listCoursesBySubjectName,
 } from "@/lib/queries/courses";
 import { listBooksForCourses } from "@/lib/queries/books";
-import { recordIdSchema } from "@/lib/validators/common";
+import { recordIdSchema } from "@lms/shared";
 
 export type CatalogOption = { id: string; label: string };
 

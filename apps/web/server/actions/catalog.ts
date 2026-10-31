@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/db/client";
@@ -48,13 +48,13 @@ import {
   materialSchema,
   subjectSchema,
   toggleSchema,
-} from "@/lib/validators/catalog";
+} from "@lms/shared";
 import { toState, type ActionState } from "@/lib/actions";
 
 /**
  * Every catalog mutation is audited. Nothing here is reachable without an admin
  * session, and every mutation plus its audit entry commits inside one
- * `db.transaction` — there is no Mongoose path left in this file.
+ * `db.transaction` â€” there is no Mongoose path left in this file.
  */
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

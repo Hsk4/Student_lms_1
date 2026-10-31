@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { z } from "zod";
 import { db } from "@/db/client";
@@ -26,13 +26,13 @@ import {
   setTicketState,
 } from "@/lib/queries/support-tickets";
 import { findUserByClerkId } from "@/lib/queries/users";
-import { recordIdSchema } from "@/lib/validators/common";
+import { recordIdSchema } from "@lms/shared";
 
 /**
  * Billing, meetings and support. Postgres-backed.
  *
  * Every mutation here used to write an `AuditLog` document with
- * `actorId: session.clerkId` — a Clerk string in a field the schema declares a
+ * `actorId: session.clerkId` â€” a Clerk string in a field the schema declares a
  * uuid. Those writes now take the Postgres user id and go through `writeAudit`
  * inside the same transaction, which is what Invariant 3 requires.
  */

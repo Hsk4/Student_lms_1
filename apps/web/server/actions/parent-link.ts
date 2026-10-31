@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
@@ -10,7 +10,7 @@ import { linkParentToStudent } from "@/lib/queries/guardianships";
 import { findInviteByCode } from "@/lib/queries/parent-invites";
 import { findUserById } from "@/lib/queries/users";
 import { normalizeLinkCode } from "@/lib/link-codes";
-import { redeemLinkCodeSchema } from "@/lib/validators/parent";
+import { redeemLinkCodeSchema } from "@lms/shared";
 import { toState, type ActionState } from "@/lib/actions";
 
 /** Codes are 8 chars from a 23-letter alphabet; this cap makes guessing useless. */

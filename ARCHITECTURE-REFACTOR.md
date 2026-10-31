@@ -165,7 +165,7 @@ Each phase ends with passing checks and a commit. Work on branch `refactor/api-s
 
 - [x] **0. Baseline.** Run build, lint, lint:colors. Record results. Confirm `qa/` PNGs exist.
 - [x] **1. Monorepo scaffold.** bun workspaces, `apps/api`, `apps/web`, `packages/shared`. Move the current Next app into `apps/web` unchanged and confirm it still runs.
-- [ ] **2. Shared package.** Move validators, role/status enums, `ActionState`/envelope types. Update imports.
+- [x] **2. Shared package.** Move validators, role/status enums, `ActionState`/envelope types. Update imports.
 - [ ] **3. API foundation.** Express app, env, Drizzle client, error handler, auth + require-role middleware, `/health`, `/me`, Clerk webhook. Test auth with a real token.
 - [ ] **4. Port domains to the API,** one domain at a time (onboarding/requests, admin users, catalog, enrollment, teacher, student, parent, assessment, support, invoices, audit log). For each: routes, controllers, same guards and audit entries, plus a test for ownership rules.
 - [ ] **5. Web cut-over.** Add api-client, Clerk React auth, client guards. Convert pages domain by domain to API calls. Replace `[id]` routes. Delete server actions, queries, models, proxy, webhooks from web. Turn on `output: "export"`.

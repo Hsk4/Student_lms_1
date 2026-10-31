@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { and, eq, or } from "drizzle-orm";
@@ -23,7 +23,7 @@ import {
   submissionSchema,
   gradeSchema,
   attendanceSchema,
-} from "@/lib/validators/assessment";
+} from "@lms/shared";
 import { toState, type ActionState } from "@/lib/actions";
 import type { Id } from "@/lib/types";
 
@@ -190,7 +190,7 @@ export async function submitAssignment(raw: unknown): Promise<ActionState> {
     } catch (error) {
       // Was a read-then-write check in Mongo; the unique index on
       // (assignment_id, student_id) now settles it. Two taps in two tabs used to
-      // race past the check — now the second one loses here.
+      // race past the check â€” now the second one loses here.
       if (isUniqueViolation(error, "submissions_assignment_student_unique")) {
         throw new Error("You have already submitted this assignment");
       }

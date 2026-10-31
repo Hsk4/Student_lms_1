@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -19,12 +19,12 @@ import {
 } from "@/lib/queries/enrollment";
 import { listCourseIdsForTeacher } from "@/lib/queries/teacher-courses";
 import { findUserByClerkId, findUserById } from "@/lib/queries/users";
-import { recordIdSchema } from "@/lib/validators/common";
+import { recordIdSchema } from "@lms/shared";
 import {
   classSchema,
   enrollmentDecisionSchema,
   enrollmentRequestSchema,
-} from "@/lib/validators/teaching";
+} from "@lms/shared";
 import { toState, type ActionState } from "@/lib/actions";
 
 const idSchema = z.object({ id: recordIdSchema });

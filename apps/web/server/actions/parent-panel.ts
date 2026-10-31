@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -27,7 +27,7 @@ import {
 import { listCourseLabels } from "@/lib/queries/teacher-courses";
 import { findUserById, listUsersByIds } from "@/lib/queries/users";
 import { writeAudit } from "@/lib/audit";
-import { recordIdSchema } from "@/lib/validators/common";
+import { recordIdSchema } from "@lms/shared";
 import { toState, type ActionState } from "@/lib/actions";
 
 export type TeacherContact = {
