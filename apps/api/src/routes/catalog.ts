@@ -16,6 +16,7 @@ import {
   getCourseDetail,
   listCatalog,
   listCoursesView,
+  listMaterialsAdmin,
   toggleBoardRow,
   toggleCourseRow,
   toggleLevelRow,
@@ -53,6 +54,11 @@ catalogRoutes.get(
   "/admin/courses/:id",
   ...admin,
   asyncHandler(async (req, res) => ok(res, await getCourseDetail(req))),
+);
+catalogRoutes.get(
+  "/admin/materials",
+  ...admin,
+  asyncHandler(async (_req, res) => ok(res, await listMaterialsAdmin())),
 );
 catalogRoutes.get(
   "/admin/boards/:id",

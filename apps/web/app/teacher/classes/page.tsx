@@ -1,5 +1,7 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Table,
   TableHeader,
@@ -9,14 +11,29 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Card, Empty, PageHeader } from "@/components/ui/nila";
-import { listClasses, listMyCourseChoices } from "@/actions/teacher-panel";
 import { ClassForm, EndClassButton } from "../teacher-forms";
 
-export default async function TeacherClassesPage() {
-  const [classes, courses] = await Promise.all([
-    listClasses(),
-    listMyCourseChoices(),
-  ]);
+type TeacherClass = {
+  id: string;
+  name: string;
+  courseLabel: string;
+  schedule: string;
+  state: "current" | "past";
+  studentCount: number;
+};
+
+export default function TeacherClassesPage() {
+  const classesQuery = useQuery({
+    queryKey: ["teacher", "classes"],
+    queryFn: () => api.get<TeacherClass[]>("/teacher/classes"),
+  });
+  const coursesQuery = useQuery({
+    queryKey: ["teacher", "courses"],
+    queryFn: () => api.get<{ id: string; label: string }[]>("/teacher/courses"),
+  });
+
+  const classes = classesQuery.data ?? [];
+  const courses = coursesQuery.data ?? [];
   const current = classes.filter((item) => item.state === "current");
   const past = classes.filter((item) => item.state === "past");
 
@@ -40,7 +57,7 @@ export default async function TeacherClassesPage() {
                 {current.map((klass) => (
                   <Card key={klass.id} className="p-4">
                     <a
-                      href={`/teacher/classes/${klass.id}`}
+                      href={`/teacher/classes/detail?id=${klass.id}`}
                       className="font-medium text-primary hover:underline"
                     >
                       {klass.name}

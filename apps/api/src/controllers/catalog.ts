@@ -9,7 +9,9 @@ import {
   subjectSchema,
   toggleSchema,
 } from "@lms/shared";
+import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
+import { materials, users } from "@/db/schema";
 import { isUniqueViolation, violatedConstraint } from "@/db/errors";
 import { conflict, notFound } from "@/lib/http-error";
 import { writeAudit } from "@/lib/audit";
@@ -570,6 +572,26 @@ export async function getBoardDetail(req: Request) {
         active: course.active,
       })),
   };
+}
+
+/** `GET /api/v1/admin/materials` — every material with its course label. */
+export async function listMaterialsAdmin() {
+  const [rows, courses] = await Promise.all([
+    db
+      .select({
+        id: materials.id,
+        title: materials.title,
+        type: materials.type,
+        courseId: materials.courseId,
+        uploadedBy: users.name,
+      })
+      .from(materials)
+      .innerJoin(users, eq(users.id, materials.uploadedBy))
+      .orderBy(desc(materials.createdAt)),
+    getTeacherCourseAssignments(),
+  ]);
+  const label = new Map(courses.map((course) => [course.id, course.label]));
+  return rows.map((row) => ({ ...row, courseLabel: label.get(row.courseId) ?? "Course" }));
 }
 
 /** Active boards, levels and subjects: the public request form's options. */

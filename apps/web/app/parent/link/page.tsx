@@ -1,12 +1,19 @@
-export const instant = false;
+"use client";
 
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import { Card, Empty, PageHeader } from "@/components/ui/nila";
-import { listChildOverviews } from "@/actions/parent-panel";
+import { api } from "@/lib/api-client";
 import { RedeemLinkCodeForm } from "./link-form";
 
-export default async function ParentLinkPage() {
-  const children = await listChildOverviews();
+type ChildRow = { id: string; name: string; boardName: string | null; levelName: string | null };
+
+export default function ParentLinkPage() {
+  const childrenQuery = useQuery({
+    queryKey: ["parent", "children"],
+    queryFn: () => api.get<ChildRow[]>("/parent/overview"),
+  });
+  const children = childrenQuery.data ?? [];
 
   return (
     <div>
@@ -39,7 +46,7 @@ export default async function ParentLinkPage() {
                 {children.map((child) => (
                   <Link
                     key={child.id}
-                    href={`/parent/children/${child.id}`}
+                    href={`/parent/children/detail?id=${child.id}`}
                     className="block"
                   >
                     <Card className="p-4 transition-colors duration-150 hover:bg-tint">

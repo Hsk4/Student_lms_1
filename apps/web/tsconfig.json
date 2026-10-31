@@ -19,20 +19,14 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"],
-      // Server-side code that has not moved to apps/api yet (phases 3-5).
-      "@/db/*": ["./server/db/*"],
-      "@/lib/*": ["./server/lib/*"],
-      "@/actions/*": ["./server/actions/*"]
+      "@/*": ["./*"]
     }
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
   "exclude": ["node_modules"]
 }
+

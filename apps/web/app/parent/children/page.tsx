@@ -1,5 +1,7 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Table,
   TableHeader,
@@ -16,10 +18,23 @@ import {
   Score,
   formatDay,
 } from "@/components/ui/nila";
-import { listChildOverviews } from "@/actions/parent-panel";
+type ChildOverview = {
+  id: string;
+  name: string;
+  email: string;
+  boardName: string | null;
+  levelName: string | null;
+  teachers: { name: string }[];
+  attendanceRate: number | null;
+  latestGrades: { title: string; score: number; gradedAt: string | null }[];
+};
 
-export default async function ParentChildrenPage() {
-  const children = await listChildOverviews();
+export default function ParentChildrenPage() {
+  const childrenQuery = useQuery({
+    queryKey: ["parent", "children"],
+    queryFn: () => api.get<ChildOverview[]>("/parent/overview"),
+  });
+  const children = childrenQuery.data ?? [];
 
   return (
     <div>
@@ -81,7 +96,7 @@ export default async function ParentChildrenPage() {
                   </TableCell>
                   <TableCell className="text-end">
                     <Link
-                      href={`/parent/children/${child.id}`}
+                      href={`/parent/children/detail?id=${child.id}`}
                       className="border border-border bg-card text-foreground shadow-sm hover:bg-secondary h-8"
                     >
                       Open

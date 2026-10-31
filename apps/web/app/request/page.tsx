@@ -1,27 +1,50 @@
-export const instant = false;
+"use client";
 
-import { redirect } from "next/navigation";
-import { Suspense } from "react";
-import { getCurrentUser, homeFor } from "@/lib/auth/roles";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import type { CatalogOption } from "@lms/shared";
 import { PageHeader } from "@/components/ui/nila";
 import { PanelShell } from "@/components/shell/shell";
-import { getFormOptions } from "@/actions/catalog-reads";
+import { api } from "@/lib/api-client";
+import { useMe } from "@/lib/queries";
 import { RequestForm } from "./request-form";
 
-async function Body() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/sign-in");
+function Body() {
+  const me = useMe();
+  const router = useRouter();
+  const user = me.data;
 
-  if (user.status === "active") redirect(homeFor(user));
-  if (user.status === "suspended") redirect("/?error=account_suspended");
+  const optionsQuery = useQuery({
+    queryKey: ["form-options"],
+    queryFn: () =>
+      api.get<{ boards: CatalogOption[]; levels: CatalogOption[]; subjects: CatalogOption[] }>(
+        "/catalog/form-options",
+      ),
+    enabled: Boolean(user),
+  });
+
+  useEffect(() => {
+    if (!me.isLoading && !user) router.replace("/sign-in");
+  }, [me.isLoading, user, router]);
+
+  if (!user) return <div className="p-10 text-sm text-muted-foreground">Loading...</div>;
+
+  if (user.status === "active") {
+    router.replace(user.home);
+    return <div className="p-10 text-sm text-muted-foreground">Loading...</div>;
+  }
 
   if (user.status === "rejected" && user.rejectedAt) {
     const reapplyAt = new Date(user.rejectedAt);
     reapplyAt.setDate(reapplyAt.getDate() + 30);
-    if (reapplyAt > new Date()) redirect("/rejected");
+    if (reapplyAt > new Date()) {
+      router.replace("/rejected");
+      return <div className="p-10 text-sm text-muted-foreground">Loading...</div>;
+    }
   }
 
-  const options = await getFormOptions();
+  const options = optionsQuery.data ?? { boards: [], levels: [], subjects: [] };
 
   return (
     <PanelShell
@@ -43,13 +66,5 @@ async function Body() {
 }
 
 export default function RequestPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="p-10 text-sm text-muted-foreground">Loading...</div>
-      }
-    >
-      <Body />
-    </Suspense>
-  );
+  return <Body />;
 }

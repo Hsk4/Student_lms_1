@@ -3,7 +3,7 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import { Check, Monitor, MonitorCog, Moon, Sun } from "lucide-react";
-import { UserButton } from "@clerk/nextjs";
+import { UserButton } from "@clerk/clerk-react";
 
 import { UserMenu } from "@/components/shell/user-menu";
 import { Button } from "@/components/ui/button";

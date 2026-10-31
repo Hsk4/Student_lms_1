@@ -1,6 +1,8 @@
-export const instant = false;
+"use client";
 
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Card,
   Chip,
@@ -11,14 +13,27 @@ import {
   Stat,
   formatDate,
 } from "@/components/ui/nila";
-import { listChildOverviews } from "@/actions/parent-panel";
-import { requireRequestTime } from "@/lib/auth/panels";
 import { RequestMeetingForm } from "./parent-forms";
 
-export default async function ParentDashboardPage() {
-  // "Upcoming meeting" depends on the current time.
-  await requireRequestTime();
-  const children = await listChildOverviews();
+type ChildOverview = {
+  id: string;
+  name: string;
+  email: string;
+  boardName: string | null;
+  levelName: string | null;
+  teachers: { id: string; name: string; courseLabel: string; className: string | null }[];
+  attendanceRate: number | null;
+  latestGrades: { title: string; score: number; gradedAt: string | null }[];
+  dueAmount: number;
+  nextMeeting: { id: string; when: string; teacherName: string } | null;
+};
+
+export default function ParentDashboardPage() {
+  const childrenQuery = useQuery({
+    queryKey: ["parent", "children"],
+    queryFn: () => api.get<ChildOverview[]>("/parent/overview"),
+  });
+  const children = childrenQuery.data ?? [];
 
   const totalDue = children.reduce((sum, child) => sum + child.dueAmount, 0);
   const rates = children
@@ -74,7 +89,7 @@ export default async function ParentDashboardPage() {
                     </p>
                   </div>
                   <Link
-                    href={`/parent/children/${child.id}`}
+                    href={`/parent/children/detail?id=${child.id}`}
                     className="border border-border bg-card text-foreground shadow-sm hover:bg-secondary h-9"
                   >
                     Open

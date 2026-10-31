@@ -1,5 +1,8 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
+import { useMe } from "@/lib/queries";
 import {
   Card,
   Chip,
@@ -8,13 +11,25 @@ import {
   Stat,
   formatDay,
 } from "@/components/ui/nila";
-import { getMyProfile } from "@/actions/student-panel";
-import { getStudentInvoices } from "@/actions/tuition-support";
+type InvoiceRow = {
+  id: string;
+  period: string;
+  amount: number;
+  dueDate: string;
+  state: string;
+  paidAt: string | null;
+};
 
-export default async function StudentInvoicesPage() {
-  const profile = await getMyProfile();
-  // Row guard: this action rejects any id other than the caller's own.
-  const invoices = await getStudentInvoices(profile.id);
+export default function StudentInvoicesPage() {
+  const me = useMe();
+  // Scoped to the caller: the API only answers for the student's own id.
+  const invoicesQuery = useQuery({
+    queryKey: ["student", "invoices", me.data?.id],
+    queryFn: () =>
+      api.get<InvoiceRow[]>("/invoices", { studentId: me.data?.id ?? "" }),
+    enabled: Boolean(me.data?.id),
+  });
+  const invoices = invoicesQuery.data ?? [];
 
   const unpaid = invoices.filter((invoice) => invoice.state === "unpaid");
   const paid = invoices.filter((invoice) => invoice.state === "paid");

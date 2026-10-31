@@ -1,5 +1,3 @@
-export const instant = false;
-
 import Link from "next/link";
 import { Card, PageHeader } from "@/components/ui/nila";
 

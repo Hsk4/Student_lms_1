@@ -1,42 +1,37 @@
-export const instant = false;
+"use client";
 
-import { redirect } from "next/navigation";
-import { Suspense } from "react";
-import { getCurrentUser } from "@/lib/auth/roles";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { PanelShell } from "@/components/shell/shell";
 import { PageHeader, Card } from "@/components/ui/nila";
+import { useMe } from "@/lib/queries";
 import { ParentOnboardingForm } from "./parent-form";
 
-async function Body() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/sign-in");
-  if (user.status !== "active" || user.role !== "student") redirect("/pending");
-  if (user.onboarded) redirect("/student");
+export default function ParentOnboardingPage() {
+  const me = useMe();
+  const router = useRouter();
+  const user = me.data;
+
+  useEffect(() => {
+    if (me.isLoading) return;
+    if (!user) router.replace("/sign-in");
+    else if (user.status !== "active" || user.role !== "student")
+      router.replace(user.home);
+    else if (user.onboarded) router.replace("/student");
+  }, [me.isLoading, user, router]);
 
   return (
     <PanelShell
       title="Parent information"
-      user={{ name: user.name, role: user.role }}
+      user={{ name: user?.name ?? "", role: user?.role ?? null }}
     >
       <PageHeader
         title="Add a parent or guardian"
-        description="This is required before you can enter your student panel. We will send them an invite to join."
+        description="This is required before you can enter your student panel. Create a link code and share it with them."
       />
       <Card className="p-6">
         <ParentOnboardingForm />
       </Card>
     </PanelShell>
-  );
-}
-
-export default function ParentOnboardingPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="p-10 text-sm text-muted-foreground">Loading...</div>
-      }
-    >
-      <Body />
-    </Suspense>
   );
 }

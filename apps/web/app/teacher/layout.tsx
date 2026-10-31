@@ -1,28 +1,31 @@
-import type { ReactNode } from "react";
+"use client";
+
 import { PanelShell } from "@/components/shell/panel-shell";
 import { TEACHER_NAV_GROUPS } from "@/components/shell/nav-config";
-import { requirePanelUser } from "@/lib/auth/panels";
+import { Guarded, usePanelGuard } from "@/lib/guards";
 
-/** Coarse guard for the teacher area. Actions re-check with `requireRole`. */
-export default async function TeacherLayout({
+/** Coarse guard for the teacher area (UX only; the API re-checks every call). */
+export default function TeacherLayout({
   children,
 }: {
-  children: ReactNode;
+  children: React.ReactNode;
 }) {
-  const user = await requirePanelUser("teacher");
+  const { user, allowed, isLoading } = usePanelGuard(["teacher"]);
 
   return (
-    <PanelShell
-      panel="teacher"
-      groups={TEACHER_NAV_GROUPS}
-      user={{
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        status: user.status,
-      }}
-    >
-      {children}
-    </PanelShell>
+    <Guarded allowed={allowed} isLoading={isLoading}>
+      <PanelShell
+        panel="teacher"
+        groups={TEACHER_NAV_GROUPS}
+        user={{
+          name: user?.name ?? "",
+          email: user?.email ?? "",
+          role: user?.role ?? null,
+          status: user?.status ?? "pending",
+        }}
+      >
+        {children}
+      </PanelShell>
+    </Guarded>
   );
 }

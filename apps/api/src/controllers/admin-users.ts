@@ -47,6 +47,7 @@ import {
   countUsers,
   listAllUsers,
   listUsersByIds,
+  listUsersByRole,
   listUsersByStatus,
 } from "@/db/queries/users";
 import { listBoards } from "@/db/queries/boards";
@@ -628,6 +629,24 @@ export async function listUsersAdmin(req: Request) {
   };
 }
 
+/** `GET /api/v1/admin/users/:id` — the detail page's account card. */
+export async function getUserDetail(req: Request) {
+  const user = await findUserById(String(req.params.id));
+  if (!user) throw notFound("User not found");
+  return {
+    id: user.id,
+    clerkId: user.clerkId,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+    onboarded: user.onboarded,
+    createdAt: user.createdAt.toISOString(),
+    rejectedAt: user.rejectedAt ? user.rejectedAt.toISOString() : null,
+    rejectionReason: user.rejectionReason ?? null,
+  };
+}
+
 export async function pendingUsers() {
   return listUsersByStatus("pending");
 }
@@ -654,6 +673,23 @@ export async function listAuditLog() {
 
 export async function listParentLinks() {
   return listInvitesWithStudent();
+}
+
+/** `GET /api/v1/admin/parent-links/options` — active parents and students for the repair form. */
+export async function parentLinkOptions() {
+  const [parents, students] = await Promise.all([
+    listUsersByRole("parent", { status: "active" }),
+    listUsersByRole("student", { status: "active" }),
+  ]);
+  const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
+  const toOption = (user: { id: string; name: string; email: string }) => ({
+    id: user.id,
+    label: `${user.name} (${user.email})`,
+  });
+  return {
+    parents: [...parents].sort(byName).map(toOption),
+    students: [...students].sort(byName).map(toOption),
+  };
 }
 
 export async function listBooksAdmin() {

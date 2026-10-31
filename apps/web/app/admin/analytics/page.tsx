@@ -1,55 +1,44 @@
-export const instant = false;
+"use client";
 
-import { redirect } from 'next/navigation';
-import { Suspense } from 'react';
-import { StatStrip } from '@/components/shared/stat-strip';
-import { PageHeader, Card } from '@/components/ui/nila';
-import { checkAccess } from '@/lib/auth/roles';
-import { and, avg, eq, isNotNull } from 'drizzle-orm';
-import { db } from '@/db/client';
-import { enrollments, submissions, users } from '@/db/schema';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { StatStrip } from "@/components/shared/stat-strip";
+import { PageHeader, Card } from "@/components/ui/nila";
+import { api } from "@/lib/api-client";
+import { useMe } from "@/lib/queries";
 
+type Analytics = {
+  users: number;
+  activeUsers: number;
+  pendingUsers: number;
+  students: number;
+  teachers: number;
+};
 
+export default function AdminAnalyticsPage() {
+  const me = useMe();
+  const router = useRouter();
 
-async function Body() {
-  const { user, redirectTo } = await checkAccess(['admin', 'super_admin']);
-  if (redirectTo) redirect(redirectTo);
+  // The super-admin-only screens are UX-gated here; the API enforces it.
+  useEffect(() => {
+    if (me.data && me.data.role !== "super_admin" && me.data.role !== "admin") {
+      router.replace(me.data.home);
+    }
+  }, [me.data, router]);
 
-  const [
-    totalUsers,
-    activeUsers,
-    pendingUsers,
-    students,
-    teachers,
-    activeEnrollmentCount,
-    completedSubmissions,
-    gradeRow,
-  ] = await Promise.all([
-    db.$count(users),
-    db.$count(users, eq(users.status, 'active')),
-    db.$count(users, eq(users.status, 'pending')),
-    db.$count(users, and(eq(users.role, 'student'), eq(users.status, 'active'))),
-    db.$count(users, and(eq(users.role, 'teacher'), eq(users.status, 'active'))),
-    db.$count(enrollments, eq(enrollments.state, 'active')),
-    db.$count(submissions, isNotNull(submissions.score)),
-    // Was an aggregation pipeline with `$avg`; that is `avg()` in SQL.
-    db
-      .select({ value: avg(submissions.score) })
-      .from(submissions)
-      .where(isNotNull(submissions.score)),
-  ]);
-
-  const avgGrade = Number(gradeRow[0]?.value ?? 0);
+  const analyticsQuery = useQuery({
+    queryKey: ["admin-analytics"],
+    queryFn: () => api.get<Analytics>("/admin/analytics"),
+  });
+  const data = analyticsQuery.data;
 
   const stats = [
-    { label: 'Total users', value: totalUsers },
-    { label: 'Active', value: activeUsers },
-    { label: 'Pending approval', value: pendingUsers },
-    { label: 'Students (active)', value: students },
-    { label: 'Teachers (active)', value: teachers },
-    { label: 'Active enrollments', value: activeEnrollmentCount },
-    { label: 'Submissions graded', value: completedSubmissions },
-    { label: 'Avg grade', value: `${avgGrade.toFixed(1)}/100` },
+    { label: "Total users", value: data?.users ?? 0 },
+    { label: "Active", value: data?.activeUsers ?? 0 },
+    { label: "Pending approval", value: data?.pendingUsers ?? 0 },
+    { label: "Students (active)", value: data?.students ?? 0 },
+    { label: "Teachers (active)", value: data?.teachers ?? 0 },
   ];
 
   return (
@@ -79,13 +68,5 @@ async function Body() {
         </p>
       </Card>
     </div>
-  );
-}
-
-export default function AdminAnalyticsPage() {
-  return (
-    <Suspense fallback={<div className="p-10 text-sm text-muted-foreground">Loading...</div>}>
-      <Body />
-    </Suspense>
   );
 }

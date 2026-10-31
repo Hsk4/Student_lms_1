@@ -1,35 +1,35 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import {
-  reissueParentInvite,
-  revokeParentInvite,
-} from "@/actions/parent-invites";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 
 /**
  * Admin controls for one link code: cancel it, or issue a fresh code when the
  * student lost it. No email is involved in either.
  */
 export function InviteActions({ inviteId }: { inviteId: string }) {
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
 
+  const refresh = () =>
+    queryClient.invalidateQueries({ queryKey: ["admin-parent-links"] });
+
   const handleRevoke = () => {
     setMessage(null);
     startTransition(async () => {
-      const result = await revokeParentInvite(inviteId);
-      if (result.ok) {
+      try {
+        await api.post(`/admin/parent-links/${inviteId}/revoke`);
         setMessage({ type: "success", text: "Code cancelled." });
-        router.refresh();
-      } else {
+        await refresh();
+      } catch (error) {
         setMessage({
           type: "error",
-          text: result.error ?? result.message ?? "Failed to cancel",
+          text: error instanceof Error ? error.message : "Failed to cancel",
         });
       }
     });
@@ -38,14 +38,16 @@ export function InviteActions({ inviteId }: { inviteId: string }) {
   const handleReissue = () => {
     setMessage(null);
     startTransition(async () => {
-      const result = await reissueParentInvite(inviteId);
-      if (result.ok && result.data) {
-        setMessage({ type: "success", text: `New code: ${result.data.code}` });
-        router.refresh();
-      } else {
+      try {
+        const result = await api.post<{ code: string }>(
+          `/admin/parent-links/${inviteId}/reissue`,
+        );
+        setMessage({ type: "success", text: `New code: ${result.code}` });
+        await refresh();
+      } catch (error) {
         setMessage({
           type: "error",
-          text: result.error ?? result.message ?? "Failed to reissue",
+          text: error instanceof Error ? error.message : "Failed to reissue",
         });
       }
     });

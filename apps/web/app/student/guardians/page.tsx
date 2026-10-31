@@ -1,6 +1,8 @@
-export const instant = false;
+"use client";
 
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Card,
   Chip,
@@ -9,11 +11,23 @@ import {
   formatDay,
   toneFor,
 } from "@/components/ui/nila";
-import { listMyGuardians } from "@/actions/parent";
 import { CreateParentLinkForm, RevokeParentLinkButton } from "../student-forms";
 
-export default async function StudentGuardiansPage() {
-  const guardians = await listMyGuardians();
+type GuardianRow = {
+  id: string;
+  name: string | null;
+  email: string;
+  state: "active" | "sent" | "expired" | "revoked";
+  code?: string;
+  expiresAt?: string;
+};
+
+export default function StudentGuardiansPage() {
+  const guardiansQuery = useQuery({
+    queryKey: ["student", "guardians"],
+    queryFn: () => api.get<GuardianRow[]>("/student/guardians"),
+  });
+  const guardians = guardiansQuery.data ?? [];
 
   return (
     <div>

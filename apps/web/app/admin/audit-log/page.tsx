@@ -1,5 +1,6 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
 import {
   Table,
   TableHeader,
@@ -8,11 +9,26 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import { listAuditLog } from "@/lib/queries/admin";
 import { PageHeader, Card, Empty, formatDate } from "@/components/ui/nila";
+import { api } from "@/lib/api-client";
 
-export default async function AuditLogPage() {
-  const entries = await listAuditLog();
+type AuditEntry = {
+  id: string;
+  action: string;
+  targetType: string;
+  targetId: string | null;
+  actor?: { name: string; email: string };
+  before: unknown;
+  after: unknown;
+  at: string;
+};
+
+export default function AuditLogPage() {
+  const auditQuery = useQuery({
+    queryKey: ["admin-audit"],
+    queryFn: () => api.get<AuditEntry[]>("/admin/audit-log"),
+  });
+  const entries = auditQuery.data ?? [];
 
   return (
     <>
@@ -53,7 +69,9 @@ export default async function AuditLogPage() {
                       <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{entry.action}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {entry.action}
+                  </TableCell>
                   <TableCell className="text-xs">
                     <p>{entry.targetType}</p>
                     <p className="font-mono text-muted-foreground">

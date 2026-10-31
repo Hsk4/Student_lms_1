@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { submitAccessRequest } from "@/actions/onboarding";
+import { useQueryClient } from "@tanstack/react-query";
+import type { CatalogOption } from "@lms/shared";
 import { Card } from "@/components/ui/nila";
-import type { CatalogOption } from "@/actions/catalog-reads";
+import { api } from "@/lib/api-client";
 
 export function RequestForm({
   defaults,
@@ -18,6 +19,7 @@ export function RequestForm({
   subjects: CatalogOption[];
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -40,7 +42,7 @@ export function RequestForm({
           setPending(true);
           setMessage(null);
           try {
-            const result = await submitAccessRequest({
+            await api.post("/me/request", {
               name: form.get("name"),
               email: form.get("email"),
               boardId: form.get("boardId") ?? "",
@@ -48,12 +50,8 @@ export function RequestForm({
               subjectIds: selected,
               note: form.get("note") ?? "",
             });
-            if (result.ok) {
-              router.push("/pending");
-              router.refresh();
-            } else {
-              setMessage(result.message ?? "Could not submit");
-            }
+            await queryClient.invalidateQueries({ queryKey: ["me"] });
+            router.push("/pending");
           } catch (error) {
             setMessage(
               error instanceof Error ? error.message : "Could not submit",

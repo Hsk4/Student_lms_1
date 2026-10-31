@@ -1,5 +1,7 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Table,
   TableHeader,
@@ -8,15 +10,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Link from "next/link";
-import { getCatalogLists, listCourses } from "@/lib/queries/admin";
+
 import { PageHeader, Card, Empty } from "@/components/ui/nila";
 import { BoardForm, BoardRow } from "./board-ui";
 
-export default async function BoardsPage() {
-  const { boards } = await getCatalogLists();
-  const courses = await listCourses();
+type BoardRowData = { id: string; name: string; slug: string; active: boolean };
+
+export default function BoardsPage() {
+  const boardsQuery = useQuery({
+    queryKey: ["admin-boards"],
+    queryFn: () => api.get<{ boards: BoardRowData[] }>("/admin/catalog"),
+  });
+  const coursesQuery = useQuery({
+    queryKey: ["admin-courses"],
+    queryFn: () => api.get<{ id: string; boardId: string }[]>("/admin/courses"),
+  });
+
+  const boards = boardsQuery.data?.boards ?? [];
   const counts = new Map<string, number>();
-  for (const course of courses) {
+  for (const course of coursesQuery.data ?? []) {
     counts.set(course.boardId, (counts.get(course.boardId) ?? 0) + 1);
   }
 

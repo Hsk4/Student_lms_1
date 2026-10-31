@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { reassignStudent } from "@/actions/enrollment-admin";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 
 export function ReassignForm({
   enrollmentId,
@@ -13,10 +13,10 @@ export function ReassignForm({
   currentTeacherId: string;
   teachers: { id: string; name: string }[];
 }) {
-  const router = useRouter();
   const [teacherId, setTeacherId] = useState("");
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   return (
     <form
@@ -26,13 +26,17 @@ export function ReassignForm({
         setPending(true);
         setMessage(null);
         try {
-          const result = await reassignStudent({ enrollmentId, teacherId });
-          if (result.ok) {
-            setMessage("Reassigned.");
-            router.refresh();
-          } else {
-            setMessage(result.message ?? "Could not reassign");
-          }
+          await api.post(`/admin/enrollments/${enrollmentId}/reassign`, {
+            teacherId,
+          });
+          setMessage("Reassigned.");
+          await queryClient.invalidateQueries({
+            queryKey: ["admin-enrollments"],
+          });
+        } catch (error) {
+          setMessage(
+            error instanceof Error ? error.message : "Could not reassign",
+          );
         } finally {
           setPending(false);
         }
@@ -61,7 +65,11 @@ export function ReassignForm({
             ))}
         </select>
       </div>
-      <button type="submit" className="border border-border bg-card text-foreground shadow-sm hover:bg-secondary" disabled={pending}>
+      <button
+        type="submit"
+        className="border border-border bg-card text-foreground shadow-sm hover:bg-secondary"
+        disabled={pending}
+      >
         {pending ? "Moving..." : "Reassign"}
       </button>
       {message ? (

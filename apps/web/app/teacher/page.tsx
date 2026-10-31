@@ -1,6 +1,8 @@
-export const instant = false;
+"use client";
 
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Card,
   Chip,
@@ -9,23 +11,68 @@ import {
   Stat,
   formatDate,
 } from "@/components/ui/nila";
-import {
-  getTeacherDashboard,
-  listClasses,
-  listMyAssignments,
-  listMyMeetings,
-  listStudentRequests,
-} from "@/actions/teacher-panel";
+type Dashboard = {
+  name: string;
+  students: number;
+  classes: number;
+  pendingRequests: number;
+  ungradedSubmissions: number;
+  averageScore: number | null;
+};
+type RequestRow = { id: string; studentName: string; courseLabel: string };
+type ClassRow = {
+  id: string;
+  name: string;
+  courseLabel: string;
+  schedule: string;
+  state: "current" | "past";
+  studentCount: number;
+};
+type AssignmentRow = { id: string; title: string; classId: string | null; submissions: { score: number | null }[] };
+type MeetingRow = {
+  id: string;
+  parentName: string;
+  studentName: string;
+  slots: string;
+  state: string;
+  confirmedAt: string | null;
+};
 
-export default async function TeacherDashboardPage() {
-  const [dashboard, requests, classes, assignments, meetings] =
-    await Promise.all([
-      getTeacherDashboard(),
-      listStudentRequests(),
-      listClasses(),
-      listMyAssignments(),
-      listMyMeetings(),
-    ]);
+export default function TeacherDashboardPage() {
+  const dashboardQuery = useQuery({
+    queryKey: ["teacher", "dashboard"],
+    queryFn: () => api.get<Dashboard>("/teacher/dashboard"),
+  });
+  const requestsQuery = useQuery({
+    queryKey: ["teacher", "requests"],
+    queryFn: () => api.get<RequestRow[]>("/teacher/requests"),
+  });
+  const classesQuery = useQuery({
+    queryKey: ["teacher", "classes"],
+    queryFn: () => api.get<ClassRow[]>("/teacher/classes"),
+  });
+  const assignmentsQuery = useQuery({
+    queryKey: ["teacher", "assignments"],
+    queryFn: () => api.get<AssignmentRow[]>("/teacher/assignments"),
+  });
+  const meetingsQuery = useQuery({
+    queryKey: ["teacher", "meetings"],
+    queryFn: () => api.get<MeetingRow[]>("/teacher/meetings"),
+  });
+
+  const dashboard =
+    dashboardQuery.data ?? {
+      name: "",
+      students: 0,
+      classes: 0,
+      pendingRequests: 0,
+      ungradedSubmissions: 0,
+      averageScore: null,
+    };
+  const requests = requestsQuery.data ?? [];
+  const classes = classesQuery.data ?? [];
+  const assignments = assignmentsQuery.data ?? [];
+  const meetings = meetingsQuery.data ?? [];
 
   const current = classes.filter((item) => item.state === "current");
   const upcoming = meetings
@@ -180,7 +227,7 @@ export default async function TeacherDashboardPage() {
             {current.map((klass) => (
               <Link
                 key={klass.id}
-                href={`/teacher/classes/${klass.id}`}
+                href={`/teacher/classes/detail?id=${klass.id}`}
                 className="block"
               >
                 <Card className="p-4 transition-colors duration-150 hover:bg-tint">

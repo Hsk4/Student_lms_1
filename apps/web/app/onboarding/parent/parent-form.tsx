@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createParentLink } from "@/actions/parent";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 
 /**
  * First-login step: record a guardian and issue a link code.
@@ -13,6 +14,7 @@ import { createParentLink } from "@/actions/parent";
  */
 export function ParentOnboardingForm() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [issued, setIssued] = useState<{
@@ -46,9 +48,9 @@ export function ParentOnboardingForm() {
         <button
           type="button"
           className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
-          onClick={() => {
+          onClick={async () => {
+            await queryClient.invalidateQueries({ queryKey: ["me"] });
             router.push("/student");
-            router.refresh();
           }}
         >
           Continue to my dashboard
@@ -66,17 +68,14 @@ export function ParentOnboardingForm() {
         setPending(true);
         setMessage(null);
         try {
-          const result = await createParentLink({
-            parentName: form.get("parentName"),
-            parentEmail: String(form.get("parentEmail") ?? "") || undefined,
-          });
-          if (!result.ok || !result.data) {
-            setMessage(
-              result.error ?? result.message ?? "Could not create a link code",
-            );
-          } else {
-            setIssued(result.data);
-          }
+          const issuedCode = await api.post<{ code: string; expiresAt: string }>(
+            "/student/parent-links",
+            {
+              parentName: form.get("parentName"),
+              parentEmail: String(form.get("parentEmail") ?? "") || undefined,
+            },
+          );
+          setIssued(issuedCode);
         } catch (error) {
           setMessage(
             error instanceof Error

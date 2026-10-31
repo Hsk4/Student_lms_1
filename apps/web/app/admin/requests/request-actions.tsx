@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { decideAccessRequest } from "@/actions/admin";
 import { ActionButton } from "@/components/ui/action-form";
+import { api } from "@/lib/api-client";
+import { useApiMutation } from "@/lib/queries";
 
 const ROLES = ["student", "teacher", "parent", "admin"] as const;
 
@@ -15,6 +16,12 @@ export function RequestActions({
 }) {
   const [role, setRole] = useState<string>(defaultRole);
   const [reason, setReason] = useState("");
+
+  const refresh = [["admin-requests"], ["me"]];
+  const decide = useApiMutation<
+    null,
+    { decision: "approve" | "reject"; role?: string; reason?: string }
+  >("post", () => `/admin/requests/${requestId}/decision`, refresh);
 
   return (
     <div className="flex flex-wrap items-end gap-3 border-t border-border pt-4">
@@ -37,7 +44,7 @@ export function RequestActions({
       </div>
 
       <ActionButton
-        action={() => decideAccessRequest(requestId, "approve", role)}
+        action={() => decide.mutateAsync({ decision: "approve", role })}
         tone="secondary"
       >
         Approve
@@ -56,9 +63,7 @@ export function RequestActions({
       </div>
 
       <ActionButton
-        action={() =>
-          decideAccessRequest(requestId, "reject", undefined, reason)
-        }
+        action={() => decide.mutateAsync({ decision: "reject", reason })}
         confirm="Reject this request? The user cannot re-apply for 30 days."
         tone="danger"
       >
@@ -67,3 +72,7 @@ export function RequestActions({
     </div>
   );
 }
+
+/** Kept for the sync button elsewhere: one place that talks to the API. */
+export const syncAdmin = () =>
+  api.post<{ deleted: number; synced: number }>("/admin/users/sync");

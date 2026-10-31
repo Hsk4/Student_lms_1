@@ -2,11 +2,34 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createCourse, toggleCourse, updateCourse } from "@/actions/catalog";
+import { useQueryClient } from "@tanstack/react-query";
 import { ActionButton, ActionForm } from "@/components/ui/action-form";
-import type { CourseRow as CourseRowData } from "@/lib/queries/admin";
+import { api } from "@/lib/api-client";
 
 type Option = { id: string; name: string; active: boolean };
+
+export type CourseRowData = {
+  id: string;
+  boardId: string;
+  board: string;
+  levelId: string;
+  level: string;
+  subjectId: string;
+  subject: string;
+  medium: string;
+  active: boolean;
+  books: number;
+};
+
+function useCatalogRefresh() {
+  const queryClient = useQueryClient();
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["admin-courses"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-boards"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-catalog"] }),
+    ]);
+}
 
 export function CourseForm({
   boards,
@@ -17,21 +40,24 @@ export function CourseForm({
   levels: Option[];
   subjects: Option[];
 }) {
+  const refresh = useCatalogRefresh();
   const active = (list: Option[]) => list.filter((item) => item.active);
 
   return (
     <ActionForm
       className="mt-3 space-y-3"
       submitLabel="Create course"
-      action={async (form) =>
-        createCourse({
+      action={async (form) => {
+        await api.post("/admin/courses", {
           boardId: form.get("boardId"),
           levelId: form.get("levelId"),
           subjectId: form.get("subjectId"),
           medium: form.get("medium") ?? "",
           active: true,
-        })
-      }
+        });
+        await refresh();
+        return null;
+      }}
     >
       <div>
         <label className="label" htmlFor="course-board">
@@ -86,6 +112,7 @@ export function CourseForm({
 
 export function CourseRow({ course }: { course: CourseRowData }) {
   const [editing, setEditing] = useState(false);
+  const refresh = useCatalogRefresh();
 
   if (editing) {
     return (
@@ -96,16 +123,16 @@ export function CourseRow({ course }: { course: CourseRowData }) {
             submitLabel="Save"
             resetOnSuccess={false}
             action={async (form) => {
-              const state = await updateCourse({
-                id: course.id,
+              await api.patch(`/admin/courses/${course.id}`, {
                 boardId: course.boardId,
                 levelId: course.levelId,
                 subjectId: course.subjectId,
                 medium: form.get("medium") ?? "",
                 active: form.get("active") === "on",
               });
-              if (state?.ok) setEditing(false);
-              return state;
+              setEditing(false);
+              await refresh();
+              return null;
             }}
           >
             <p className="w-full text-sm text-muted-foreground">
@@ -144,7 +171,7 @@ export function CourseRow({ course }: { course: CourseRowData }) {
     <tr>
       <td>
         <Link
-          href={`/admin/courses/${course.id}`}
+          href={`/admin/courses/detail?id=${course.id}`}
           className="font-medium text-primary"
         >
           {course.subject}
@@ -173,7 +200,13 @@ export function CourseRow({ course }: { course: CourseRowData }) {
         </button>
         <ActionButton
           tone="ghost"
-          action={() => toggleCourse(course.id, !course.active)}
+          action={async () => {
+            await api.patch(`/admin/courses/${course.id}/active`, {
+              active: !course.active,
+            });
+            await refresh();
+            return null;
+          }}
         >
           {course.active ? "Hide" : "Show"}
         </ActionButton>

@@ -7,6 +7,7 @@ import { writeAudit } from "@/lib/audit";
 import { actorOf } from "@/middleware/auth";
 import {
   addMessage,
+  authorNames,
   createTicket,
   findTicketById,
   listOpenTickets,
@@ -97,12 +98,36 @@ export async function escalateTicket(req: Request) {
   });
 }
 
-/** `GET /api/v1/support/tickets` — admins get the open queue, others their own. */
+/**
+ * `GET /api/v1/support/tickets` — admins get the open queue, others their own.
+ * Author names are resolved here so the pages do not need a second call.
+ */
 export async function myTickets(req: Request) {
   const actor = actorOf(req);
-  if (actor.role === "admin" || actor.role === "super_admin") {
-    const assignedTo = actor.role === "super_admin" ? undefined : "admin";
-    return listOpenTickets(assignedTo);
-  }
-  return listTicketsCreatedBy(actor.id);
+  const tickets =
+    actor.role === "admin" || actor.role === "super_admin"
+      ? await listOpenTickets(actor.role === "admin" ? "admin" : undefined)
+      : await listTicketsCreatedBy(actor.id);
+
+  const names = await authorNames([
+    ...new Set(
+      tickets.flatMap((ticket) => [
+        ticket.createdBy,
+        ...ticket.messages.map((message) => message.authorId),
+      ]),
+    ),
+  ]);
+
+  return tickets.map((ticket) => ({
+    id: ticket.id,
+    subject: ticket.subject,
+    state: ticket.state,
+    assignedTo: ticket.assignedTo,
+    createdAt: ticket.createdAt.toISOString(),
+    createdBy: { name: names.get(ticket.createdBy) ?? "Unknown" },
+    messages: ticket.messages.map((message) => ({
+      author: names.get(message.authorId) ?? "Unknown",
+      text: message.text,
+    })),
+  }));
 }

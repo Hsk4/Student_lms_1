@@ -6,7 +6,12 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/nila";
 
-type Result = { ok: boolean; message?: string } | void;
+/**
+ * Moved client-side: the web calls the API through `lib/api-client`, so a
+ * mutation returns `null` on success and throws on failure. `{ ok: false }` is
+ * still accepted so older call sites keep working the same way.
+ */
+type Result = { ok: boolean; message?: string } | void | null;
 
 /**
  * Form + result line. Every panel form uses it, so the feedback looks the same.
@@ -42,8 +47,9 @@ export function ActionForm({
         setResult(null);
         try {
           const state = await action(formData);
-          setResult(state);
-          if (state?.ok && resetOnSuccess) form.reset();
+          setResult(state === null ? { ok: true } : state);
+          const ok = state === null || state === undefined || state.ok;
+          if (ok && resetOnSuccess) form.reset();
         } catch (error) {
           setResult({
             ok: false,
@@ -102,7 +108,9 @@ export function ActionButton({
           setMessage(null);
           try {
             const state = await action();
-            if (state && !state.ok) setMessage(state.message ?? "Failed");
+            if (state && "ok" in state && !state.ok) {
+              setMessage(state.message ?? "Failed");
+            }
           } catch (error) {
             setMessage(error instanceof Error ? error.message : "Failed");
           } finally {

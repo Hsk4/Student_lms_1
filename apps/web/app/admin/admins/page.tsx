@@ -1,32 +1,28 @@
-export const instant = false;
+"use client";
 
-import { redirect } from "next/navigation";
-import { Suspense } from "react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/nila";
-import { getCurrentUser, homeFor } from "@/lib/auth/roles";
+import { useMe } from "@/lib/queries";
 
-async function Body() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/sign-in");
-  if (user.role !== "super_admin" || user.status !== "active")
-    redirect(homeFor(user));
+/** Super-admin only. The API rejects every admin-only call from an admin. */
+export default function AdminsPage() {
+  const me = useMe();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (
+      me.data &&
+      (me.data.role !== "super_admin" || me.data.status !== "active")
+    ) {
+      router.replace(me.data.home);
+    }
+  }, [me.data, router]);
 
   return (
     <PageHeader
       title="Admins"
       description="Creating, suspending and reinstating admins lands with the super admin panel in Phase 6."
     />
-  );
-}
-
-export default function AdminsPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="p-10 text-sm text-muted-foreground">Loading...</div>
-      }
-    >
-      <Body />
-    </Suspense>
   );
 }

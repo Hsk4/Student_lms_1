@@ -2,6 +2,7 @@ import { Router } from "express";
 import { asyncHandler } from "@/middleware/async-handler";
 import { auth } from "@/middleware/auth";
 import { freshStatus, me, myRequestStatus } from "@/controllers/me";
+import { requestParentAccess, submitAccessRequest } from "@/controllers/onboarding";
 import { ok } from "@/lib/respond";
 
 export const meRoutes = Router();
@@ -19,6 +20,22 @@ meRoutes.get(
   "/me/request",
   restricted,
   asyncHandler(async (req, res) => ok(res, await myRequestStatus(req))),
+);
+meRoutes.post(
+  "/me/request",
+  restricted,
+  asyncHandler(async (req, res) => {
+    await submitAccessRequest(req);
+    ok(res, null);
+  }),
+);
+meRoutes.post(
+  "/me/request/parent",
+  restricted,
+  asyncHandler(async (req, res) => {
+    await requestParentAccess(req);
+    ok(res, null);
+  }),
 );
 meRoutes.get(
   "/me/status",

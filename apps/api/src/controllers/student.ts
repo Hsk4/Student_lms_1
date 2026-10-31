@@ -27,6 +27,7 @@ import {
 import { listBooksForCourses } from "@/db/queries/books";
 import { listCourseLabels } from "@/db/queries/teacher-courses";
 import { findUserById, listUsersByIds } from "@/db/queries/users";
+import { listPublishedQuizzesForStudent } from "@/db/queries/quizzes";
 
 /**
  * Student panel reads. Every query scopes to the signed-in student's own id;
@@ -314,6 +315,14 @@ export async function mySubmission(req: Request) {
     )
     .limit(1);
   return row ?? null;
+}
+
+/** Published quizzes for the student's active courses (Quizzes phase is pending). */
+export async function myQuizzes(req: Request) {
+  const studentId = actorOf(req).id;
+  const courseIds = await courseIdsOf(studentId, true);
+  if (courseIds.length === 0) return [];
+  return listPublishedQuizzesForStudent(studentId, courseIds);
 }
 
 /** Courses matching the student's board and level. */

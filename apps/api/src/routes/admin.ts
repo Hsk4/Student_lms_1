@@ -6,9 +6,11 @@ import {
   analytics,
   bookCounts,
   getBookDetail,
+  getUserDetail,
   listAuditLog,
   listBooksAdmin,
   listParentLinks,
+  parentLinkOptions,
   listRequests,
   listUsersAdmin,
   linkGuardian,
@@ -33,6 +35,11 @@ adminRoutes.get(
   "/admin/users",
   ...admin,
   asyncHandler(async (req, res) => ok(res, await listUsersAdmin(req))),
+);
+adminRoutes.get(
+  "/admin/users/:id",
+  ...admin,
+  asyncHandler(async (req, res) => ok(res, await getUserDetail(req))),
 );
 adminRoutes.post(
   "/admin/users/sync",
@@ -101,6 +108,11 @@ adminRoutes.get(
   "/admin/parent-links",
   ...admin,
   asyncHandler(async (_req, res) => ok(res, await listParentLinks())),
+);
+adminRoutes.get(
+  "/admin/parent-links/options",
+  ...admin,
+  asyncHandler(async (_req, res) => ok(res, await parentLinkOptions())),
 );
 adminRoutes.post(
   "/admin/parent-links/:id/revoke",

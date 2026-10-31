@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { requestParentAccess } from "@/actions/onboarding";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 
 /**
  * The single action a guardian needs: ask for the parent role.
@@ -17,6 +18,7 @@ export function RequestParentRoleButton({
   reapplyAt?: string | null;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -37,12 +39,16 @@ export function RequestParentRoleButton({
         onClick={() => {
           setError(null);
           startTransition(async () => {
-            const result = await requestParentAccess();
-            if (result.ok) {
+            try {
+              await api.post("/me/request/parent");
+              await queryClient.invalidateQueries({ queryKey: ["me"] });
               router.push("/pending");
-              router.refresh();
-            } else {
-              setError(result.message ?? "Could not send the request");
+            } catch (requestError) {
+              setError(
+                requestError instanceof Error
+                  ? requestError.message
+                  : "Could not send the request",
+              );
             }
           });
         }}

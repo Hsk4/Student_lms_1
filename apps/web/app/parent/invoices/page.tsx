@@ -1,5 +1,9 @@
-export const instant = false;
+"use client";
 
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { useQueries, useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Table,
   TableHeader,
@@ -17,28 +21,33 @@ import {
   Stat,
   formatDay,
 } from "@/components/ui/nila";
-import { listChildOverviews } from "@/actions/parent-panel";
-import { getStudentInvoices } from "@/actions/tuition-support";
 import { ChildSwitcher } from "@/components/shell/shell";
 
-export default async function ParentInvoicesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ child?: string }>;
-}) {
-  const { child: selected } = await searchParams;
-  const children = await listChildOverviews();
-  const visible = selected
-    ? children.filter((item) => item.id === selected)
-    : children;
+type ChildOverview = { id: string; name: string; dueAmount: number };
+type InvoiceRow = { id: string; period: string; amount: number; dueDate: string; state: string };
 
-  const perChild = await Promise.all(
-    visible.map(async (child) => ({
-      child,
-      // Row guard inside the action: a parent may only read a linked child.
-      invoices: await getStudentInvoices(child.id),
+function ParentInvoicesContent() {
+  const params = useSearchParams();
+  const selected = params.get("child") ?? undefined;
+
+  const childrenQuery = useQuery({
+    queryKey: ["parent", "children"],
+    queryFn: () => api.get<ChildOverview[]>("/parent/overview"),
+  });
+  const children = childrenQuery.data ?? [];
+  const visible = selected ? children.filter((item) => item.id === selected) : children;
+
+  // The API only answers for a child linked to this parent.
+  const invoiceQueries = useQueries({
+    queries: visible.map((child) => ({
+      queryKey: ["parent", "invoices", child.id],
+      queryFn: () => api.get<InvoiceRow[]>("/invoices", { studentId: child.id }),
     })),
-  );
+  });
+  const perChild = visible.map((child, index) => ({
+    child,
+    invoices: invoiceQueries[index]?.data ?? [],
+  }));
 
   const totalDue = visible.reduce((sum, child) => sum + child.dueAmount, 0);
 
@@ -93,7 +102,7 @@ export default async function ParentInvoicesPage({
                   {child.name}
                 </h2>
                 <Link
-                  href={`/parent/children/${child.id}`}
+                  href={`/parent/children/detail?id=${child.id}`}
                   className="text-sm font-medium text-primary hover:underline"
                 >
                   Child overview
@@ -143,5 +152,13 @@ export default async function ParentInvoicesPage({
         })}
       </div>
     </div>
+  );
+}
+
+export default function ParentInvoicesPage() {
+  return (
+    <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Loading...</p>}>
+      <ParentInvoicesContent />
+    </Suspense>
   );
 }

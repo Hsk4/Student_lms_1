@@ -1,5 +1,7 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Table,
   TableHeader,
@@ -16,10 +18,14 @@ import {
   Stat,
   formatDay,
 } from "@/components/ui/nila";
-import { listMyAttendance } from "@/actions/student-panel";
+type AttendanceRow = { id: string; date: string; present: boolean; context: string };
 
-export default async function StudentAttendancePage() {
-  const rows = await listMyAttendance();
+export default function StudentAttendancePage() {
+  const rowsQuery = useQuery({
+    queryKey: ["student", "attendance"],
+    queryFn: () => api.get<AttendanceRow[]>("/student/attendance"),
+  });
+  const rows = rowsQuery.data ?? [];
   const present = rows.filter((row) => row.present).length;
   const rate = rows.length ? Math.round((present / rows.length) * 100) : null;
 

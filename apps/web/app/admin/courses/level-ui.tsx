@@ -1,23 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { createLevel, toggleLevel, updateLevel } from "@/actions/catalog";
+import { useQueryClient } from "@tanstack/react-query";
 import { ActionButton, ActionForm } from "@/components/ui/action-form";
+import { api } from "@/lib/api-client";
 
 type Level = { id: string; name: string; order: number; active: boolean };
 
+function useLevelRefresh() {
+  const queryClient = useQueryClient();
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["admin-catalog"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-courses"] }),
+      queryClient.invalidateQueries({ queryKey: ["form-options"] }),
+    ]);
+}
+
 export function LevelForm() {
+  const refresh = useLevelRefresh();
   return (
     <ActionForm
       className="mt-3 space-y-3"
       submitLabel="Create level"
-      action={async (form) =>
-        createLevel({
+      action={async (form) => {
+        await api.post("/admin/levels", {
           name: form.get("name"),
           order: form.get("order"),
           active: true,
-        })
-      }
+        });
+        await refresh();
+        return null;
+      }}
     >
       <div>
         <label className="label" htmlFor="level-name">
@@ -52,6 +66,7 @@ export function LevelForm() {
 
 export function LevelRow({ level }: { level: Level }) {
   const [editing, setEditing] = useState(false);
+  const refresh = useLevelRefresh();
 
   if (editing) {
     return (
@@ -62,14 +77,14 @@ export function LevelRow({ level }: { level: Level }) {
             submitLabel="Save"
             resetOnSuccess={false}
             action={async (form) => {
-              const state = await updateLevel({
-                id: level.id,
+              await api.patch(`/admin/levels/${level.id}`, {
                 name: form.get("name"),
                 order: form.get("order"),
                 active: form.get("active") === "on",
               });
-              if (state?.ok) setEditing(false);
-              return state;
+              setEditing(false);
+              await refresh();
+              return null;
             }}
           >
             <div>
@@ -135,7 +150,13 @@ export function LevelRow({ level }: { level: Level }) {
         </button>
         <ActionButton
           tone="ghost"
-          action={() => toggleLevel(level.id, !level.active)}
+          action={async () => {
+            await api.patch(`/admin/levels/${level.id}/active`, {
+              active: !level.active,
+            });
+            await refresh();
+            return null;
+          }}
         >
           {level.active ? "Hide" : "Show"}
         </ActionButton>

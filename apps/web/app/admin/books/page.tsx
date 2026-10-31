@@ -1,5 +1,9 @@
-export const instant = false;
+"use client";
 
+import Link from "next/link";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   Table,
   TableHeader,
@@ -8,22 +12,38 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import Link from "next/link";
-import { listBooks, listCourses, courseLabel } from "@/lib/queries/admin";
 import { PageHeader, Card, Empty } from "@/components/ui/nila";
+import { api } from "@/lib/api-client";
 import { BookForm } from "./book-ui";
 
-export default async function BooksPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ courseId?: string }>;
-}) {
-  const { courseId } = await searchParams;
-  const books = await listBooks();
-  const courses = await listCourses();
-  const courseOptions = courses.map((course) => ({
+type BookRow = {
+  id: string;
+  title: string;
+  author: string;
+  note: string;
+  courseIds: string[];
+  courses: string[];
+};
+
+type CourseRow = { id: string; label: string };
+
+function BooksContent() {
+  const params = useSearchParams();
+  const courseId = params.get("courseId") ?? undefined;
+
+  const booksQuery = useQuery({
+    queryKey: ["admin-books"],
+    queryFn: () => api.get<BookRow[]>("/admin/books"),
+  });
+  const coursesQuery = useQuery({
+    queryKey: ["admin-courses"],
+    queryFn: () => api.get<CourseRow[]>("/admin/courses"),
+  });
+
+  const books = booksQuery.data ?? [];
+  const courseOptions = (coursesQuery.data ?? []).map((course) => ({
     id: course.id,
-    label: courseLabel(course),
+    label: course.label,
   }));
 
   return (
@@ -52,7 +72,7 @@ export default async function BooksPage({
                     <TableRow key={book.id}>
                       <TableCell>
                         <Link
-                          href={`/admin/books/${book.id}`}
+                          href={`/admin/books/detail?id=${book.id}`}
                           className="font-medium text-primary"
                         >
                           {book.title}
@@ -70,7 +90,7 @@ export default async function BooksPage({
                           </span>
                         ) : (
                           <ul className="space-y-0.5">
-                            {book.courses.map((label: string) => (
+                            {book.courses.map((label) => (
                               <li key={label}>{label}</li>
                             ))}
                           </ul>
@@ -78,7 +98,7 @@ export default async function BooksPage({
                       </TableCell>
                       <TableCell className="text-end">
                         <Link
-                          href={`/admin/books/${book.id}`}
+                          href={`/admin/books/detail?id=${book.id}`}
                           className="text-primary hover:bg-tint hover:text-tint-foreground h-8"
                         >
                           Open
@@ -98,5 +118,15 @@ export default async function BooksPage({
         </Card>
       </div>
     </>
+  );
+}
+
+export default function BooksPage() {
+  return (
+    <Suspense
+      fallback={<p className="p-6 text-sm text-muted-foreground">Loading...</p>}
+    >
+      <BooksContent />
+    </Suspense>
   );
 }

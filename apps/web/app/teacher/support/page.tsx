@@ -1,5 +1,7 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Card,
   Chip,
@@ -8,40 +10,25 @@ import {
   formatDay,
   toneFor,
 } from "@/components/ui/nila";
-import { requireRole } from "@/lib/auth/guards";
 import {
   NewTicketForm,
   TicketReplyForm,
 } from "@/components/support/support-forms";
-import {
-  authorNames,
-  listTicketsCreatedBy,
-} from "@/lib/queries/support-tickets";
 
-export default async function TeacherSupportPage() {
-  const session = await requireRole(["teacher"]);
+type TicketRow = {
+  id: string;
+  subject: string;
+  state: string;
+  createdAt: string;
+  messages: { author: string; text: string }[];
+};
 
-  const rawTickets = await listTicketsCreatedBy(session.actorId);
-  const names = await authorNames([
-    ...new Set(
-      rawTickets.flatMap((ticket) =>
-        ticket.messages.map((message) => message.authorId),
-      ),
-    ),
-  ]);
-  const tickets = rawTickets.map((ticket) => ({
-    id: ticket.id,
-    subject: ticket.subject,
-    state: ticket.state,
-    createdAt: ticket.createdAt,
-    messages: ticket.messages.map((message) => ({
-      author:
-        message.authorId === session.actorId
-          ? "You"
-          : names.get(message.authorId) ?? "School",
-      text: message.text,
-    })),
-  }));
+export default function TeacherSupportPage() {
+  const ticketsQuery = useQuery({
+    queryKey: ["support-tickets"],
+    queryFn: () => api.get<TicketRow[]>("/support/tickets"),
+  });
+  const tickets = ticketsQuery.data ?? [];
 
   return (
     <div>

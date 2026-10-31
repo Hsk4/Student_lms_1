@@ -1,38 +1,34 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { RefreshCw } from 'lucide-react';
-
-import { syncUsersWithClerk } from '@/actions/sync';
-import { Button } from '@/components/ui/button';
-import { Notice } from '@/components/ui/nila';
+import { useState } from "react";
+import { RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/nila";
+import { api } from "@/lib/api-client";
 
 export function SyncUsersButton() {
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const handleSync = async () => {
     setLoading(true);
     setMessage(null);
 
     try {
-      const result = await syncUsersWithClerk();
-
-      if (result.ok && result.data) {
-        setMessage({
-          type: 'success',
-          text: `Sync complete. Deleted ${result.data.deleted} user(s). ${result.data.synced} users synced with Clerk.`,
-        });
-      } else {
-        setMessage({
-          type: 'error',
-          text: result.error || 'Sync failed',
-        });
-      }
+      const result = await api.post<{ deleted: number; synced: number }>(
+        "/admin/users/sync",
+      );
+      setMessage({
+        type: "success",
+        text: `Sync complete. Deleted ${result.deleted} user(s). ${result.synced} users synced with Clerk.`,
+      });
     } catch (error) {
       setMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : 'Unknown error',
+        type: "error",
+        text: error instanceof Error ? error.message : "Sync failed",
       });
     } finally {
       setLoading(false);
@@ -47,11 +43,11 @@ export function SyncUsersButton() {
         onClick={handleSync}
         disabled={loading}
       >
-        <RefreshCw className={loading ? 'animate-spin' : undefined} />
-        {loading ? 'Syncing...' : 'Sync with Clerk'}
+        <RefreshCw className={loading ? "animate-spin" : undefined} />
+        {loading ? "Syncing..." : "Sync with Clerk"}
       </Button>
       {message ? (
-        <Notice tone={message.type === 'success' ? 'success' : 'error'}>
+        <Notice tone={message.type === "success" ? "success" : "error"}>
           {message.text}
         </Notice>
       ) : null}

@@ -1,5 +1,6 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
 import {
   Card,
   Chip,
@@ -8,33 +9,26 @@ import {
   PageHeader,
   formatDay,
 } from "@/components/ui/nila";
-import { requireRole } from "@/lib/auth/guards";
-import { and, eq } from "drizzle-orm";
-import { db } from "@/db/client";
-import { enrollments } from "@/db/schema";
-import { listPublishedQuizzesForStudent } from "@/lib/queries/quizzes";
+import { api } from "@/lib/api-client";
+
+type QuizRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  createdAt: string;
+  questions: unknown[];
+};
 
 /**
  * Quizzes belong to Phase 7 of the objective. The list is real data, scoped to
  * the student's active courses; taking a quiz is added with that phase.
  */
-export default async function StudentQuizzesPage() {
-  const session = await requireRole(["student"]);
-
-  const activeRows = await db
-    .select({ courseId: enrollments.courseId })
-    .from(enrollments)
-    .where(
-      and(
-        eq(enrollments.studentId, session.actorId),
-        eq(enrollments.state, "active"),
-      ),
-    );
-
-  const quizzes = await listPublishedQuizzesForStudent(
-    session.actorId,
-    [...new Set(activeRows.map((row) => row.courseId))],
-  );
+export default function StudentQuizzesPage() {
+  const quizzesQuery = useQuery({
+    queryKey: ["student", "quizzes"],
+    queryFn: () => api.get<QuizRow[]>("/student/quizzes"),
+  });
+  const quizzes = quizzesQuery.data ?? [];
 
   return (
     <div>

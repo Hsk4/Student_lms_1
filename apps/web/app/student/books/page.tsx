@@ -1,10 +1,17 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { Card, Empty, PageHeader } from "@/components/ui/nila";
-import { listMyBooks } from "@/actions/student-panel";
+import { api } from "@/lib/api-client";
 
-export default async function StudentBooksPage() {
-  const books = await listMyBooks();
+type BookRow = { id: string; title: string; author: string; note: string; courseLabel: string };
+
+export default function StudentBooksPage() {
+  const booksQuery = useQuery({
+    queryKey: ["student", "books"],
+    queryFn: () => api.get<BookRow[]>("/student/books"),
+  });
+  const books = booksQuery.data ?? [];
 
   return (
     <div>

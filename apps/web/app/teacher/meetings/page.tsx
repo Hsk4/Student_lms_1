@@ -1,5 +1,7 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Table,
   TableHeader,
@@ -16,11 +18,24 @@ import {
   formatDate,
   toneFor,
 } from "@/components/ui/nila";
-import { listMyMeetings } from "@/actions/teacher-panel";
 import { ConfirmMeetingForm, RequestNewSlotButton } from "../teacher-forms";
 
-export default async function TeacherMeetingsPage() {
-  const meetings = await listMyMeetings();
+type MeetingRow = {
+  id: string;
+  parentName: string;
+  parentEmail: string;
+  studentName: string;
+  slots: string;
+  state: string;
+  confirmedAt: string | null;
+};
+
+export default function TeacherMeetingsPage() {
+  const meetingsQuery = useQuery({
+    queryKey: ["teacher", "meetings"],
+    queryFn: () => api.get<MeetingRow[]>("/teacher/meetings"),
+  });
+  const meetings = meetingsQuery.data ?? [];
   const open = meetings.filter(
     (meeting) => meeting.state !== "done" && meeting.state !== "cancelled",
   );

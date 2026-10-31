@@ -1,23 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { createSubject, toggleSubject, updateSubject } from "@/actions/catalog";
+import { useQueryClient } from "@tanstack/react-query";
 import { ActionButton, ActionForm } from "@/components/ui/action-form";
+import { api } from "@/lib/api-client";
 
 type Subject = { id: string; name: string; slug: string; active: boolean };
 
+function useSubjectRefresh() {
+  const queryClient = useQueryClient();
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["admin-catalog"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-courses"] }),
+      queryClient.invalidateQueries({ queryKey: ["form-options"] }),
+    ]);
+}
+
 export function SubjectForm() {
+  const refresh = useSubjectRefresh();
   return (
     <ActionForm
       className="mt-3 space-y-3"
       submitLabel="Create subject"
-      action={async (form) =>
-        createSubject({
+      action={async (form) => {
+        await api.post("/admin/subjects", {
           name: form.get("name"),
           slug: form.get("slug"),
           active: true,
-        })
-      }
+        });
+        await refresh();
+        return null;
+      }}
     >
       <div>
         <label className="label" htmlFor="subject-name">
@@ -49,6 +63,7 @@ export function SubjectForm() {
 
 export function SubjectRow({ subject }: { subject: Subject }) {
   const [editing, setEditing] = useState(false);
+  const refresh = useSubjectRefresh();
 
   if (editing) {
     return (
@@ -59,14 +74,14 @@ export function SubjectRow({ subject }: { subject: Subject }) {
             submitLabel="Save"
             resetOnSuccess={false}
             action={async (form) => {
-              const state = await updateSubject({
-                id: subject.id,
+              await api.patch(`/admin/subjects/${subject.id}`, {
                 name: form.get("name"),
                 slug: form.get("slug"),
                 active: form.get("active") === "on",
               });
-              if (state?.ok) setEditing(false);
-              return state;
+              setEditing(false);
+              await refresh();
+              return null;
             }}
           >
             <div>
@@ -133,7 +148,13 @@ export function SubjectRow({ subject }: { subject: Subject }) {
         </button>
         <ActionButton
           tone="ghost"
-          action={() => toggleSubject(subject.id, !subject.active)}
+          action={async () => {
+            await api.patch(`/admin/subjects/${subject.id}/active`, {
+              active: !subject.active,
+            });
+            await refresh();
+            return null;
+          }}
         >
           {subject.active ? "Hide" : "Show"}
         </ActionButton>

@@ -1,5 +1,7 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Card,
   Chip,
@@ -8,11 +10,24 @@ import {
   Score,
   formatDate,
 } from "@/components/ui/nila";
-import { listMyAssignments } from "@/actions/student-panel";
 import { SubmitAssignmentForm } from "../student-forms";
 
-export default async function StudentAssignmentsPage() {
-  const assignments = await listMyAssignments();
+type AssignmentRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  dueAt: string | null;
+  submissionId: string | null;
+  score: number | null;
+  feedback: string;
+};
+
+export default function StudentAssignmentsPage() {
+  const assignmentsQuery = useQuery({
+    queryKey: ["student", "assignments"],
+    queryFn: () => api.get<AssignmentRow[]>("/student/assignments"),
+  });
+  const assignments = assignmentsQuery.data ?? [];
 
   const toDo = assignments.filter((item) => !item.submissionId);
   const submitted = assignments.filter(

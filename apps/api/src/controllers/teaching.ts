@@ -231,6 +231,21 @@ export async function matchingTeachers(req: Request) {
   return listMatchingTeachers(actorOf(req).id);
 }
 
+/** `GET /api/v1/admin/enrollments` with the matching teachers for each open row. */
+export async function listEnrollmentsWithTeachers() {
+  const open = await listEnrollments({ state: undefined });
+  const rows = open.filter((item) => item.state === "requested" || item.state === "active");
+  return Promise.all(
+    rows.map(async (item) => ({
+      ...item,
+      teachers: (await listMatchingTeachers(item.studentId)).map((teacher) => ({
+        id: teacher.id,
+        name: teacher.name,
+      })),
+    })),
+  );
+}
+
 /** `GET /api/v1/teacher/students/:id` — guarded by an active enrollment. */
 export async function teacherStudent(req: Request) {
   const actor = actorOf(req);

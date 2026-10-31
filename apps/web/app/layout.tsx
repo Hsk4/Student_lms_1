@@ -1,7 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
-import AuthRedirector from "@/components/auth-redirector";
+import { RootShell } from "@/views/layout/root-shell";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -25,33 +24,30 @@ export const metadata: Metadata = {
   description: "Learning management system",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+/** `viewport-fit=cover` lets the native shell draw under the status bar. */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider
-      signInUrl="/sign-in"
-      signUpUrl="/sign-up"
-      signInFallbackRedirectUrl="/"
-      signUpFallbackRedirectUrl="/"
-      signInForceRedirectUrl="/"
-      signUpForceRedirectUrl="/"
+    <html
+      lang="en"
+      // The theme script below writes `dark` here before paint; `` suppresses
+      // the resulting attribute-mismatch warning during hydration.
+      suppressHydrationWarning
+      className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <html
-        lang="en"
-        // The theme script below writes `dark` here before paint; `` suppresses
-        // the resulting attribute-mismatch warning during hydration.
-        suppressHydrationWarning
-        className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
-      >
-        <head>
-          {/* Applies the stored theme before first paint, so dark mode never
-              flashes white. See lib/theme.ts. */}
-          <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
-        </head>
-        <body className="flex min-h-full flex-col bg-background text-foreground">
-          <AuthRedirector />
-          {children}
-        </body>
-      </html>
-    </ClerkProvider>
+      <head>
+        {/* Applies the stored theme before first paint, so dark mode never
+            flashes white. See lib/theme.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
+      <body className="flex min-h-full flex-col bg-background text-foreground">
+        <RootShell>{children}</RootShell>
+      </body>
+    </html>
   );
 }

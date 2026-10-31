@@ -1,12 +1,13 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
-import { Suspense } from "react";
-import { getCurrentUser, homeFor } from "@/lib/auth/roles";
+"use client";
 
-/** Signed-out visitors reach the marketing page; everyone else lands in their area. */
-async function Gate({ error }: { error?: string }) {
-  const user = await getCurrentUser();
-  if (user) redirect(homeFor(user));
+import Link from "next/link";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+
+/** The public landing page. A signed-in visitor is sent home by `AuthRedirector`. */
+function Landing() {
+  const params = useSearchParams();
+  const error = params.get("error");
 
   return (
     <div className="flex flex-1 flex-col">
@@ -15,10 +16,16 @@ async function Gate({ error }: { error?: string }) {
           Fastly LMS
         </span>
         <nav className="flex items-center gap-2">
-          <Link href="/sign-in" className="border border-border bg-card text-foreground shadow-sm hover:bg-secondary">
+          <Link
+            href="/sign-in"
+            className="border border-border bg-card text-foreground shadow-sm hover:bg-secondary"
+          >
             Sign in
           </Link>
-          <Link href="/sign-up" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover">
+          <Link
+            href="/sign-up"
+            className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
+          >
             Sign up
           </Link>
         </nav>
@@ -39,10 +46,16 @@ async function Gate({ error }: { error?: string }) {
           activate your account. Nobody picks their own role.
         </p>
         <div className="flex gap-3">
-          <Link href="/sign-up" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover">
+          <Link
+            href="/sign-up"
+            className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
+          >
             Create an account
           </Link>
-          <Link href="/sign-in" className="border border-border bg-card text-foreground shadow-sm hover:bg-secondary">
+          <Link
+            href="/sign-in"
+            className="border border-border bg-card text-foreground shadow-sm hover:bg-secondary"
+          >
             I already have one
           </Link>
         </div>
@@ -61,27 +74,14 @@ async function Gate({ error }: { error?: string }) {
   );
 }
 
-async function HomeContent({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
-  const { error } = await searchParams;
-  return <Gate error={error} />;
-}
-
-export default function Home({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
+export default function Home() {
   return (
     <Suspense
       fallback={
         <div className="p-10 text-sm text-muted-foreground">Loading...</div>
       }
     >
-      <HomeContent searchParams={searchParams} />
+      <Landing />
     </Suspense>
   );
 }

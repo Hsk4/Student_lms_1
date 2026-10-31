@@ -1,15 +1,32 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { Card, Chip, Empty, Notice, PageHeader } from "@/components/ui/nila";
-import { listMyCourses, getMyProfile } from "@/actions/student-panel";
-import { listMatchingTeachers, type MatchingTeacher } from "@/lib/queries/teaching";
+import { api } from "@/lib/api-client";
 import { RequestTeacherForm } from "../student-forms";
 
-export default async function StudentTeachersPage() {
-  const [profile, courses] = await Promise.all([getMyProfile(), listMyCourses()]);
+type MatchingTeacher = { id: string; name: string; courses: { id: string; label: string }[] };
+type StudentProfile = { boardName: string | null; levelName: string | null };
+type CourseRow = { courseId: string; state: string };
 
-  // Row guard: only teachers of this student's board and level are listed.
-  const matching = await listMatchingTeachers(profile.id);
+export default function StudentTeachersPage() {
+  const profileQuery = useQuery({
+    queryKey: ["student", "profile"],
+    queryFn: () => api.get<StudentProfile>("/student/profile"),
+  });
+  const coursesQuery = useQuery({
+    queryKey: ["student", "courses"],
+    queryFn: () => api.get<CourseRow[]>("/student/courses"),
+  });
+  // The API scopes this to the signed-in student's board and level.
+  const matchingQuery = useQuery({
+    queryKey: ["student", "teachers"],
+    queryFn: () => api.get<MatchingTeacher[]>("/student/teachers"),
+  });
+
+  const profile = profileQuery.data ?? { boardName: null, levelName: null };
+  const courses = coursesQuery.data ?? [];
+  const matching = matchingQuery.data ?? [];
 
   const activeIds = new Set(
     courses.filter((course) => course.state === "active").map((course) => course.courseId),
@@ -18,8 +35,7 @@ export default async function StudentTeachersPage() {
     (course) => course.state === "requested" || course.state === "active",
   );
 
-  // Server data crosses the RSC boundary as plain JSON; this shape is explicit.
-  const teacherList = matching as MatchingTeacher[];
+  const teacherList = matching;
 
   return (
     <div>

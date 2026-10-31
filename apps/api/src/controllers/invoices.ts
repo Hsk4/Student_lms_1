@@ -6,6 +6,7 @@ import { notFound } from "@/lib/http-error";
 import { writeAudit } from "@/lib/audit";
 import { actorOf } from "@/middleware/auth";
 import { assertCanReadStudent } from "@/lib/ownership";
+import { listUsersByIds } from "@/db/queries/users";
 import {
   createInvoice,
   findInvoiceById,
@@ -93,7 +94,14 @@ export async function studentInvoices(req: Request) {
   return listInvoicesForStudent(studentId);
 }
 
-/** `GET /api/v1/admin/invoices` — every invoice, newest first. */
+/** `GET /api/v1/admin/invoices` — every invoice with the student's name. */
 export async function allInvoices() {
-  return listInvoices();
+  const invoices = await listInvoices();
+  const students = await listUsersByIds([...new Set(invoices.map((i) => i.studentId))]);
+  const byId = new Map(students.map((student) => [student.id, student]));
+  return invoices.map((invoice) => ({
+    ...invoice,
+    studentName: byId.get(invoice.studentId)?.name ?? "-",
+    studentEmail: byId.get(invoice.studentId)?.email ?? "",
+  }));
 }

@@ -1,6 +1,8 @@
-export const instant = false;
+"use client";
 
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Card,
   Chip,
@@ -12,20 +14,43 @@ import {
   formatDay,
   toneFor,
 } from "@/components/ui/nila";
-import {
-  getMyProfile,
-  listMyAssignments,
-  listMyAttendance,
-  listMyGrades,
-} from "@/actions/student-panel";
+type Profile = {
+  activeCourseCount: number;
+  teachers: { name: string; courseLabel: string; className: string | null }[];
+};
+type AssignmentRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  dueAt: string | null;
+  submissionId: string | null;
+  score: number | null;
+};
+type AttendanceRow = { id: string; date: string; present: boolean; context: string };
+type GradeRow = { id: string; title: string; courseLabel: string; score: number; gradedAt: string | null };
 
-export default async function StudentDashboardPage() {
-  const [profile, assignments, attendance, grades] = await Promise.all([
-    getMyProfile(),
-    listMyAssignments(),
-    listMyAttendance(),
-    listMyGrades(),
-  ]);
+export default function StudentDashboardPage() {
+  const profileQuery = useQuery({
+    queryKey: ["student", "profile"],
+    queryFn: () => api.get<Profile>("/student/profile"),
+  });
+  const assignmentsQuery = useQuery({
+    queryKey: ["student", "assignments"],
+    queryFn: () => api.get<AssignmentRow[]>("/student/assignments"),
+  });
+  const attendanceQuery = useQuery({
+    queryKey: ["student", "attendance"],
+    queryFn: () => api.get<AttendanceRow[]>("/student/attendance"),
+  });
+  const gradesQuery = useQuery({
+    queryKey: ["student", "grades"],
+    queryFn: () => api.get<GradeRow[]>("/student/grades"),
+  });
+
+  const profile = profileQuery.data ?? { activeCourseCount: 0, teachers: [] };
+  const assignments = assignmentsQuery.data ?? [];
+  const attendance = attendanceQuery.data ?? [];
+  const grades = gradesQuery.data ?? [];
 
   const open = assignments.filter((item) => !item.submissionId);
   const present = attendance.filter((item) => item.present).length;

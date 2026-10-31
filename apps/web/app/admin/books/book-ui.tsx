@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { createBook, updateBook } from "@/actions/catalog";
+import { useQueryClient } from "@tanstack/react-query";
 import { ActionForm } from "@/components/ui/action-form";
+import { api } from "@/lib/api-client";
 
 export type CourseOption = { id: string; label: string };
 
@@ -58,18 +59,21 @@ export function BookForm({
   courses: CourseOption[];
   preselect?: string;
 }) {
+  const queryClient = useQueryClient();
   return (
     <ActionForm
       className="mt-3 space-y-3"
       submitLabel="Create book"
-      action={async (form) =>
-        createBook({
+      action={async (form) => {
+        await api.post("/admin/books", {
           title: form.get("title"),
           author: form.get("author") ?? "",
           courseIds: form.getAll("courseIds"),
           note: form.get("note") ?? "",
-        })
-      }
+        });
+        await queryClient.invalidateQueries({ queryKey: ["admin-books"] });
+        return null;
+      }}
     >
       <div>
         <label className="label" htmlFor="book-title">
@@ -105,20 +109,25 @@ export function EditBookForm({
   book: { id: string; title: string; author: string; note: string; courseIds: string[] };
   courses: CourseOption[];
 }) {
+  const queryClient = useQueryClient();
   return (
     <ActionForm
       className="space-y-3"
       submitLabel="Save book"
       resetOnSuccess={false}
-      action={async (form) =>
-        updateBook({
-          id: book.id,
+      action={async (form) => {
+        await api.patch(`/admin/books/${book.id}`, {
           title: form.get("title"),
           author: form.get("author") ?? "",
           courseIds: form.getAll("courseIds"),
           note: form.get("note") ?? "",
-        })
-      }
+        });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["admin-books"] }),
+          queryClient.invalidateQueries({ queryKey: ["admin-book", book.id] }),
+        ]);
+        return null;
+      }}
     >
       <div>
         <label className="label" htmlFor="edit-title">

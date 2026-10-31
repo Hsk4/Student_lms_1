@@ -1,5 +1,6 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
 import {
   Table,
   TableHeader,
@@ -8,36 +9,25 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import { redirect } from 'next/navigation';
-import { Suspense } from 'react';
-import { PageHeader, Card, Empty } from '@/components/ui/nila';
-import { checkAccess } from '@/lib/auth/roles';
-import { requireRequestTime } from '@/lib/auth/panels';
-import { desc, eq } from 'drizzle-orm';
-import { db } from '@/db/client';
-import { invoices as invoiceRows, users } from '@/db/schema';
+import { PageHeader, Card, Empty } from "@/components/ui/nila";
+import { api } from "@/lib/api-client";
 
-async function Body() {
-  await requireRequestTime();
-  const { user, redirectTo } = await checkAccess(['admin', 'super_admin']);
-  if (redirectTo) redirect(redirectTo);
+type InvoiceRow = {
+  id: string;
+  period: string;
+  amount: number;
+  dueDate: string;
+  state: string;
+  studentName?: string;
+  studentEmail?: string;
+};
 
-  // `markedBy` is optional, so its name needs a LEFT JOIN; `studentId` is
-  // required, so `students` is an inner join on the same users table.
-  const invoices = await db
-    .select({
-      id: invoiceRows.id,
-      period: invoiceRows.period,
-      // numeric comes back as a string to keep the cents exact.
-      amount: invoiceRows.amount,
-      dueDate: invoiceRows.dueDate,
-      state: invoiceRows.state,
-      studentName: users.name,
-      studentEmail: users.email,
-    })
-    .from(invoiceRows)
-    .innerJoin(users, eq(users.id, invoiceRows.studentId))
-    .orderBy(desc(invoiceRows.createdAt));
+export default function AdminInvoicesPage() {
+  const invoicesQuery = useQuery({
+    queryKey: ["admin-invoices"],
+    queryFn: () => api.get<InvoiceRow[]>("/admin/invoices"),
+  });
+  const invoices = invoicesQuery.data ?? [];
 
   return (
     <div>
@@ -66,15 +56,29 @@ async function Body() {
                   {invoices.map((invoice) => (
                     <TableRow key={invoice.id}>
                       <TableCell>
-                        <p className="font-medium">{invoice.studentName}</p>
-                        <p className="text-xs text-muted-foreground">{invoice.studentEmail}</p>
+                        <p className="font-medium">
+                          {invoice.studentName ?? "-"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {invoice.studentEmail ?? ""}
+                        </p>
                       </TableCell>
                       <TableCell>{invoice.period}</TableCell>
-                      <TableCell className="font-mono">{Number(invoice.amount).toLocaleString()}</TableCell>
-                      <TableCell>{invoice.dueDate.toLocaleDateString()}</TableCell>
+                      <TableCell className="font-mono">
+                        {Number(invoice.amount).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(invoice.dueDate).toLocaleDateString()}
+                      </TableCell>
                       <TableCell>
                         <span
-                          className={`status-${invoice.state === 'paid' ? 'green' : invoice.state === 'void' ? 'amber' : 'red'}`}
+                          className={`status-${
+                            invoice.state === "paid"
+                              ? "green"
+                              : invoice.state === "void"
+                                ? "amber"
+                                : "red"
+                          }`}
                         >
                           {invoice.state}
                         </span>
@@ -89,17 +93,11 @@ async function Body() {
 
         <Card className="h-fit p-5">
           <h3 className="text-sm font-semibold">Create invoice</h3>
-          <p className="mt-2 text-xs text-muted-foreground">Form and additional actions coming soon.</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Form and additional actions coming soon.
+          </p>
         </Card>
       </div>
     </div>
-  );
-}
-
-export default function AdminInvoicesPage() {
-  return (
-    <Suspense fallback={<div className="p-10 text-sm text-muted-foreground">Loading...</div>}>
-      <Body />
-    </Suspense>
   );
 }

@@ -79,7 +79,7 @@ export function PanelShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+        <header className="sticky top-0 z-30 border-b border-border bg-background">
           <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
             {mobile === "sheet" ? (
               <MobileNavSheet panel={panel} groups={groups} badges={badges} />
@@ -155,7 +155,7 @@ export function PanelShell({
       {mobile === "bottom-tabs" ? (
         <nav
           aria-label="Sections"
-          className="fixed inset-x-0 bottom-0 z-30 grid border-t border-border bg-card/95 backdrop-blur lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-30 grid border-t border-border bg-card lg:hidden"
           style={{ gridTemplateColumns: `repeat(${bottomItems.length}, 1fr)` }}
         >
           {bottomItems.map((item) => {

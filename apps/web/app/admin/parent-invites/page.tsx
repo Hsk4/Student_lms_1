@@ -1,5 +1,6 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
 import {
   Table,
   TableHeader,
@@ -8,27 +9,40 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import { requireRequestTime } from '@/lib/auth/panels';
-import { PageHeader, Card, Empty, formatDay } from '@/components/ui/nila';
-import { listParentInvites } from '@/lib/queries/admin';
-import { listUsersByRole } from '@/lib/queries/users';
-import { InviteActions } from './invite-actions';
-import { LinkGuardianForm } from './link-form';
+import { PageHeader, Card, Empty, formatDay } from "@/components/ui/nila";
+import { api } from "@/lib/api-client";
+import { InviteActions } from "./invite-actions";
+import { LinkGuardianForm } from "./link-form";
 
-export default async function AdminParentInvitesPage() {
-  await requireRequestTime();
-  // One read for the invites (student joined in SQL), one per active account
-  // list the repair form offers.
-  const [invitesWithStudent, parentRows, studentRows] = await Promise.all([
-    listParentInvites(),
-    listUsersByRole('parent', { status: 'active' }),
-    listUsersByRole('student', { status: 'active' }),
-  ]);
+type InviteRow = {
+  id: string;
+  parentName: string;
+  parentEmail: string;
+  studentName: string;
+  studentEmail: string;
+  code: string;
+  state: string;
+  createdAt: string;
+  acceptedAt: string | null;
+};
 
-  const byName = (a: { name: string }, b: { name: string }) =>
-    a.name.localeCompare(b.name);
-  const parents = [...parentRows].sort(byName);
-  const students = [...studentRows].sort(byName);
+type Options = {
+  parents: { id: string; label: string }[];
+  students: { id: string; label: string }[];
+};
+
+export default function AdminParentInvitesPage() {
+  const invitesQuery = useQuery({
+    queryKey: ["admin-parent-links"],
+    queryFn: () => api.get<InviteRow[]>("/admin/parent-links"),
+  });
+  const optionsQuery = useQuery({
+    queryKey: ["admin-parent-link-options"],
+    queryFn: () => api.get<Options>("/admin/parent-links/options"),
+  });
+
+  const invites = invitesQuery.data ?? [];
+  const options = optionsQuery.data ?? { parents: [], students: [] };
 
   return (
     <>
@@ -40,24 +54,19 @@ export default async function AdminParentInvitesPage() {
       <Card className="mb-6 p-5">
         <h2 className="text-sm font-semibold">Repair a guardian link</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Use this when a parent accepted an invitation but the student does not appear in
-          their panel. The link is written on both sides and audit-logged.
+          Use this when a parent accepted an invitation but the student does not
+          appear in their panel. The link is written on both sides and
+          audit-logged.
         </p>
         <div className="max-w-md">
           <LinkGuardianForm
-            parents={parents.map((parent) => ({
-              id: parent.id,
-              label: `${parent.name} (${parent.email})`,
-            }))}
-            students={students.map((student) => ({
-              id: student.id,
-              label: `${student.name} (${student.email})`,
-            }))}
+            parents={options.parents}
+            students={options.students}
           />
         </div>
       </Card>
 
-      {invitesWithStudent.length === 0 ? (
+      {invites.length === 0 ? (
         <Empty>No link codes yet.</Empty>
       ) : (
         <Card className="overflow-hidden">
@@ -74,40 +83,49 @@ export default async function AdminParentInvitesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {invitesWithStudent.map((invite) => (
+              {invites.map((invite) => (
                 <TableRow key={invite.id}>
                   <TableCell>
                     <p className="font-medium">{invite.parentName}</p>
-                    <p className="text-xs text-muted-foreground">{invite.parentEmail}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {invite.parentEmail}
+                    </p>
                   </TableCell>
                   <TableCell>
                     <p className="font-medium">{invite.studentName}</p>
-                    <p className="text-xs text-muted-foreground">{invite.studentEmail}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {invite.studentEmail}
+                    </p>
                   </TableCell>
-                  <TableCell className="font-mono text-xs tracking-wider">{invite.code}</TableCell>
+                  <TableCell className="font-mono text-xs tracking-wider">
+                    {invite.code}
+                  </TableCell>
                   <TableCell>
                     <span
                       className={`inline-block rounded-full px-2 py-1 text-xs font-medium ${
-                        invite.state === 'sent'
-                          ? 'bg-status-amber-soft text-status-amber'
-                          : invite.state === 'accepted'
-                            ? 'bg-status-green-soft text-status-green'
-                            : invite.state === 'revoked'
-                              ? 'bg-border text-muted-foreground'
-                              : 'bg-status-red-soft text-status-red'
+                        invite.state === "sent"
+                          ? "bg-status-amber-soft text-status-amber"
+                          : invite.state === "accepted"
+                            ? "bg-status-green-soft text-status-green"
+                            : invite.state === "revoked"
+                              ? "bg-border text-muted-foreground"
+                              : "bg-status-red-soft text-status-red"
                       }`}
                     >
                       {invite.state}
                     </span>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{formatDay(invite.createdAt)}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {invite.acceptedAt ? formatDay(invite.acceptedAt) : '-'}
+                    {formatDay(invite.createdAt)}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {invite.acceptedAt ? formatDay(invite.acceptedAt) : "-"}
                   </TableCell>
                   <TableCell className="text-end">
-                    {invite.state === 'sent' && (
+                    {invite.state === "sent" && (
                       <InviteActions inviteId={invite.id} />
-                    )}                  </TableCell>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

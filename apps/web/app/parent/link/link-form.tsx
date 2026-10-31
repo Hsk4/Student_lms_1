@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { redeemLinkCode } from "@/actions/parent-link";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 
 /** The parent types the code their child gave them. */
 export function RedeemLinkCodeForm() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [linked, setLinked] = useState<{ id: string; name: string } | null>(
@@ -23,8 +25,8 @@ export function RedeemLinkCodeForm() {
           type="button"
           className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
           onClick={() => {
-            router.push(`/parent/children/${linked.id}`);
-            router.refresh();
+            void queryClient.invalidateQueries({ queryKey: ["parent"] });
+            router.push(`/parent/children/detail?id=${linked.id}`);
           }}
         >
           Open {linked.name}
@@ -41,13 +43,16 @@ export function RedeemLinkCodeForm() {
         const form = new FormData(event.currentTarget);
         setError(null);
         startTransition(async () => {
-          const result = await redeemLinkCode({ code: form.get("code") });
-          if (result.ok && result.data) {
-            setLinked(result.data);
-            router.refresh();
-          } else {
+          try {
+            const result = await api.post<{ id: string; name: string }>(
+              "/parent/parent-links/redeem",
+              { code: form.get("code") },
+            );
+            setLinked(result);
+            await queryClient.invalidateQueries({ queryKey: ["parent"] });
+          } catch (redeemError) {
             setError(
-              result.error ?? result.message ?? "That code did not work",
+              redeemError instanceof Error ? redeemError.message : "That code did not work",
             );
           }
         });

@@ -1,5 +1,7 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Table,
   TableHeader,
@@ -9,19 +11,35 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Card, Empty, PageHeader, Stat, formatDay } from "@/components/ui/nila";
-import {
-  listClasses,
-  listMyAttendance,
-  listMyStudents,
-} from "@/actions/teacher-panel";
 import { AttendanceForm, toStudentOptions } from "../teacher-forms";
 
-export default async function TeacherAttendancePage() {
-  const [attendance, classes, students] = await Promise.all([
-    listMyAttendance(),
-    listClasses(),
-    listMyStudents(),
-  ]);
+type AttendanceEntry = { id: string; date: string; present: number; total: number };
+type StudentRow = {
+  enrollmentId: string;
+  studentId: string;
+  name: string;
+  courseId: string;
+  courseLabel: string;
+};
+type TeacherClass = { id: string; name: string; courseId: string; courseLabel: string; state: string };
+
+export default function TeacherAttendancePage() {
+  const attendanceQuery = useQuery({
+    queryKey: ["teacher", "attendance"],
+    queryFn: () => api.get<AttendanceEntry[]>("/teacher/attendance"),
+  });
+  const classesQuery = useQuery({
+    queryKey: ["teacher", "classes"],
+    queryFn: () => api.get<TeacherClass[]>("/teacher/classes"),
+  });
+  const studentsQuery = useQuery({
+    queryKey: ["teacher", "students"],
+    queryFn: () => api.get<StudentRow[]>("/teacher/students"),
+  });
+
+  const attendance = attendanceQuery.data ?? [];
+  const classes = classesQuery.data ?? [];
+  const students = studentsQuery.data ?? [];
 
   const present = attendance.reduce((sum, entry) => sum + entry.present, 0);
   const total = attendance.reduce((sum, entry) => sum + entry.total, 0);

@@ -1,31 +1,31 @@
-import type { ReactNode } from "react";
+"use client";
+
 import { PanelShell } from "@/components/shell/panel-shell";
 import { STUDENT_NAV_GROUPS } from "@/components/shell/nav-config";
-import { requirePanelUser } from "@/lib/auth/panels";
+import { Guarded, usePanelGuard } from "@/lib/guards";
 
-/**
- * Coarse guard for the whole student area. Each page still applies a row guard
- * to the records it reads, and every server action re-checks with `requireRole`.
- */
-export default async function StudentLayout({
+/** Coarse guard for the student area; a student who has not onboarded is sent away. */
+export default function StudentLayout({
   children,
 }: {
-  children: ReactNode;
+  children: React.ReactNode;
 }) {
-  const user = await requirePanelUser("student");
+  const { user, allowed, isLoading } = usePanelGuard(["student"]);
 
   return (
-    <PanelShell
-      panel="student"
-      groups={STUDENT_NAV_GROUPS}
-      user={{
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        status: user.status,
-      }}
-    >
-      {children}
-    </PanelShell>
+    <Guarded allowed={allowed} isLoading={isLoading}>
+      <PanelShell
+        panel="student"
+        groups={STUDENT_NAV_GROUPS}
+        user={{
+          name: user?.name ?? "",
+          email: user?.email ?? "",
+          role: user?.role ?? null,
+          status: user?.status ?? "pending",
+        }}
+      >
+        {children}
+      </PanelShell>
+    </Guarded>
   );
 }

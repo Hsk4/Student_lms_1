@@ -1,5 +1,7 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Table,
   TableHeader,
@@ -10,10 +12,22 @@ import {
 } from "@/components/ui/table";
 import Link from "next/link";
 import { Card, Chip, Empty, PageHeader, formatDay } from "@/components/ui/nila";
-import { listMyStudents } from "@/actions/teacher-panel";
+type StudentRow = {
+  enrollmentId: string;
+  studentId: string;
+  name: string;
+  email: string;
+  courseLabel: string;
+  className: string | null;
+  since: string;
+};
 
-export default async function TeacherStudentsPage() {
-  const students = await listMyStudents();
+export default function TeacherStudentsPage() {
+  const studentsQuery = useQuery({
+    queryKey: ["teacher", "students"],
+    queryFn: () => api.get<StudentRow[]>("/teacher/students"),
+  });
+  const students = studentsQuery.data ?? [];
 
   return (
     <div>
@@ -58,7 +72,7 @@ export default async function TeacherStudentsPage() {
                   </TableCell>
                   <TableCell className="text-end">
                     <Link
-                      href={`/teacher/students/${student.studentId}`}
+                      href={`/teacher/students/detail?id=${student.studentId}`}
                       className="border border-border bg-card text-foreground shadow-sm hover:bg-secondary h-8"
                     >
                       Open

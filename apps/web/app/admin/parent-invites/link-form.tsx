@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { linkGuardian, unlinkGuardian } from "@/actions/guardians";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 
 type Option = { id: string; label: string };
 
@@ -14,7 +14,7 @@ export function LinkGuardianForm({
   parents: Option[];
   students: Option[];
 }) {
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,15 +32,19 @@ export function LinkGuardianForm({
     setMessage(null);
     setError(null);
     startTransition(async () => {
-      const result =
-        action === "link"
-          ? await linkGuardian(payload)
-          : await unlinkGuardian(payload);
-      if (result.ok) {
+      try {
+        if (action === "link") await api.post("/admin/guardians", payload);
+        else await api.delete("/admin/guardians", payload);
         setMessage(action === "link" ? "Linked." : "Link removed.");
-        router.refresh();
-      } else {
-        setError(result.error ?? result.message ?? "Could not save the link");
+        await queryClient.invalidateQueries({
+          queryKey: ["admin-parent-links"],
+        });
+      } catch (submissionError) {
+        setError(
+          submissionError instanceof Error
+            ? submissionError.message
+            : "Could not save the link",
+        );
       }
     });
   }
@@ -104,7 +108,11 @@ export function LinkGuardianForm({
         </select>
       </div>
       <div className="flex flex-wrap gap-2">
-        <button type="submit" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover" disabled={pending}>
+        <button
+          type="submit"
+          className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
+          disabled={pending}
+        >
           {pending ? "Saving..." : "Link"}
         </button>
         <button

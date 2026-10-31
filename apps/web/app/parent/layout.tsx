@@ -1,33 +1,36 @@
-import type { ReactNode } from "react";
+"use client";
+
 import { PanelShell } from "@/components/shell/panel-shell";
 import { PARENT_NAV_GROUPS } from "@/components/shell/nav-config";
-import { requirePanelUser } from "@/lib/auth/panels";
+import { Guarded, usePanelGuard } from "@/lib/guards";
 
 /**
  * Coarse guard for the parent area. Parents are read-only: every page filters
  * to the children linked through `guardianships`. On phones the reference kit
  * uses a bottom tab bar instead of a slide-over, so `mobile` says so.
  */
-export default async function ParentLayout({
+export default function ParentLayout({
   children,
 }: {
-  children: ReactNode;
+  children: React.ReactNode;
 }) {
-  const user = await requirePanelUser("parent");
+  const { user, allowed, isLoading } = usePanelGuard(["parent"]);
 
   return (
-    <PanelShell
-      panel="parent"
-      groups={PARENT_NAV_GROUPS}
-      mobile="bottom-tabs"
-      user={{
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        status: user.status,
-      }}
-    >
-      {children}
-    </PanelShell>
+    <Guarded allowed={allowed} isLoading={isLoading}>
+      <PanelShell
+        panel="parent"
+        groups={PARENT_NAV_GROUPS}
+        mobile="bottom-tabs"
+        user={{
+          name: user?.name ?? "",
+          email: user?.email ?? "",
+          role: user?.role ?? null,
+          status: user?.status ?? "pending",
+        }}
+      >
+        {children}
+      </PanelShell>
+    </Guarded>
   );
 }

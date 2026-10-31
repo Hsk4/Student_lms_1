@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { setTeacherCourses } from "@/actions/teacher";
 import { ActionForm } from "@/components/ui/action-form";
+import { api } from "@/lib/api-client";
+import { useQueryClient } from "@tanstack/react-query";
 
 export type TeacherCourse = { id: string; label: string; selected: boolean };
 
@@ -16,13 +17,23 @@ export function TeacherCoursesForm({
   const [selected, setSelected] = useState(
     courses.filter((course) => course.selected).map((course) => course.id),
   );
+  const queryClient = useQueryClient();
 
   return (
     <ActionForm
       className="space-y-3"
       submitLabel="Save courses"
       resetOnSuccess={false}
-      action={async () => setTeacherCourses({ teacherId, courseIds: selected })}
+      action={async () => {
+        await api.patch(`/admin/users/${teacherId}/courses`, {
+          courseIds: selected,
+        });
+        await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+        await queryClient.invalidateQueries({
+          queryKey: ["admin-teacher-courses"],
+        });
+        return null;
+      }}
     >
       <div className="space-y-2">
         {courses.map((course) => (

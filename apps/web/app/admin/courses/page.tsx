@@ -1,5 +1,8 @@
-export const instant = false;
+"use client";
 
+import { useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Table,
   TableHeader,
@@ -8,11 +11,30 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Link from "next/link";
-import { getCatalogLists, listCourses, type CourseRow as CourseRowData } from "@/lib/queries/admin";
+
 import { PageHeader, Card, Empty } from "@/components/ui/nila";
 import { CourseForm, CourseRow } from "./course-ui";
 import { LevelForm, LevelRow } from "./level-ui";
 import { SubjectForm, SubjectRow } from "./subject-ui";
+
+type BoardLite = { id: string; name: string; slug: string; active: boolean };
+type LevelLite = { id: string; name: string; order: number; active: boolean };
+type SubjectLite = { id: string; name: string; slug: string; active: boolean };
+type CourseRowData = {
+  id: string;
+  boardId: string;
+  board: string;
+  levelId: string;
+  level: string;
+  levelOrder: number;
+  subjectId: string;
+  subject: string;
+  medium: string;
+  active: boolean;
+  books: number;
+  label: string;
+};
+type CatalogLists = { boards: BoardLite[]; levels: LevelLite[]; subjects: SubjectLite[] };
 
 const TABS = [
   { key: "courses", label: "Courses" },
@@ -20,15 +42,24 @@ const TABS = [
   { key: "subjects", label: "Subjects" },
 ] as const;
 
-export default async function CoursesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ tab?: string; board?: string; level?: string }>;
-}) {
-  const { tab = "courses", board, level } = await searchParams;
+export default function CoursesPage() {
+  const params = useSearchParams();
+  const tab = params.get("tab") ?? "courses";
+  const board = params.get("board") ?? undefined;
+  const level = params.get("level") ?? undefined;
   const activeTab = TABS.some((t) => t.key === tab) ? tab : "courses";
-  const { boards, levels, subjects } = await getCatalogLists();
-  const courses = await listCourses();
+
+  const catalogQuery = useQuery({
+    queryKey: ["admin-catalog"],
+    queryFn: () => api.get<CatalogLists>("/admin/catalog"),
+  });
+  const coursesQuery = useQuery({
+    queryKey: ["admin-courses"],
+    queryFn: () => api.get<CourseRowData[]>("/admin/courses"),
+  });
+
+  const { boards = [], levels = [], subjects = [] } = catalogQuery.data ?? {};
+  const courses = coursesQuery.data ?? [];
 
   const filtered = courses
     .filter((c) => (board ? c.boardId === board : true))
@@ -219,7 +250,7 @@ function CoursesTab({
         <p className="text-sm text-muted-foreground">
           {courses.length} course{courses.length === 1 ? "" : "s"} shown.{" "}
           <Link
-            href={`/admin/courses/${courses[0].id}`}
+            href={`/admin/courses/detail?id=${courses[0].id}`}
             className="text-primary"
           >
             Open the newest course

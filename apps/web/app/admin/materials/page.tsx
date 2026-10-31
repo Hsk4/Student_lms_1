@@ -1,5 +1,6 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
 import {
   Table,
   TableHeader,
@@ -8,38 +9,24 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import { redirect } from 'next/navigation';
-import { Suspense } from 'react';
-import { PageHeader, Card, Empty } from '@/components/ui/nila';
-import { checkAccess } from '@/lib/auth/roles';
-import { desc, eq } from 'drizzle-orm';
-import { db } from '@/db/client';
-import { materials as materialRows, users } from '@/db/schema';
-import { listCourseLabels } from '@/lib/queries/teacher-courses';
+import { PageHeader, Card, Empty } from "@/components/ui/nila";
+import { api } from "@/lib/api-client";
 
-async function Body() {
-  const { user, redirectTo } = await checkAccess(['admin', 'super_admin']);
-  if (redirectTo) redirect(redirectTo);
+type MaterialRow = {
+  id: string;
+  title: string;
+  type: string;
+  courseId: string;
+  courseLabel: string;
+  uploadedBy: string;
+};
 
-  const [rawMaterials, courses] = await Promise.all([
-    db
-      .select({
-        id: materialRows.id,
-        title: materialRows.title,
-        type: materialRows.type,
-        courseId: materialRows.courseId,
-        uploadedBy: users.name,
-      })
-      .from(materialRows)
-      .innerJoin(users, eq(users.id, materialRows.uploadedBy))
-      .orderBy(desc(materialRows.createdAt)),
-    listCourseLabels({ active: true }),
-  ]);
-  const courseLabel = new Map(courses.map((course) => [course.id, course.label]));
-  const materials = rawMaterials.map((row) => ({
-    ...row,
-    courseLabel: courseLabel.get(row.courseId) ?? 'Course',
-  }));
+export default function AdminMaterialsPage() {
+  const materialsQuery = useQuery({
+    queryKey: ["admin-materials"],
+    queryFn: () => api.get<MaterialRow[]>("/admin/materials"),
+  });
+  const materials = materialsQuery.data ?? [];
 
   return (
     <div>
@@ -69,7 +56,9 @@ async function Body() {
                       <TableCell className="font-medium">{mat.title}</TableCell>
                       <TableCell>{mat.courseLabel}</TableCell>
                       <TableCell className="capitalize">{mat.type}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{mat.uploadedBy}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {mat.uploadedBy}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -86,13 +75,5 @@ async function Body() {
         </Card>
       </div>
     </div>
-  );
-}
-
-export default function AdminMaterialsPage() {
-  return (
-    <Suspense fallback={<div className="p-10 text-sm text-muted-foreground">Loading...</div>}>
-      <Body />
-    </Suspense>
   );
 }

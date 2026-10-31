@@ -1,10 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { createParentLink, revokeParentLink } from "@/actions/parent";
-import { requestEnrollment } from "@/actions/enrollment";
-import { submitAssignment } from "@/actions/assessment";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
+
+/** Every student mutation refreshes the student panel's queries. */
+function useStudentRefresh() {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: ["student"] });
+}
 
 /** One button per (teacher, course) pair in the teacher picker. */
 export function RequestTeacherForm({
@@ -18,7 +22,7 @@ export function RequestTeacherForm({
   disabled?: boolean;
   disabledReason?: string;
 }) {
-  const router = useRouter();
+  const refresh = useStudentRefresh();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
 
@@ -32,14 +36,12 @@ export function RequestTeacherForm({
         onClick={() => {
           setMessage(null);
           startTransition(async () => {
-            const result = await requestEnrollment({ teacherId, courseId });
-            if (result.ok) {
+            try {
+              await api.post("/student/enrollments", { teacherId, courseId });
               setMessage("Request sent.");
-              router.refresh();
-            } else {
-              setMessage(
-                result.error ?? result.message ?? "Could not send request",
-              );
+              await refresh();
+            } catch (error) {
+              setMessage(error instanceof Error ? error.message : "Could not send request");
             }
           });
         }}
@@ -58,7 +60,7 @@ export function SubmitAssignmentForm({
 }: {
   assignmentId: string;
 }) {
-  const router = useRouter();
+  const refresh = useStudentRefresh();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -83,17 +85,17 @@ export function SubmitAssignmentForm({
         const form = new FormData(event.currentTarget);
         setMessage(null);
         startTransition(async () => {
-          const result = await submitAssignment({
-            assignmentId,
-            text: String(form.get("text") ?? "") || undefined,
-            fileUrl: String(form.get("fileUrl") ?? "") || undefined,
-          });
-          if (result.ok) {
+          try {
+            await api.post("/student/submissions", {
+              assignmentId,
+              text: String(form.get("text") ?? "") || undefined,
+              fileUrl: String(form.get("fileUrl") ?? "") || undefined,
+            });
             setMessage("Submitted.");
             setOpen(false);
-            router.refresh();
-          } else {
-            setMessage(result.error ?? result.message ?? "Could not submit");
+            await refresh();
+          } catch (error) {
+            setMessage(error instanceof Error ? error.message : "Could not submit");
           }
         });
       }}
@@ -135,7 +137,7 @@ export function SubmitAssignmentForm({
  * the code themselves and the parent types it into their own panel.
  */
 export function CreateParentLinkForm() {
-  const router = useRouter();
+  const refresh = useStudentRefresh();
   const [pending, startTransition] = useTransition();
   const [issued, setIssued] = useState<{
     code: string;
@@ -182,7 +184,7 @@ export function CreateParentLinkForm() {
             onClick={() => {
               setIssued(null);
               setCopied(false);
-              router.refresh();
+              void refresh();
             }}
           >
             Done
@@ -201,16 +203,17 @@ export function CreateParentLinkForm() {
         const form = new FormData(event.currentTarget);
         setError(null);
         startTransition(async () => {
-          const result = await createParentLink({
-            parentName: form.get("parentName"),
-            parentEmail: String(form.get("parentEmail") ?? "") || undefined,
-          });
-          if (result.ok && result.data) {
-            setIssued(result.data);
-          } else {
-            setError(
-              result.error ?? result.message ?? "Could not create a link code",
+          try {
+            const issuedCode = await api.post<{ code: string; expiresAt: string }>(
+              "/student/parent-links",
+              {
+                parentName: form.get("parentName"),
+                parentEmail: String(form.get("parentEmail") ?? "") || undefined,
+              },
             );
+            setIssued(issuedCode);
+          } catch (error) {
+            setError(error instanceof Error ? error.message : "Could not create a link code");
           }
         });
       }}
@@ -259,7 +262,7 @@ export function CreateParentLinkForm() {
 
 /** Cancel an unused code so it can no longer be redeemed. */
 export function RevokeParentLinkButton({ inviteId }: { inviteId: string }) {
-  const router = useRouter();
+  const refresh = useStudentRefresh();
   const [pending, startTransition] = useTransition();
 
   return (
@@ -269,8 +272,8 @@ export function RevokeParentLinkButton({ inviteId }: { inviteId: string }) {
       disabled={pending}
       onClick={() => {
         startTransition(async () => {
-          await revokeParentLink(inviteId);
-          router.refresh();
+          await api.post(`/student/parent-links/${inviteId}/revoke`);
+          await refresh();
         });
       }}
     >

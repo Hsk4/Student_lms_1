@@ -1,5 +1,8 @@
-export const instant = false;
+"use client";
 
+import { useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Table,
   TableHeader,
@@ -16,12 +19,7 @@ import { DataTableView } from "@/components/shared/data-table-view";
 import { ListToolbar } from "@/components/shared/list-toolbar";
 import { Pagination } from "@/components/shared/pagination";
 import { StatStrip } from "@/components/shared/stat-strip";
-import {
-  countUsersFor,
-  getTeacherCourseAssignments,
-  getUserCounts,
-  listUsers,
-} from "@/lib/queries/admin";
+
 import { TeacherCoursesForm } from "./teacher-courses";
 import { SyncUsersButton } from "./sync-button";
 import { UsersAutoRefresh } from "./auto-refresh";
@@ -36,32 +34,62 @@ const STATUSES = ["", "pending", "active", "rejected", "suspended"];
 const ROLES = ["", "super_admin", "admin", "teacher", "student", "parent"];
 const PAGE_SIZE = 25;
 
-export default async function AdminUsersPage({
-  searchParams,
-}: {
-  searchParams: Promise<{
-    status?: string;
-    role?: string;
-    q?: string;
-    page?: string;
-  }>;
-}) {
-  const { status, role, q, page: rawPage } = await searchParams;
-  const [allUsers, teacherAssignments, counts, total] = await Promise.all([
-    listUsers({ status, role, q }),
-    getTeacherCourseAssignments(),
-    getUserCounts(),
-    countUsersFor({ status, role, q }),
-  ]);
+type UserRow = {
+  id: string;
+  name: string;
+  email: string;
+  role: string | null;
+  status: string;
+  onboarded: boolean;
+  createdAt: string;
+  board?: string;
+  level?: string;
+  rejectionReason?: string;
+};
 
-  /*
-   * Paging is client-free. `listUsers` is capped at 200 rows, so the slice below
-   * is what the page shows; `page` is read from the URL, clamped so a hand-edited
-   * `?page=999` lands on the last page instead of an empty table.
-   */
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const page = Math.min(Math.max(1, Number(rawPage) || 1), pageCount);
-  const users = allUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+type UsersResponse = {
+  total: number;
+  page: number;
+  pageCount: number;
+  counts: { all: number; active: number; pending: number; teachers: number };
+  users: UserRow[];
+};
+
+type TeacherCourseRow = { id: string; label: string; teacherIds: string[] };
+
+/**
+ * The list is paged by the API from Postgres; `q`, `status`, `role` and `page`
+ * live in the URL so the back button and bookmarks keep working.
+ */
+export default function AdminUsersPage() {
+  const params = useSearchParams();
+  const status = params.get("status") ?? "";
+  const role = params.get("role") ?? "";
+  const q = params.get("q") ?? "";
+  const rawPage = params.get("page") ?? "1";
+
+  const usersQuery = useQuery({
+    queryKey: ["admin-users", status, role, q, rawPage],
+    queryFn: () =>
+      api.get<UsersResponse>("/admin/users", {
+        status,
+        role,
+        q,
+        page: rawPage,
+        pageSize: PAGE_SIZE,
+      }),
+  });
+  const teacherCoursesQuery = useQuery({
+    queryKey: ["admin-teacher-courses"],
+    queryFn: () => api.get<TeacherCourseRow[]>("/admin/catalog/teacher-courses"),
+  });
+
+  const counts = usersQuery.data?.counts ?? { all: 0, active: 0, pending: 0, teachers: 0 };
+  const total = usersQuery.data?.total ?? 0;
+  const page = usersQuery.data?.page ?? 1;
+  const pageCount = usersQuery.data?.pageCount ?? 1;
+  const users = usersQuery.data?.users ?? [];
+  const teacherAssignments = teacherCoursesQuery.data ?? [];
 
   return (
     <>
@@ -175,7 +203,7 @@ export default async function AdminUsersPage({
                         times only adds noise. `aria-label` carries the name. */}
                     <Button asChild variant="ghost" size="icon" className="h-8 w-8">
                       <Link
-                        href={`/admin/users/${user.id}`}
+                        href={`/admin/users/detail?id=${user.id}`}
                         aria-label={`Open ${user.name}`}
                         title={`Open ${user.name}`}
                       >

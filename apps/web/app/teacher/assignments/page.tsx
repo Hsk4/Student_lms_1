@@ -1,5 +1,7 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Card,
   Chip,
@@ -8,19 +10,48 @@ import {
   Score,
   formatDate,
 } from "@/components/ui/nila";
-import {
-  listClasses,
-  listMyAssignments,
-  listMyStudents,
-} from "@/actions/teacher-panel";
 import { AssignmentForm, GradeForm, toStudentOptions } from "../teacher-forms";
 
-export default async function TeacherAssignmentsPage() {
-  const [assignments, classes, students] = await Promise.all([
-    listMyAssignments(),
-    listClasses(),
-    listMyStudents(),
-  ]);
+type SubmissionRow = {
+  id: string;
+  studentId: string;
+  score: number | null;
+  feedback: string;
+  text: string | null;
+};
+type AssignmentRow = {
+  id: string;
+  title: string;
+  classId: string | null;
+  dueAt: string | null;
+  submissions: SubmissionRow[];
+};
+type StudentRow = {
+  enrollmentId: string;
+  studentId: string;
+  name: string;
+  courseId: string;
+  courseLabel: string;
+};
+type TeacherClass = { id: string; name: string; courseId: string; courseLabel: string; state: string };
+
+export default function TeacherAssignmentsPage() {
+  const assignmentsQuery = useQuery({
+    queryKey: ["teacher", "assignments"],
+    queryFn: () => api.get<AssignmentRow[]>("/teacher/assignments"),
+  });
+  const classesQuery = useQuery({
+    queryKey: ["teacher", "classes"],
+    queryFn: () => api.get<TeacherClass[]>("/teacher/classes"),
+  });
+  const studentsQuery = useQuery({
+    queryKey: ["teacher", "students"],
+    queryFn: () => api.get<StudentRow[]>("/teacher/students"),
+  });
+
+  const assignments = assignmentsQuery.data ?? [];
+  const classes = classesQuery.data ?? [];
+  const students = studentsQuery.data ?? [];
 
   const ungraded = assignments.reduce(
     (sum, assignment) =>

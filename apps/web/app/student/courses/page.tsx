@@ -1,5 +1,7 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Table,
   TableHeader,
@@ -17,10 +19,24 @@ import {
   formatDay,
   toneFor,
 } from "@/components/ui/nila";
-import { listMyCourses } from "@/actions/student-panel";
+type CourseRow = {
+  enrollmentId: string;
+  state: string;
+  courseLabel: string;
+  teacherName: string;
+  className: string | null;
+  schedule: string | null;
+  medium: string | null;
+  requestedAt: string;
+  decidedAt: string | null;
+};
 
-export default async function StudentCoursesPage() {
-  const courses = await listMyCourses();
+export default function StudentCoursesPage() {
+  const coursesQuery = useQuery({
+    queryKey: ["student", "courses"],
+    queryFn: () => api.get<CourseRow[]>("/student/courses"),
+  });
+  const courses = coursesQuery.data ?? [];
   const active = courses.filter((item) => item.state === "active");
   const history = courses.filter((item) => item.state !== "active");
 

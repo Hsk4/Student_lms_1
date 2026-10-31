@@ -1,4 +1,4 @@
-export const instant = false;
+"use client";
 
 import {
   Table,
@@ -8,16 +8,42 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import { listAccessRequests } from "@/lib/queries/admin";
+import { useQueries } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import { PageHeader, Card, Empty, RoleChip, formatDate } from "@/components/ui/nila";
 import { RequestActions } from "./request-actions";
 
-export default async function AdminRequestsPage() {
-  const open = await listAccessRequests("open");
-  const decided = [
-    ...(await listAccessRequests("approved")),
-    ...(await listAccessRequests("rejected")),
-  ]
+type RequestRow = {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  note?: string;
+  state: string;
+  createdAt: string;
+  board?: string;
+  level?: string;
+  subjects: string;
+  userStatus: string;
+  userRole: string | null;
+  requestedRole: string | null;
+};
+
+
+
+const load = (state: string) => () => api.get<RequestRow[]>("/admin/requests", { state });
+
+export default function AdminRequestsPage() {
+  const [openQuery, approvedQuery, rejectedQuery] = useQueries({
+    queries: [
+      { queryKey: ["admin-requests", "open"], queryFn: load("open") },
+      { queryKey: ["admin-requests", "approved"], queryFn: load("approved") },
+      { queryKey: ["admin-requests", "rejected"], queryFn: load("rejected") },
+    ],
+  });
+
+  const open = openQuery.data ?? [];
+  const decided = [...(approvedQuery.data ?? []), ...(rejectedQuery.data ?? [])]
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
     .slice(0, 15);
 

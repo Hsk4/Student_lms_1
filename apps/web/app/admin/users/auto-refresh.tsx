@@ -1,39 +1,29 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 
 /**
- * Re-fetches the user list when the admin comes back to the tab.
- *
- * The list is a server component, so `router.refresh()` re-runs it on the
- * server. This fires only on `visibilitychange` and `focus` — browser events,
- * not an interval — so an idle admin tab costs nothing and there is no polling
- * loop. A stale tab that is left open but never focused simply shows what it
- * last rendered, which is the same as any other server-rendered page.
- *
- * There is no push channel: Next 16.3 closes WebSocket upgrades for app and
- * pages routes (`router-server.js`: "TODO: allow upgrade requests to
- * pages/app paths?"), and Socket.IO's long-polling fallback hid that. If live
- * push is needed later, it requires a custom Node server that owns the
- * `upgrade` event — not a polling workaround.
+ * Re-fetches the user list when the admin comes back to the tab. Fires only on
+ * `visibilitychange` and `focus`, never on an interval.
  */
 export function UsersAutoRefresh() {
-  const router = useRouter();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const refresh = () => {
-      if (document.visibilityState === "visible") router.refresh();
+      if (document.visibilityState === "visible") {
+        void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      }
     };
 
     document.addEventListener("visibilitychange", refresh);
     window.addEventListener("focus", refresh);
-
     return () => {
       document.removeEventListener("visibilitychange", refresh);
       window.removeEventListener("focus", refresh);
     };
-  }, [router]);
+  }, [queryClient]);
 
   return null;
 }

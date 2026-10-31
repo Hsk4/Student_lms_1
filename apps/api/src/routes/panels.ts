@@ -7,7 +7,7 @@ import {
   createClass,
   decideEnrollment,
   getEnrollment,
-  listEnrollmentsAdmin,
+  listEnrollmentsWithTeachers,
   markClassPast,
   matchingTeachers,
   myChildren,
@@ -38,6 +38,7 @@ import {
   listMyMaterials,
   myBookOptions,
   myCourseOptions,
+  myQuizzes,
   mySubmission,
   profile,
 } from "@/controllers/student";
@@ -142,7 +143,7 @@ panelRoutes.get(
 panelRoutes.get(
   "/admin/enrollments",
   ...admin,
-  asyncHandler(async (req, res) => ok(res, await listEnrollmentsAdmin(req))),
+  asyncHandler(async (_req, res) => ok(res, await listEnrollmentsWithTeachers())),
 );
 panelRoutes.post(
   "/admin/enrollments/:id/reassign",
@@ -311,7 +312,7 @@ panelRoutes.get(
 panelRoutes.get(
   "/student/quizzes",
   ...student,
-  asyncHandler(async (_req, res) => ok(res, [])),
+  asyncHandler(async (req, res) => ok(res, await myQuizzes(req))),
 );
 panelRoutes.post(
   "/student/submissions",

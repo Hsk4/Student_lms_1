@@ -1,6 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { UserButton } from "@clerk/nextjs";
+import { UserButton } from "@clerk/clerk-react";
 import { RoleChip, StatusChip } from "@/components/ui/nila";
 import {
   ADMIN_NAV_GROUPS,

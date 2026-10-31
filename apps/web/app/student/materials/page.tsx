@@ -1,7 +1,17 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { Card, Empty, PageHeader, formatDay } from "@/components/ui/nila";
-import { listMyMaterials } from "@/actions/student-panel";
+import { api } from "@/lib/api-client";
+
+type MaterialRow = {
+  id: string;
+  title: string;
+  type: string;
+  fileUrl: string;
+  courseLabel: string;
+  createdAt: string;
+};
 
 const TYPES = [
   { key: "notes", label: "Notes" },
@@ -10,8 +20,12 @@ const TYPES = [
   { key: "other", label: "Other" },
 ] as const;
 
-export default async function StudentMaterialsPage() {
-  const materials = await listMyMaterials();
+export default function StudentMaterialsPage() {
+  const materialsQuery = useQuery({
+    queryKey: ["student", "materials"],
+    queryFn: () => api.get<MaterialRow[]>("/student/materials"),
+  });
+  const materials = materialsQuery.data ?? [];
 
   return (
     <div>

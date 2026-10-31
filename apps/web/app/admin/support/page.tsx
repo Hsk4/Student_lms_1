@@ -1,7 +1,6 @@
-export const instant = false;
+"use client";
 
-import { redirect } from "next/navigation";
-import { Suspense } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   PageHeader,
   Card,
@@ -11,45 +10,27 @@ import {
   toneFor,
 } from "@/components/ui/nila";
 import {
-  authorNames,
-  listOpenTickets,
-} from "@/lib/queries/support-tickets";
-import { checkAccess } from "@/lib/auth/roles";
-import {
   EscalateTicketButton,
   TicketReplyForm,
 } from "@/components/support/support-forms";
+import { api } from "@/lib/api-client";
 
-async function Body() {
-  const { redirectTo, user } = await checkAccess(["admin", "super_admin"]);
-  if (redirectTo) redirect(redirectTo);
+type TicketRow = {
+  id: string;
+  subject: string;
+  state: string;
+  assignedTo: string | null;
+  createdAt: string;
+  createdBy: { name: string };
+  messages: { author: string; text: string }[];
+};
 
-  // A plain admin sees only their own queue; a super_admin sees everything.
-  const rawTickets = await listOpenTickets(
-    user.role === "admin" ? "admin" : undefined,
-  );
-
-  // Messages are rows now, so author names are one extra read, not a `populate`.
-  const names = await authorNames([
-    ...new Set(
-      rawTickets.flatMap((ticket) =>
-        ticket.messages.map((message) => message.authorId),
-      ),
-    ),
-  ]);
-
-  const tickets = rawTickets.map((ticket) => ({
-    id: ticket.id,
-    subject: ticket.subject,
-    state: ticket.state,
-    assignedTo: ticket.assignedTo,
-    createdAt: ticket.createdAt,
-    createdBy: { name: names.get(ticket.createdBy) ?? "Unknown" },
-    messages: ticket.messages.map((message) => ({
-      author: names.get(message.authorId) ?? "Unknown",
-      text: message.text,
-    })),
-  }));
+export default function AdminSupportPage() {
+  const ticketsQuery = useQuery({
+    queryKey: ["support-tickets"],
+    queryFn: () => api.get<TicketRow[]>("/support/tickets"),
+  });
+  const tickets = ticketsQuery.data ?? [];
 
   return (
     <div>
@@ -97,17 +78,5 @@ async function Body() {
         </div>
       )}
     </div>
-  );
-}
-
-export default function AdminSupportPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="p-10 text-sm text-muted-foreground">Loading...</div>
-      }
-    >
-      <Body />
-    </Suspense>
   );
 }

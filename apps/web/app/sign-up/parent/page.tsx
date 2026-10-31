@@ -1,11 +1,11 @@
-export const instant = false;
+"use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { Suspense } from "react";
+import { useRouter } from "next/navigation";
 import { Card, Notice, PageHeader } from "@/components/ui/nila";
 import { PanelShell } from "@/components/shell/shell";
-import { getCurrentUser, homeFor } from "@/lib/auth/roles";
+import { useMe } from "@/lib/queries";
 import { RequestParentRoleButton } from "./parent-actions";
 
 const STEPS = [
@@ -23,8 +23,19 @@ const STEPS = [
   },
 ];
 
-async function Body() {
-  const user = await getCurrentUser();
+export default function ParentSignUpPage() {
+  const me = useMe();
+  const router = useRouter();
+  const user = me.data;
+
+  useEffect(() => {
+    if (me.isLoading || !user) return;
+    if (user.status === "active") {
+      router.replace(user.role === "parent" ? "/parent/link" : user.home);
+    } else if (user.status === "suspended") {
+      router.replace("/?error=account_suspended");
+    }
+  }, [me.isLoading, user, router]);
 
   // Signed out: this page is the guardian entry point and explains the flow.
   if (!user) {
@@ -51,10 +62,16 @@ async function Body() {
             ))}
           </ol>
           <div className="mt-6 flex flex-wrap gap-2">
-            <Link href="/sign-up" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover">
+            <Link
+              href="/sign-up"
+              className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
+            >
               Create my account
             </Link>
-            <Link href="/sign-in" className="border border-border bg-card text-foreground shadow-sm hover:bg-secondary">
+            <Link
+              href="/sign-in"
+              className="border border-border bg-card text-foreground shadow-sm hover:bg-secondary"
+            >
               I already have one
             </Link>
           </div>
@@ -62,14 +79,6 @@ async function Body() {
       </PanelShell>
     );
   }
-
-  // Already approved: no reason to be here, send them to the code form.
-  if (user.status === "active") {
-    if (user.role === "parent") redirect("/parent/link");
-    redirect(homeFor(user));
-  }
-
-  if (user.status === "suspended") redirect("/?error=account_suspended");
 
   const reapplyAt =
     user.status === "rejected" && user.rejectedAt
@@ -108,17 +117,5 @@ async function Body() {
         </p>
       </Card>
     </PanelShell>
-  );
-}
-
-export default function ParentSignUpPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="p-10 text-sm text-muted-foreground">Loading...</div>
-      }
-    >
-      <Body />
-    </Suspense>
   );
 }

@@ -1,44 +1,53 @@
-export const instant = false;
+"use client";
 
-import { redirect } from "next/navigation";
+import { useEffect } from "react";
 import Link from "next/link";
-import { Suspense } from "react";
-import { getCurrentUser } from "@/lib/auth/roles";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import type { RequestStatusResponse } from "@lms/shared";
 import { PageHeader, Card, Notice } from "@/components/ui/nila";
 import { PanelShell } from "@/components/shell/shell";
-import { getOwnRequestStatus } from "@/actions/onboarding";
-import { PendingPoller } from "./pending-poller";
+import { api } from "@/lib/api-client";
+import { useMe } from "@/lib/queries";
 
 const STEPS = ["Account created", "Request under review", "Access granted"];
 
-async function Body() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/sign-in");
+export default function PendingPage() {
+  const me = useMe();
+  const router = useRouter();
+  const user = me.data;
 
-  if (user.status !== "pending") {
-    redirect(
-      user.status === "active"
-        ? user.onboarded
-          ? user.role === "super_admin" || user.role === "admin"
-            ? "/admin"
-            : `/${user.role}`
-          : "/onboarding/parent"
-        : user.status === "rejected"
-          ? "/rejected"
-          : "/?error=account_suspended",
-    );
-  }
+  // Called on mount and every 5 seconds: the page moves on by itself once an
+  // admin decides. The API is what decides; this is a redirect.
+  const statusQuery = useQuery({
+    queryKey: ["me", "request"],
+    queryFn: () => api.get<RequestStatusResponse>("/me/request"),
+    enabled: Boolean(user),
+    refetchInterval: 5000,
+  });
+  const status = statusQuery.data;
 
-  const status = await getOwnRequestStatus();
+  useEffect(() => {
+    if (!me.isLoading && !user) router.replace("/sign-in");
+  }, [me.isLoading, user, router]);
+
+  useEffect(() => {
+    if (user && user.status !== "pending") router.replace(user.home);
+  }, [user, router]);
+
   const isParentRequest = status?.requestedRole === "parent";
   const steps = isParentRequest
-    ? ["Account created", "Parent access under review", "Enter your child's code"]
+    ? [
+        "Account created",
+        "Parent access under review",
+        "Enter your child's code",
+      ]
     : STEPS;
 
   return (
     <PanelShell
       title="Waiting for approval"
-      user={{ name: user.name, role: user.role }}
+      user={{ name: user?.name ?? "", role: user?.role ?? null }}
     >
       <PageHeader
         title="Your account is pending"
@@ -96,10 +105,16 @@ async function Body() {
               You have not sent an access request yet.
             </Notice>
             <div className="flex flex-wrap gap-2">
-              <Link href="/request" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover">
+              <Link
+                href="/request"
+                className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
+              >
                 Fill in the request form
               </Link>
-              <Link href="/sign-up/parent" className="border border-border bg-card text-foreground shadow-sm hover:bg-secondary">
+              <Link
+                href="/sign-up/parent"
+                className="border border-border bg-card text-foreground shadow-sm hover:bg-secondary"
+              >
                 I am a parent
               </Link>
             </div>
@@ -108,25 +123,12 @@ async function Body() {
 
         {status?.hasOpenRequest && isParentRequest ? (
           <p className="mt-6 text-xs text-muted-foreground">
-            Once approved you come back here and open <strong>Link a child</strong> to enter the
-            code. Approval alone does not link anyone.
+            Once approved you come back here and open{" "}
+            <strong>Link a child</strong> to enter the code. Approval alone does
+            not link anyone.
           </p>
         ) : null}
       </Card>
-
-      <PendingPoller />
     </PanelShell>
-  );
-}
-
-export default function PendingPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="p-10 text-sm text-muted-foreground">Loading...</div>
-      }
-    >
-      <Body />
-    </Suspense>
   );
 }

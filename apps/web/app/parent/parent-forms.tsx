@@ -1,8 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { requestMeeting, rescheduleMeeting } from "@/actions/parent-panel";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
+
+/** Every parent mutation refreshes the parent panel's queries. */
+function useParentRefresh() {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: ["parent"] });
+}
 
 /** A parent asks the child's teacher for a meeting. */
 export function RequestMeetingForm({
@@ -12,7 +18,7 @@ export function RequestMeetingForm({
   childRows: { id: string; name: string }[];
   defaultStudentId?: string;
 }) {
-  const router = useRouter();
+  const refresh = useParentRefresh();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,17 +40,19 @@ export function RequestMeetingForm({
         setMessage(null);
         setError(null);
         startTransition(async () => {
-          const result = await requestMeeting({
-            studentId: form.get("studentId"),
-            preferredDay: form.get("preferredDay"),
-            note: String(form.get("note") ?? "") || undefined,
-          });
-          if (result.ok) {
+          try {
+            await api.post("/parent/meetings", {
+              studentId: form.get("studentId"),
+              preferredDay: form.get("preferredDay"),
+              note: String(form.get("note") ?? "") || undefined,
+            });
             setMessage("Request sent to the teacher.");
-            router.refresh();
-          } else {
+            await refresh();
+          } catch (requestError) {
             setError(
-              result.error ?? result.message ?? "Could not send the request",
+              requestError instanceof Error
+                ? requestError.message
+                : "Could not send the request",
             );
           }
         });
@@ -106,7 +114,7 @@ export function RequestMeetingForm({
 
 /** A parent asks for a new time on a meeting already confirmed. */
 export function RescheduleMeetingForm({ meetingId }: { meetingId: string }) {
-  const router = useRouter();
+  const refresh = useParentRefresh();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
 
@@ -129,12 +137,11 @@ export function RescheduleMeetingForm({ meetingId }: { meetingId: string }) {
         event.preventDefault();
         const form = new FormData(event.currentTarget);
         startTransition(async () => {
-          await rescheduleMeeting({
-            meetingId,
+          await api.post(`/parent/meetings/${meetingId}/reschedule`, {
             preferredDay: String(form.get("preferredDay") ?? ""),
           });
           setOpen(false);
-          router.refresh();
+          await refresh();
         });
       }}
     >

@@ -1,5 +1,7 @@
-export const instant = false;
+"use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
 import {
   Table,
   TableHeader,
@@ -16,20 +18,30 @@ import {
   formatDate,
   toneFor,
 } from "@/components/ui/nila";
-import { listChildOverviews } from "@/actions/parent-panel";
-import { requireRole } from "@/lib/auth/guards";
-import { requireRequestTime } from "@/lib/auth/panels";
-import { listMeetingsWithNamesForParent } from "@/lib/queries/meetings";
 import { RequestMeetingForm, RescheduleMeetingForm } from "../parent-forms";
 
-export default async function ParentMeetingsPage() {
-  await requireRequestTime();
-  const session = await requireRole(["parent"]);
+type MeetingRow = {
+  id: string;
+  teacherName: string;
+  studentName: string;
+  requestedSlots: string[];
+  confirmedAt: string | null;
+  state: string;
+};
+type ChildRow = { id: string; name: string };
 
-  const [children, meetings] = await Promise.all([
-    listChildOverviews(),
-    listMeetingsWithNamesForParent(session.actorId),
-  ]);
+export default function ParentMeetingsPage() {
+  const childrenQuery = useQuery({
+    queryKey: ["parent", "children"],
+    queryFn: () => api.get<ChildRow[]>("/parent/overview"),
+  });
+  const meetingsQuery = useQuery({
+    queryKey: ["parent", "meetings"],
+    queryFn: () => api.get<MeetingRow[]>("/parent/meetings"),
+  });
+
+  const children = childrenQuery.data ?? [];
+  const meetings = meetingsQuery.data ?? [];
 
   const open = meetings.filter(
     (meeting) => meeting.state !== "done" && meeting.state !== "cancelled",
