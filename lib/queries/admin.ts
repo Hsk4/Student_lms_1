@@ -1,21 +1,48 @@
 import "server-only";
 import { connection } from "next/server";
-import { connectDB } from "@/lib/db";
-import { User, type UserRole } from "@/models/user";
-import { AccessRequest } from "@/models/access-request";
-import { Board } from "@/models/board";
-import { Level } from "@/models/level";
-import { Subject } from "@/models/subject";
-import { Course } from "@/models/course";
-import { Book } from "@/models/book";
-import { Material } from "@/models/material";
-import { AuditLog } from "@/models/audit-log";
+import { eq } from "drizzle-orm";
+import { db } from "@/db/client";
+import { boards } from "@/db/schema";
+import type { UserRole } from "@/lib/types";
 
-const shortId = (value: unknown) => String(value);
+import {
+  countOpenRequests,
+  listAccessRequests as listRequestRows,
+} from "@/lib/queries/access-requests";
+import { listAuditLogs } from "@/lib/queries/audit-logs";
+import {
+  countBooksByCourse,
+  findBookById,
+  listBooks as listBookRows,
+} from "@/lib/queries/books";
+import { listBoards } from "@/lib/queries/boards";
+import {
+  findCourseById,
+  listCourses as listCourseRows,
+} from "@/lib/queries/courses";
+import { listLevels } from "@/lib/queries/levels";
+import { listMaterialsForCourse } from "@/lib/queries/materials";
+import {
+  listInvitesWithStudent,
+  type ParentInviteRow,
+} from "@/lib/queries/parent-invites";
+import { listSubjects } from "@/lib/queries/subjects";
+import {
+  countUsers,
+  listAllUsers,
+  listUsersByStatus,
+  listUsersByIds,
+} from "@/lib/queries/users";
+
+/**
+ * Admin panel reads. Postgres-backed.
+ *
+ * Everything here used to hit Mongoose. The shapes are unchanged — the pages are
+ * the contract — but the joins happen in SQL rather than in memory.
+ */
 
 export async function listPendingUsers() {
-  await connectDB();
-  return User.find({ status: "pending" }).sort({ createdAt: -1 }).limit(200).lean();
+  return listUsersByStatus("pending");
 }
 
 export type RequestRow = {
@@ -34,127 +61,133 @@ export type RequestRow = {
   requestedRole: string | null;
 };
 
-export async function listAccessRequests(state: "open" | "approved" | "rejected"): Promise<RequestRow[]> {
+export async function listAccessRequests(
+  state: "open" | "approved" | "rejected",
+): Promise<RequestRow[]> {
   // Date arithmetic below is request-time data, so never prerender this page.
   await connection();
-  await connectDB();
-  const requests = await AccessRequest.find({ state }).sort({ createdAt: -1 }).limit(200).lean();
-  if (!requests.length) return [];
 
-  const userIds = requests.map((request) => request.userId);
-  const [users, boards, levels, subjects] = await Promise.all([
-    User.find({ _id: { $in: userIds } }).select("status role").lean(),
-    Board.find().lean(),
-    Level.find().lean(),
-    Subject.find().lean(),
+  const requests = await listRequestRows(state);
+  if (requests.length === 0) return [];
+
+  const [requestUsers, allBoards, allLevels, allSubjects] = await Promise.all([
+    listUsersByIds([...new Set(requests.map((request) => request.userId))]),
+    listBoards(),
+    listLevels(),
+    listSubjects(),
   ]);
-  const usersById = new Map(users.map((user) => [shortId(user._id), user]));
-  const boardNames = new Map(boards.map((item) => [shortId(item._id), item.name]));
-  const levelNames = new Map(levels.map((item) => [shortId(item._id), item.name]));
-  const subjectNames = new Map(subjects.map((item) => [shortId(item._id), item.name]));
+
+  const usersById = new Map(requestUsers.map((user) => [user.id, user]));
+  const boardNames = new Map(allBoards.map((item) => [item.id, item.name]));
+  const levelNames = new Map(allLevels.map((item) => [item.id, item.name]));
+  const subjectNames = new Map(allSubjects.map((item) => [item.id, item.name]));
 
   return requests.map((request) => {
-    const user = usersById.get(shortId(request.userId));
+    const user = usersById.get(request.userId);
     return {
-      id: shortId(request._id),
-      userId: shortId(request.userId),
+      id: request.id,
+      userId: request.userId,
       name: request.name,
       email: request.email,
-      note: request.note,
+      note: request.note ?? undefined,
       state: request.state,
-      createdAt: new Date(request.createdAt).toISOString(),
-      board: request.boardId ? boardNames.get(shortId(request.boardId)) : undefined,
-      level: request.levelId ? levelNames.get(shortId(request.levelId)) : undefined,
-      subjects: (request.subjectIds ?? []).map((id: { toString(): string }) => subjectNames.get(shortId(id)) ?? "-").join(", "),
+      createdAt: request.createdAt.toISOString(),
+      board: request.boardId ? boardNames.get(request.boardId) : undefined,
+      level: request.levelId ? levelNames.get(request.levelId) : undefined,
+      subjects: request.subjectIds
+        .map((id) => subjectNames.get(id) ?? "-")
+        .join(", "),
       userStatus: user?.status ?? "unknown",
       userRole: user?.role ?? null,
-      requestedRole: request.requestedRole ?? null,
+      requestedRole: request.requestedRole,
     };
   });
 }
 
-export async function listUsers(filter?: { status?: string; role?: string; q?: string }) {
-  await connectDB();
-  const query: Record<string, unknown> = {};
-  if (filter?.status) query.status = filter.status;
-  if (filter?.role) query.role = filter.role;
-  if (filter?.q) {
-    const escaped = filter.q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    query.$or = [{ name: new RegExp(escaped, "i") }, { email: new RegExp(escaped, "i") }];
-  }
 
-  const users = await User.find(query).sort({ createdAt: -1 }).limit(200).lean();
-  const boardIds = users.map((user) => user.student?.boardId).filter(Boolean);
-  const levelIds = users.map((user) => user.student?.levelId).filter(Boolean);
-  const [boards, levels] = await Promise.all([
-    Board.find({ _id: { $in: boardIds } }).lean(),
-    Level.find({ _id: { $in: levelIds } }).lean(),
+
+export async function listUsers(filter?: {
+  status?: string;
+  role?: string;
+  q?: string;
+}) {
+  const found = await listAllUsers(filter);
+
+  const [allBoards, allLevels] = await Promise.all([
+    listBoards(),
+    listLevels(),
   ]);
-  const boardNames = new Map(boards.map((item) => [shortId(item._id), item.name]));
-  const levelNames = new Map(levels.map((item) => [shortId(item._id), item.name]));
+  const boardNames = new Map(allBoards.map((item) => [item.id, item.name]));
+  const levelNames = new Map(allLevels.map((item) => [item.id, item.name]));
 
-  return users.map((user) => ({
-    id: shortId(user._id),
+  return found.map((user) => ({
+    id: user.id,
     name: user.name,
     email: user.email,
     role: (user.role ?? null) as UserRole | null,
-    status: String(user.status),
-    onboarded: Boolean(user.onboarded),
-    createdAt: new Date(user.createdAt).toISOString(),
-    board: user.student?.boardId ? boardNames.get(shortId(user.student.boardId)) : undefined,
-    level: user.student?.levelId ? levelNames.get(shortId(user.student.levelId)) : undefined,
-    rejectionReason: user.rejectionReason,
+    status: user.status,
+    onboarded: user.onboarded,
+    createdAt: user.createdAt.toISOString(),
+    board: user.student.boardId
+      ? boardNames.get(user.student.boardId)
+      : undefined,
+    level: user.student.levelId
+      ? levelNames.get(user.student.levelId)
+      : undefined,
+    rejectionReason: user.rejectionReason ?? undefined,
   }));
 }
 
 export type UserRow = Awaited<ReturnType<typeof listUsers>>[number];
 
-export async function getTeacherCourseAssignments() {
-  await connectDB();
-  const [courses, teachers, boards, levels, subjects] = await Promise.all([
-    Course.find({ active: true }).lean(),
-    User.find({ role: "teacher", status: "active" }).select("teacher.courseIds").lean(),
-    Board.find().select("name").lean(),
-    Level.find().select("name").lean(),
-    Subject.find().select("name").lean(),
-  ]);
-  const boardNames = new Map(boards.map((item) => [shortId(item._id), item.name]));
-  const levelNames = new Map(levels.map((item) => [shortId(item._id), item.name]));
-  const subjectNames = new Map(subjects.map((item) => [shortId(item._id), item.name]));
-  const teachersByCourse = new Map<string, string[]>();
-  for (const teacher of teachers) {
-    for (const courseId of teacher.teacher?.courseIds ?? []) {
-      const id = shortId(courseId);
-      teachersByCourse.set(id, [...(teachersByCourse.get(id) ?? []), shortId(teacher._id)]);
-    }
-  }
+/** Total for the filtered list — `listUsers` is capped, so it cannot answer this. */
+export async function countUsersFor(filter?: {
+  status?: string;
+  role?: string;
+  q?: string;
+}) {
+  return countUsers(filter);
+}
 
-  return courses.map((course) => {
-    const id = shortId(course._id);
-    const board = boardNames.get(shortId(course.boardId)) ?? "Board";
-    const level = levelNames.get(shortId(course.levelId)) ?? "Level";
-    const subject = subjectNames.get(shortId(course.subjectId)) ?? "Subject";
-    const medium = course.medium ? ` - ${course.medium}` : "";
-    return { id, label: `${board} - ${level} - ${subject}${medium}`, teacherIds: teachersByCourse.get(id) ?? [] };
-  });
+/**
+ * The four tiles above the Users table. Each is a `count(*)` on an indexed
+ * column, run in parallel, so the summary costs one round trip and no rows.
+ */
+export async function getUserCounts() {
+  const [all, active, pending, teachers] = await Promise.all([
+    countUsers(),
+    countUsers({ status: "active" }),
+    countUsers({ status: "pending" }),
+    countUsers({ role: "teacher" }),
+  ]);
+  return { all, active, pending, teachers };
 }
 
 export async function listAuditLog() {
-  await connectDB();
-  const entries = await AuditLog.find().sort({ at: -1 }).limit(200).lean();
-  const actorIds = [...new Set(entries.map((entry) => shortId(entry.actorId)))];
-  const actors = await User.find({ _id: { $in: actorIds } }).select("name email").lean();
-  const actorsById = new Map(actors.map((actor) => [shortId(actor._id), { name: actor.name, email: actor.email }]));
+  const entries = await listAuditLogs();
+  const actors = await listUsersByIds([
+    ...new Set(entries.map((entry) => entry.actorId)),
+  ]);
+  const actorsById = new Map(
+    actors.map((actor) => [actor.id, { name: actor.name, email: actor.email }]),
+  );
   return entries.map((entry) => ({
-    id: shortId(entry._id),
+    id: entry.id,
     action: entry.action,
     targetType: entry.targetType,
-    targetId: entry.targetId ? shortId(entry.targetId) : null,
-    actor: actorsById.get(shortId(entry.actorId)),
-    before: (entry.before ?? null) as Record<string, unknown> | null,
-    after: (entry.after ?? null) as Record<string, unknown> | null,
-    at: new Date(entry.at).toISOString(),
+    targetId: entry.targetId,
+    actor: actorsById.get(entry.actorId),
+    before: entry.before,
+    after: entry.after,
+    at: entry.at.toISOString(),
   }));
+}
+
+export type { ParentInviteRow };
+
+/** Admin guardian-link-codes table: every invite, newest first, student joined. */
+export async function listParentInvites(): Promise<ParentInviteRow[]> {
+  return listInvitesWithStudent();
 }
 
 export type CatalogLists = {
@@ -164,119 +197,198 @@ export type CatalogLists = {
 };
 
 export async function getCatalogLists(): Promise<CatalogLists> {
-  await connectDB();
-  const [boards, levels, subjects] = await Promise.all([
-    Board.find().sort({ name: 1 }).lean(),
-    Level.find().sort({ order: 1 }).lean(),
-    Subject.find().sort({ name: 1 }).lean(),
+  const [allBoards, allLevels, allSubjects] = await Promise.all([
+    listBoards(),
+    listLevels(),
+    listSubjects(),
   ]);
   return {
-    boards: boards.map((item) => ({ id: shortId(item._id), name: item.name, slug: item.slug, active: item.active })),
-    levels: levels.map((item) => ({ id: shortId(item._id), name: item.name, order: item.order, active: item.active })),
-    subjects: subjects.map((item) => ({ id: shortId(item._id), name: item.name, slug: item.slug, active: item.active })),
+    boards: allBoards.map((item) => ({
+      id: item.id,
+      name: item.name,
+      slug: item.slug,
+      active: item.active,
+    })),
+    levels: allLevels.map((item) => ({
+      id: item.id,
+      name: item.name,
+      order: item.order,
+      active: item.active,
+    })),
+    subjects: allSubjects.map((item) => ({
+      id: item.id,
+      name: item.name,
+      slug: item.slug,
+      active: item.active,
+    })),
   };
 }
 
 export type CourseRow = {
-  id: string; boardId: string; board: string; levelId: string; level: string;
-  levelOrder: number; subjectId: string; subject: string; medium: string; active: boolean; books: number;
+  id: string;
+  boardId: string;
+  board: string;
+  levelId: string;
+  level: string;
+  levelOrder: number;
+  subjectId: string;
+  subject: string;
+  medium: string;
+  active: boolean;
+  books: number;
 };
 
 export async function listCourses(): Promise<CourseRow[]> {
-  const { boards, levels, subjects } = await getCatalogLists();
-  await connectDB();
-  const [courses, books] = await Promise.all([
-    Course.find().sort({ createdAt: -1 }).limit(500).lean(),
-    Book.find().select("courseIds").lean(),
+  const [
+    { boards: allBoards, levels: allLevels, subjects: allSubjects },
+    courses,
+    bookCounts,
+  ] = await Promise.all([
+    getCatalogLists(),
+    listCourseRows(),
+    countBooksByCourse(),
   ]);
-  const boardNames = new Map(boards.map((item) => [item.id, item.name]));
-  const levelsById = new Map(levels.map((item) => [item.id, item]));
-  const subjectNames = new Map(subjects.map((item) => [item.id, item.name]));
-  const bookCounts = new Map<string, number>();
-  for (const book of books) {
-    for (const courseId of book.courseIds ?? []) {
-      const id = shortId(courseId);
-      bookCounts.set(id, (bookCounts.get(id) ?? 0) + 1);
-    }
-  }
+
+  const boardNames = new Map(allBoards.map((item) => [item.id, item.name]));
+  const levelsById = new Map(allLevels.map((item) => [item.id, item]));
+  const subjectNames = new Map(allSubjects.map((item) => [item.id, item.name]));
+
   return courses.map((course) => {
-    const level = levelsById.get(shortId(course.levelId));
+    const level = levelsById.get(course.levelId);
     return {
-      id: shortId(course._id), boardId: shortId(course.boardId),
-      board: boardNames.get(shortId(course.boardId)) ?? "-",
-      levelId: shortId(course.levelId), level: level?.name ?? "-", levelOrder: level?.order ?? 999,
-      subjectId: shortId(course.subjectId), subject: subjectNames.get(shortId(course.subjectId)) ?? "-",
-      medium: course.medium ?? "", active: course.active, books: bookCounts.get(shortId(course._id)) ?? 0,
+      id: course.id,
+      boardId: course.boardId,
+      board: boardNames.get(course.boardId) ?? "-",
+      levelId: course.levelId,
+      level: level?.name ?? "-",
+      levelOrder: level?.order ?? 999,
+      subjectId: course.subjectId,
+      subject: subjectNames.get(course.subjectId) ?? "-",
+      medium: course.medium ?? "",
+      active: course.active,
+      books: bookCounts.get(course.id) ?? 0,
     };
   });
 }
 
 export function courseLabel(course: CourseRow) {
-  return `${course.board} / ${course.level} / ${course.subject}${course.medium ? ` / ${course.medium}` : ""}`;
+  return `${course.board} / ${course.level} / ${course.subject}${
+    course.medium ? ` / ${course.medium}` : ""
+  }`;
 }
 
 export async function listBooks() {
-  await connectDB();
-  const books = await Book.find().sort({ title: 1 }).lean();
-  const courses = await listCourses();
+  const [allBooks, courses] = await Promise.all([listBookRows(), listCourses()]);
   const byId = new Map(courses.map((course) => [course.id, course]));
-  return books.map((book) => ({
-    id: shortId(book._id), title: book.title, author: book.author ?? "", note: book.note ?? "",
-    courseIds: (book.courseIds ?? []).map(shortId),
-    courses: (book.courseIds ?? []).map((id: { toString(): string }) => byId.get(shortId(id))).filter((course: CourseRow | undefined): course is CourseRow => Boolean(course)).map(courseLabel),
+  return allBooks.map((book) => ({
+    id: book.id,
+    title: book.title,
+    author: book.author ?? "",
+    note: book.note ?? "",
+    courseIds: book.courseIds,
+    courses: book.courseIds
+      .map((id) => byId.get(id))
+      .filter((course): course is CourseRow => Boolean(course))
+      .map(courseLabel),
   }));
 }
 
 export type BookRow = Awaited<ReturnType<typeof listBooks>>[number];
 
 export async function getBook(id: string) {
-  await connectDB();
-  const book = await Book.findById(id).lean();
+  const book = await findBookById(id);
   if (!book) return null;
   const courses = await listCourses();
   const byId = new Map(courses.map((course) => [course.id, course]));
-  const courseIds = (book.courseIds ?? []).map(shortId);
   return {
-    id: shortId(book._id), title: book.title, author: book.author ?? "", note: book.note ?? "", courseIds,
-    linked: courseIds.map((courseId: string) => byId.get(courseId)).filter((course: CourseRow | undefined): course is CourseRow => Boolean(course)).map((course: CourseRow) => ({ id: course.id, label: courseLabel(course) })),
-    allCourses: courses.map((course: CourseRow) => ({ id: course.id, label: courseLabel(course) })),
+    id: book.id,
+    title: book.title,
+    author: book.author ?? "",
+    note: book.note ?? "",
+    courseIds: book.courseIds,
+    linked: book.courseIds
+      .map((courseId) => byId.get(courseId))
+      .filter((course): course is CourseRow => Boolean(course))
+      .map((course) => ({ id: course.id, label: courseLabel(course) })),
+    allCourses: courses.map((course) => ({
+      id: course.id,
+      label: courseLabel(course),
+    })),
   };
 }
 
 export async function getCourse(id: string) {
-  await connectDB();
-  const course = await Course.findById(id).lean();
+  const course = await findCourseById(id);
   if (!course) return null;
-  const { boards, levels, subjects } = await getCatalogLists();
-  const board = boards.find((item) => item.id === shortId(course.boardId));
-  const level = levels.find((item) => item.id === shortId(course.levelId));
-  const subject = subjects.find((item) => item.id === shortId(course.subjectId));
-  const [materials, books] = await Promise.all([
-    Material.find({ courseId: course._id }).sort({ createdAt: -1 }).lean(),
-    Book.find({ courseIds: course._id }).lean(),
+
+  const [
+    { boards: allBoards, levels: allLevels, subjects: allSubjects },
+    materials,
+    books,
+  ] = await Promise.all([
+    getCatalogLists(),
+    listMaterialsForCourse(course.id),
+    listBookRows(),
   ]);
+
+  const board = allBoards.find((item) => item.id === course.boardId);
+  const level = allLevels.find((item) => item.id === course.levelId);
+  const subject = allSubjects.find((item) => item.id === course.subjectId);
+
   return {
-    id: shortId(course._id), boardId: shortId(course.boardId), levelId: shortId(course.levelId), subjectId: shortId(course.subjectId),
-    medium: course.medium ?? "", active: course.active,
-    label: [board?.name, level?.name, subject?.name, course.medium].filter(Boolean).join(" / "),
-    board: board ?? null, level: level ?? null, subject: subject ?? null,
-    books: books.map((book) => ({ id: shortId(book._id), title: book.title, author: book.author ?? "" })),
-    materials: materials.map((material) => ({ id: shortId(material._id), title: material.title, type: String(material.type), fileUrl: material.fileUrl })),
+    id: course.id,
+    boardId: course.boardId,
+    levelId: course.levelId,
+    subjectId: course.subjectId,
+    medium: course.medium ?? "",
+    active: course.active,
+    label: [board?.name, level?.name, subject?.name, course.medium]
+      .filter(Boolean)
+      .join(" / "),
+    board: board ?? null,
+    level: level ?? null,
+    subject: subject ?? null,
+    books: books
+      .filter((book) => book.courseIds.includes(course.id))
+      .map((book) => ({
+        id: book.id,
+        title: book.title,
+        author: book.author ?? "",
+      })),
+    materials: materials.map((material) => ({
+      id: material.id,
+      title: material.title,
+      type: material.type,
+      fileUrl: material.fileUrl,
+    })),
   };
 }
 
 export async function getBoard(id: string) {
-  await connectDB();
-  const board = await Board.findById(id).lean();
+  const [boardRows, courses] = await Promise.all([
+    db.select().from(boards).where(eq(boards.id, id)).limit(1),
+    listCourses(),
+  ]);
+  const board = boardRows[0];
   if (!board) return null;
-  const courses = await listCourses();
   return {
-    id: shortId(board._id), name: board.name, slug: board.slug, active: board.active,
-    courses: courses.filter((course) => course.boardId === shortId(board._id)).map((course) => ({ id: course.id, label: courseLabel(course), active: course.active })),
+    id: board.id,
+    name: board.name,
+    slug: board.slug,
+    active: board.active,
+    courses: courses
+      .filter((course) => course.boardId === board.id)
+      .map((course) => ({
+        id: course.id,
+        label: courseLabel(course),
+        active: course.active,
+      })),
   };
 }
 
 export async function countPending() {
-  await connectDB();
-  return AccessRequest.countDocuments({ state: "open" });
+  return countOpenRequests();
 }
+
+/** Lives in `lib/queries/teacher.ts`; re-exported because the users page imports it here. */
+export { getTeacherCourseAssignments } from "@/lib/queries/teacher";

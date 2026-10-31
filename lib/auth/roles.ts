@@ -1,14 +1,18 @@
 import { redirect } from "next/navigation";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { connectDB } from "@/lib/db";
-import { User, type UserStatus } from "@/models/user";
+import { demoSession } from "@/lib/auth/demo";
+import { findUserByClerkId, createUser } from "@/lib/queries/users";
+import type { Student, UserRole, UserStatus } from "@/lib/types";
 
-export type UserRole =
-  | "super_admin"
-  | "admin"
-  | "teacher"
-  | "student"
-  | "parent";
+/**
+ * Session and account resolution. Postgres-backed.
+ *
+ * `UserRole` / `UserStatus` now come from `lib/types` rather than being declared
+ * here and re-declared on the Mongoose model, so there is one definition and it
+ * matches the Postgres enums exactly.
+ */
+
+export type { UserRole, UserStatus };
 
 export interface SessionClaims {
   metadata?: {
@@ -47,6 +51,18 @@ export const ROLE_HOME: Record<UserRole, string> = {
 
 /** Session claims only. Missing metadata is treated as pending. */
 export async function getSessionUser(): Promise<SessionUser | null> {
+  // Same demo bypass as `getCurrentUser`, resolved before `auth()` because
+  // `proxy.ts` skips Clerk for demo requests.
+  const demo = await demoSession();
+  if (demo) {
+    return {
+      clerkId: demo.clerkId,
+      role: demo.role,
+      status: "active",
+      onboarded: true,
+    };
+  }
+
   const { userId, sessionClaims } = await auth();
 
   if (!userId) return null;
@@ -61,16 +77,39 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   };
 }
 
+function toGateUser(user: Student): GateUser {
+  return {
+    id: user.id,
+    clerkId: user.clerkId,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    status: user.status,
+    onboarded: user.onboarded,
+    rejectionReason: user.rejectionReason,
+    rejectedAt: user.rejectedAt,
+  };
+}
+
 /**
- * Reads the Mongo mirror. If the webhook has not landed yet, the account is
+ * Reads the Postgres mirror. If the webhook has not landed yet, the account is
  * adopted from Clerk so a fresh sign-up is never stuck on a missing user.
  */
 export async function getCurrentUser(): Promise<GateUser | null> {
+  // Screenshot-only bypass: seed a User with clerkId "demo_<role>" and set
+  // LMS_DEMO_ROLE to render that panel without a Clerk session. `proxy.ts`
+  // skips Clerk for these requests, so `auth()` must not be called here — it
+  // throws when clerkMiddleware did not run.
+  const demo = await demoSession();
+  if (demo) {
+    const demoUser = await findUserByClerkId(demo.clerkId);
+    if (demoUser) return toGateUser(demoUser);
+  }
+
   const { userId } = await auth();
   if (!userId) return null;
 
-  await connectDB();
-  let dbUser = await User.findOne({ clerkId: userId }).lean();
+  let dbUser = await findUserByClerkId(userId);
 
   if (!dbUser) {
     const clerkUser = await currentUser();
@@ -83,35 +122,25 @@ export async function getCurrentUser(): Promise<GateUser | null> {
       [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
       clerkUser.username ||
       "User";
-    dbUser = await User.findOneAndUpdate(
-      { clerkId: userId },
-      {
-        $setOnInsert: {
-          clerkId: userId,
-          email,
-          name,
-          role: null,
-          status: "pending",
-          onboarded: false,
-        },
-      },
-      { upsert: true, returnDocument: "after", lean: true },
-    );
+
+    // Was `findOneAndUpdate(..., { upsert: true, $setOnInsert })`. The plain
+    // insert now relies on `users_clerk_id_unique`; a concurrent webhook that
+    // won the race makes this a 23505, which we absorb by re-reading.
+    try {
+      dbUser = await createUser({
+        clerkId: userId,
+        email,
+        name,
+        role: null,
+        status: "pending",
+        onboarded: false,
+      });
+    } catch {
+      dbUser = await findUserByClerkId(userId);
+    }
   }
 
-  if (!dbUser) return null;
-
-  return {
-    id: String(dbUser._id),
-    clerkId: dbUser.clerkId,
-    email: dbUser.email,
-    name: dbUser.name,
-    role: (dbUser.role ?? null) as UserRole | null,
-    status: dbUser.status as UserStatus,
-    onboarded: Boolean(dbUser.onboarded),
-    rejectionReason: dbUser.rejectionReason ?? null,
-    rejectedAt: dbUser.rejectedAt ?? null,
-  };
+  return dbUser ? toGateUser(dbUser) : null;
 }
 
 /** The one place that decides where an account may land. */
@@ -156,6 +185,5 @@ export async function checkAccess(
 }
 
 export async function getUserFromDB(clerkId: string) {
-  await connectDB();
-  return User.findOne({ clerkId }).lean();
+  return findUserByClerkId(clerkId);
 }

@@ -1,53 +1,42 @@
-import { connectDB } from "@/lib/db";
-import { Course } from "@/models/course";
-import { User } from "@/models/user";
-import { Board } from "@/models/board";
-import { Level } from "@/models/level";
-import { Subject } from "@/models/subject";
+import { eq } from "drizzle-orm";
+import { db, type Tx } from "@/db/client";
+import { courses } from "@/db/schema";
+import {
+  listCourseLabels,
+  listTeacherCourseLinks,
+} from "@/lib/queries/teacher-courses";
+import type { Id } from "@/lib/types";
 
-/** Returns the course catalog and associated active teacher ids for admin assignment UI. */
-export async function getTeacherCourseAssignments() {
-  await connectDB();
-  const [courses, users, boards, levels, subjects] = await Promise.all([
-    Course.find({ active: true }).lean(),
-    User.find({ role: "teacher", status: "active" })
-      .select("_id teacher.courseIds")
-      .lean(),
-    Board.find().select("name").lean(),
-    Level.find().select("name").lean(),
-    Subject.find().select("name").lean(),
+/**
+ * Returns the course catalog and associated active teacher ids for admin
+ * assignment UI. Postgres-backed.
+ *
+ * The Mongo version loaded every teacher and walked `teacher.courseIds[]` to
+ * build the reverse map. `teacher_courses` is indexed on `course_id`, so the
+ * reverse map is a single grouped read.
+ */
+export async function getTeacherCourseAssignments(
+  conn: Tx | typeof db = db,
+) {
+  const [courseRows, links, labels] = await Promise.all([
+    conn.select({ id: courses.id }).from(courses).where(eq(courses.active, true)),
+    listTeacherCourseLinks(conn),
+    listCourseLabels({ active: true }, conn),
   ]);
 
-  const boardNames = new Map(
-    boards.map((board) => [String(board._id), board.name]),
-  );
-  const levelNames = new Map(
-    levels.map((level) => [String(level._id), level.name]),
-  );
-  const subjectNames = new Map(
-    subjects.map((subject) => [String(subject._id), subject.name]),
-  );
-  const teacherIdsByCourse = new Map<string, string[]>();
-
-  for (const teacher of users) {
-    for (const courseId of teacher.teacher?.courseIds ?? []) {
-      const courseKey = String(courseId);
-      const ids = teacherIdsByCourse.get(courseKey) ?? [];
-      ids.push(String(teacher._id));
-      teacherIdsByCourse.set(courseKey, ids);
+  const labelById = new Map(labels.map((label) => [label.id, label.label]));
+  const teacherIdsByCourse = new Map<Id, Id[]>();
+  for (const [teacherId, courseIds] of links) {
+    for (const courseId of courseIds) {
+      const current = teacherIdsByCourse.get(courseId);
+      if (current) current.push(teacherId);
+      else teacherIdsByCourse.set(courseId, [teacherId]);
     }
   }
 
-  return courses.map((course) => {
-    const id = String(course._id);
-    const board = boardNames.get(String(course.boardId)) ?? "Board";
-    const level = levelNames.get(String(course.levelId)) ?? "Level";
-    const subject = subjectNames.get(String(course.subjectId)) ?? "Subject";
-    const medium = course.medium ? ` - ${course.medium}` : "";
-    return {
-      id,
-      label: `${board} - ${level} - ${subject}${medium}`,
-      teacherIds: teacherIdsByCourse.get(id) ?? [],
-    };
-  });
+  return courseRows.map((row) => ({
+    id: row.id,
+    label: labelById.get(row.id) ?? "Course",
+    teacherIds: teacherIdsByCourse.get(row.id) ?? [],
+  }));
 }

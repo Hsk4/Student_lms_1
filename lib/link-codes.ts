@@ -1,6 +1,5 @@
 import { randomInt } from "node:crypto";
-import { connectDB } from "@/lib/db";
-import { ParentInvite } from "@/models/parent-invite";
+import { codeExists } from "@/lib/queries/parent-invites";
 
 /**
  * Link codes are typed by hand, often read aloud, so the alphabet excludes the
@@ -26,15 +25,14 @@ export function normalizeLinkCode(raw: string): string {
 export const LINK_CODE_TTL_DAYS = 14;
 
 /**
- * Generates a code that no existing invite holds. The unique index is the real
- * guard; this avoids the cheap collision.
+ * Generates a code that no existing invite holds. `parent_invites_code_unique`
+ * is the real guard; this avoids the cheap collision and the retry that would
+ * follow from it.
  */
 export async function uniqueLinkCode(): Promise<string> {
-  await connectDB();
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const code = newLinkCode();
-    const taken = await ParentInvite.exists({ code });
-    if (!taken) return code;
+    if (!(await codeExists(code))) return code;
   }
   throw new Error("Could not allocate a unique link code, try again");
 }

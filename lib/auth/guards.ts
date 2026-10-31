@@ -1,11 +1,12 @@
 import { getSessionUser, type UserRole } from "./roles";
-import { User } from "@/models/user";
-import { Enrollment } from "@/models/enrollment";
-import { connectDB } from "@/lib/db";
-import { isGuardianOf } from "@/lib/guardians";
-import { z } from "zod";
-
-const objectIdSchema = z.string().regex(/^[a-f\d]{24}$/i);
+import { findUserByClerkId } from "@/lib/queries/users";
+import {
+  findActiveEnrollmentBetween,
+  findEnrollmentById,
+} from "@/lib/queries/enrollment";
+import { isGuardianOf } from "@/lib/queries/guardianships";
+import { recordIdSchema } from "@/lib/validators/common";
+import type { Id } from "@/lib/types";
 
 export class AuthzError extends Error {
   constructor(message: string) {
@@ -14,17 +15,14 @@ export class AuthzError extends Error {
   }
 }
 
-/** The Mongo _id of the signed-in user, needed for audit entries and ownership checks. */
-export async function requireActorId(): Promise<string> {
+/** The Postgres uuid of the signed-in user, needed for audit entries and ownership checks. */
+export async function requireActorId(): Promise<Id> {
   const session = await getSessionUser();
   if (!session) throw new AuthzError("Unauthorized: not signed in");
 
-  await connectDB();
-  const user = await User.findOne({ clerkId: session.clerkId })
-    .select("_id")
-    .lean();
+  const user = await findUserByClerkId(session.clerkId);
   if (!user) throw new AuthzError("Unauthorized: account not found");
-  return String(user._id);
+  return user.id;
 }
 
 /**
@@ -69,53 +67,50 @@ export async function requireActiveUser() {
 }
 
 export async function requireTeacherOf(clerkId: string, studentId: string) {
-  const studentObjectId = objectIdSchema.parse(studentId);
+  const studentUuid = recordIdSchema.parse(studentId);
   const session = await requireRole(["teacher"]);
 
   if (session.clerkId !== clerkId) {
     throw new AuthzError("Unauthorized: not authenticated as this teacher");
   }
 
-  await connectDB();
-
-  const enrollment = await Enrollment.findOne({
-    teacherId: session.actorId,
-    studentId: studentObjectId,
-    state: "active",
-  })
-    .select("_id")
-    .lean();
+  const enrollment = await findActiveEnrollmentBetween(
+    session.actorId,
+    studentUuid,
+  );
 
   if (!enrollment) {
-    throw new AuthzError("Unauthorized: no active enrollment for this teacher and student");
+    throw new AuthzError(
+      "Unauthorized: no active enrollment for this teacher and student",
+    );
   }
 
   return session;
 }
 
+
+
 /** A single enrollment is visible to its student, teacher, linked parent, or an admin. */
 export async function requireEnrollmentAccess(enrollmentId: string) {
-  const id = objectIdSchema.parse(enrollmentId);
+  const id = recordIdSchema.parse(enrollmentId);
   const session = await requireActiveUser();
-  await connectDB();
 
-  const enrollment = await Enrollment.findById(id).lean();
+  const enrollment = await findEnrollmentById(id);
   if (!enrollment) throw new AuthzError("Enrollment not found");
 
-  if (session.role === "super_admin" || session.role === "admin") return { session, enrollment };
+  if (session.role === "super_admin" || session.role === "admin") {
+    return { session, enrollment };
+  }
 
-  const actor = await User.findOne({ clerkId: session.clerkId }).select("_id").lean();
+  const actor = await findUserByClerkId(session.clerkId);
   if (!actor) throw new AuthzError("Unauthorized: account not found");
 
-  if (
-    String(enrollment.studentId) === String(actor._id) ||
-    String(enrollment.teacherId) === String(actor._id)
-  ) {
+  if (enrollment.studentId === actor.id || enrollment.teacherId === actor.id) {
     return { session, enrollment };
   }
 
   if (session.role === "parent") {
-    const isGuardian = await isGuardianOf(actor._id.toString(), String(enrollment.studentId));
+    const isGuardian = await isGuardianOf(actor.id, enrollment.studentId);
     if (isGuardian) return { session, enrollment };
   }
 
@@ -123,37 +118,28 @@ export async function requireEnrollmentAccess(enrollmentId: string) {
 }
 
 export async function requireParentOf(clerkId: string, studentId: string) {
-  objectIdSchema.parse(studentId);
+  const studentUuid = recordIdSchema.parse(studentId);
   const session = await requireRole(["parent"]);
 
   if (session.clerkId !== clerkId) {
     throw new AuthzError("Unauthorized: not authenticated as this parent");
   }
 
-  await connectDB();
-
-  const parent = await User.findOne({
-    clerkId,
-    role: "parent",
-    status: "active",
-  })
-    .select("_id")
-    .lean();
-
-  if (!parent) {
+  const parent = await findUserByClerkId(clerkId);
+  if (!parent || parent.role !== "parent" || parent.status !== "active") {
     throw new AuthzError("Unauthorized: not a parent or not active");
   }
 
-  if (!(await isGuardianOf(String(parent._id), studentId))) {
+  if (!(await isGuardianOf(parent.id, studentUuid))) {
     throw new AuthzError("Unauthorized: student not linked to this parent");
   }
 
   return session;
 }
 
-/** The Mongo _id of the signed-in parent, or an error. */
+/** The Postgres uuid of the signed-in parent, or an error. */
 export async function requireParentActor(): Promise<{
-  actorId: string;
+  actorId: Id;
   session: Awaited<ReturnType<typeof requireRole>>;
 }> {
   const session = await requireRole(["parent"]);

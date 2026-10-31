@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   nameSchema,
-  objectIdSchema,
+  recordIdSchema,
   optionalTextSchema,
   slugSchema,
 } from "./common";
@@ -25,9 +25,9 @@ export const subjectSchema = z.object({
 
 /** Medium is optional free text; it is stored as '' so the unique index covers it. */
 export const courseSchema = z.object({
-  boardId: objectIdSchema,
-  levelId: objectIdSchema,
-  subjectId: objectIdSchema,
+  boardId: recordIdSchema,
+  levelId: recordIdSchema,
+  subjectId: recordIdSchema,
   medium: z
     .string()
     .trim()
@@ -45,20 +45,20 @@ export const bookSchema = z.object({
     .max(120)
     .optional()
     .transform((v) => v || undefined),
-  courseIds: z.array(objectIdSchema).default([]),
+  courseIds: z.array(recordIdSchema).default([]),
   note: optionalTextSchema,
 });
 
 export const materialSchema = z.object({
-  courseId: objectIdSchema,
+  courseId: recordIdSchema,
   title: nameSchema,
   type: z.enum(["notes", "past_paper", "worksheet", "other"]),
   fileUrl: z.string().trim().pipe(z.url("Enter a URL")),
 });
 
 export const toggleSchema = z.object({
-  id: objectIdSchema,
+  id: recordIdSchema,
   active: z.boolean(),
 });
 
-export const idSchema = z.object({ id: objectIdSchema });
+export const idSchema = z.object({ id: recordIdSchema });

@@ -1,101 +1,135 @@
 import "server-only";
-import { connectDB } from "@/lib/db";
-import { User } from "@/models/user";
-import { Class } from "@/models/class";
-import { Course } from "@/models/course";
-import { Board } from "@/models/board";
-import { Level } from "@/models/level";
-import { Subject } from "@/models/subject";
+import { and, desc, eq } from "drizzle-orm";
+import { db, type Tx } from "@/db/client";
+import { classes, courses } from "@/db/schema";
+import {
+  listCourseIdsForTeacher,
+  listCourseLabels,
+  listTeachersForCourses,
+} from "@/lib/queries/teacher-courses";
+import { findUserById } from "@/lib/queries/users";
+import type { ClassState, Id } from "@/lib/types";
 
-const shortId = (reference: unknown) => String(reference);
-
-async function courseLabels(courseIds: string[]) {
-  await connectDB();
-  const [courses, boards, levels, subjects] = await Promise.all([
-    Course.find({ _id: { $in: courseIds } }).lean(),
-    Board.find().select("name").lean(),
-    Level.find().select("name").lean(),
-    Subject.find().select("name").lean(),
-  ]);
-  const boardNames = new Map(
-    boards.map((item) => [shortId(item._id), item.name]),
-  );
-  const levelNames = new Map(
-    levels.map((item) => [shortId(item._id), item.name]),
-  );
-  const subjectNames = new Map(
-    subjects.map((item) => [shortId(item._id), item.name]),
-  );
-  return new Map(
-    courses.map((course) => [
-      shortId(course._id),
-      `${boardNames.get(shortId(course.boardId)) ?? "Board"} / ${levelNames.get(shortId(course.levelId)) ?? "Level"} / ${subjectNames.get(shortId(course.subjectId)) ?? "Subject"}${course.medium ? ` / ${course.medium}` : ""}`,
-    ]),
-  );
-}
+/**
+ * Teaching views: classes, matching teachers, course choices. Postgres-backed.
+ *
+ * `classes` is a real table with a teacher and a course column, so the
+ * teacher's classes are one indexed read; the course labels come from a single
+ * joined query rather than three separate catalog fetches.
+ */
 
 /** Teachers matching a student's board and level through their assigned courses. */
-export async function listMatchingTeachers(studentId: string) {
-  await connectDB();
-  const student = await User.findOne({ _id: studentId, role: "student" })
-    .select("student".toString())
-    .lean();
-  if (!student?.student?.boardId || !student.student.levelId) return [];
+export async function listMatchingTeachers(
+  studentId: Id,
+  conn: Tx | typeof db = db,
+) {
+  const student = await findUserById(studentId, conn);
+  if (!student || student.role !== "student") return [];
+  const { boardId, levelId } = student.student;
+  if (!boardId || !levelId) return [];
 
-  const courses = await Course.find({
-    boardId: student.student.boardId,
-    levelId: student.student.levelId,
-    active: true,
-  }).lean();
-  if (!courses.length) return [];
-  const courseIds = courses.map((course) => course._id);
-  const teachers = await User.find({
-    role: "teacher",
-    status: "active",
-    "teacher.courseIds": { $in: courseIds },
-  })
-    .select("name email teacher.courseIds")
-    .lean();
+  // Only courses on the student's own board and level can match, which is the
+  // filter the Mongo query expressed as a `find` on two fields.
+  const matching = await conn
+    .select({ id: courses.id })
+    .from(courses)
+    .where(
+      and(
+        eq(courses.active, true),
+        eq(courses.boardId, boardId),
+        eq(courses.levelId, levelId),
+      ),
+    );
+  if (matching.length === 0) return [];
 
-  const labels = await courseLabels(courseIds.map(shortId));
+  const courseIds = matching.map((row) => row.id);
+  const [labels, teachers] = await Promise.all([
+    listCourseLabels({ courseIds }, conn),
+    listTeachersForCourses(courseIds, conn),
+  ]);
+  const labelById = new Map(labels.map((course) => [course.id, course.label]));
+
   return teachers.map((teacher) => ({
-    id: shortId(teacher._id),
+    id: teacher.id,
     name: teacher.name,
-    courses: (teacher.teacher?.courseIds ?? [])
-      .map((id: unknown) => shortId(id))
-      .filter((id: string) => labels.has(id))
-      .map((id: string) => ({ id, label: labels.get(id) ?? "Course" })),
+    courses: teacher.courseIds
+      .filter((id) => labelById.has(id))
+      .map((id) => ({ id, label: labelById.get(id) ?? "Course" })),
   }));
 }
 
-export type MatchingTeacher = Awaited<ReturnType<typeof listMatchingTeachers>>[number];
+export type MatchingTeacher = Awaited<
+  ReturnType<typeof listMatchingTeachers>
+>[number];
 
-export async function listTeacherClasses(teacherId: string) {
-  await connectDB();
-  const classes = await Class.find({ teacherId })
-    .sort({ createdAt: -1 })
-    .lean();
-  const labels = await courseLabels(
-    classes.map((item) => shortId(item.courseId)),
+export async function listTeacherClasses(
+  teacherId: Id,
+  conn: Tx | typeof db = db,
+) {
+  const rows = await conn
+    .select()
+    .from(classes)
+    .where(eq(classes.teacherId, teacherId))
+    .orderBy(desc(classes.createdAt));
+
+  const labels = await listCourseLabels(
+    { courseIds: [...new Set(rows.map((row) => row.courseId))] },
+    conn,
   );
-  return classes.map((item) => ({
-    id: shortId(item._id),
-    name: item.name,
-    courseId: shortId(item.courseId),
-    courseLabel: labels.get(shortId(item.courseId)) ?? "Course",
-    schedule: item.schedule ?? "",
-    state: item.state,
+  const labelById = new Map(labels.map((label) => [label.id, label.label]));
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    courseId: row.courseId,
+    courseLabel: labelById.get(row.courseId) ?? "Course",
+    schedule: row.schedule ?? "",
+    state: row.state,
   }));
 }
 
-export async function listCourseChoicesForTeacher(teacherId: string) {
-  await connectDB();
-  const teacher = await User.findById(teacherId)
-    .select("teacher.courseIds")
-    .lean();
-  const ids = (teacher?.teacher?.courseIds ?? []).map((id: unknown) => shortId(id));
-  const labels = await courseLabels(ids);
-  return ids
-    .filter((id: string) => labels.has(id))
-    .map((id: string) => ({ id, label: labels.get(id) ?? "Course" }));
+export async function listCourseChoicesForTeacher(
+  teacherId: Id,
+  conn: Tx | typeof db = db,
+) {
+  const courseIds = await listCourseIdsForTeacher(teacherId, conn);
+  if (courseIds.length === 0) return [];
+  const labels = await listCourseLabels({ courseIds }, conn);
+  return labels.map((label) => ({ id: label.id, label: label.label }));
+}
+
+export async function createClass(
+  input: {
+    teacherId: Id;
+    courseId: Id;
+    name: string;
+    schedule?: string | null;
+    state?: ClassState;
+    startsOn?: Date | null;
+    endsOn?: Date | null;
+  },
+  conn: Tx | typeof db = db,
+) {
+  const [row] = await conn
+    .insert(classes)
+    .values({
+      teacherId: input.teacherId,
+      courseId: input.courseId,
+      name: input.name,
+      schedule: input.schedule ?? null,
+      state: input.state ?? "current",
+      startsOn: input.startsOn ?? null,
+      endsOn: input.endsOn ?? null,
+    })
+    .returning();
+  return row;
+}
+
+export async function findClassById(id: Id, conn: Tx | typeof db = db) {
+  const [row] = await conn
+    .select()
+    .from(classes)
+    .where(eq(classes.id, id))
+    .limit(1);
+  return row ?? null;
 }

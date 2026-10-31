@@ -1,6 +1,29 @@
 import { z } from "zod";
 
-export const objectIdSchema = z.string().regex(/^[a-f\d]{24}$/i, "Invalid id");
+/**
+ * The single definition of "a row id" for input validation.
+ *
+ * Ids are Postgres `uuid` primary keys, so this is a UUID regex. This is the
+ * one place in the app that knows what an id looks like. Do not redeclare this
+ * pattern anywhere else — import it.
+ */
+export const recordIdSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    "Invalid id",
+  );
+
+
+
+/** Optional form input that must be a valid id when present. */
+export const optionalRecordIdSchema = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => (value ? value : undefined))
+  .pipe(recordIdSchema.optional());
 
 export const slugSchema = z
   .string()
