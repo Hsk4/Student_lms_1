@@ -170,9 +170,9 @@ Each phase ends with passing checks and a commit. Work on branch `refactor/api-s
 - [x] **3. API foundation.** Express app, env, Drizzle client, error handler, auth + require-role middleware, `/health`, `/me`, Clerk webhook. Test auth with a real token.
 - [x] **4. Port domains to the API,** one domain at a time (onboarding/requests, admin users, catalog, enrollment, teacher, student, parent, assessment, support, invoices, audit log). For each: routes, controllers, same guards and audit entries, plus a test for ownership rules.
 - [x] **5. Web cut-over.** Add api-client, Clerk React auth, client guards. Convert pages domain by domain to API calls. Replace `[id]` routes. Delete server actions, queries, models, proxy, webhooks from web. Turn on `output: "export"`.
-- [ ] **6. Capacitor spike.** Add Capacitor, build, run on an Android emulator. Test Clerk sign-in (email code and OAuth). Record the outcome in section 6.
-- [ ] **7. Capacitor finish.** Plugins, safe areas, back button, deep links, splash/icon, `cap:android` and `cap:ios` scripts.
-- [ ] **8. Cleanup.** Remove unused files and dependencies, delete `package-lock.json`, rewrite README (run instructions for api, web, mobile), update `docs/objective.md` stack and structure sections.
+- [x] **6. Capacitor spike.** Add Capacitor, build, run on an Android emulator. Test Clerk sign-in (email code and OAuth). Record the outcome in section 6.
+- [x] **7. Capacitor finish.** Plugins, safe areas, back button, deep links, splash/icon, `cap:android` and `cap:ios` scripts.
+- [x] **8. Cleanup.** Remove unused files and dependencies, delete `package-lock.json`, rewrite README (run instructions for api, web, mobile), update `docs/objective.md` stack and structure sections.
 
 ## 9. Risks and open questions
 

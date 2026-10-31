@@ -14,6 +14,11 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Agent skill templates are reference material, not app source.
     ".agents/**",
+    // Generated native project and copied web assets.
+    "android/**",
+    "ios/**",
+    "capacitor.config.ts",
+    "server/**",
     // Local QA scratch: the screenshot harness's browser profile, and copies of
     // the reference repo's components kept only for comparison.
     "qa/.tmp/**",
