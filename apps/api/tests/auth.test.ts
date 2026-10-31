@@ -105,15 +105,20 @@ describe("authentication", () => {
 });
 
 describe("mirror adoption", () => {
-  it("creates a pending mirror row when the webhook has not landed yet", async () => {
-    // The verifier accepts the token; Clerk has no such user, so adoption fails
-    // closed — the route answers 401 and writes nothing.
+  it("treats a verified token with no mirror row as pending", async () => {
+    // The verifier accepts the token but Clerk cannot be reached (placeholder
+    // key), which is the "webhook has not landed" case. Missing metadata is
+    // pending: /me answers with the pending home, and no panel is reachable.
     const res = await request(app).get("/api/v1/me").set(authHeader("ghost_1"));
-    expect(res.status).toBe(401);
-    const rows = await db
-      .select()
-      .from(users)
-      .where(eq(users.clerkId, "ghost_1"));
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ status: "pending", role: null, home: "/pending" });
+
+    const blocked = await request(app)
+      .get("/api/v1/student/courses")
+      .set(authHeader("ghost_1"));
+    expect(blocked.status).toBe(403);
+
+    const rows = await db.select().from(users).where(eq(users.clerkId, "ghost_1"));
     expect(rows).toHaveLength(0);
   });
 });

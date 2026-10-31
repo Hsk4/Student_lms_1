@@ -11,6 +11,9 @@ import { errorHandler, notFoundHandler } from "@/middleware/error-handler";
 import { webhookRoutes } from "@/routes/webhooks";
 import { healthRoutes, meRoutes } from "@/routes/me";
 import { parentLinkRoutes, studentParentLinkRoutes } from "@/routes/parent";
+import { adminRoutes } from "@/routes/admin";
+import { catalogRoutes } from "@/routes/catalog";
+import { panelRoutes } from "@/routes/panels";
 
 /**
  * Builds the Express app without listening, so tests can drive it with
@@ -71,6 +74,9 @@ export function createApp(
   app.use("/api/v1", meRoutes);
   app.use("/api/v1", studentParentLinkRoutes);
   app.use("/api/v1", parentLinkRoutes);
+  app.use("/api/v1", catalogRoutes);
+  app.use("/api/v1", adminRoutes);
+  app.use("/api/v1", panelRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

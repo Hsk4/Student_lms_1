@@ -80,6 +80,26 @@ async function resolveUser(clerkId: string): Promise<GateUser | null> {
   return row ? toGateUser(row) : null;
 }
 
+/**
+ * The Clerk lookup failed, but the token verified: the account is a real
+ * sign-up whose webhook has not landed. Treat it as pending (the product rule
+ * for missing metadata) and check the mirror again first, so a user who was
+ * just assigned a role is not demoted by a transient Clerk error.
+ */
+async function adoptOrPending(clerkId: string): Promise<GateUser> {
+  return (
+    (await findUserByClerkId(clerkId).then((row) => (row ? toGateUser(row) : null))) ?? {
+      id: clerkId,
+      clerkId,
+      email: "",
+      name: "User",
+      role: null,
+      status: "pending",
+      onboarded: false,
+    }
+  );
+}
+
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
@@ -112,7 +132,7 @@ export function auth(opts: { allowRestricted?: boolean } = {}) {
         throw unauthorized();
       }
 
-      let session;
+      let session: Awaited<ReturnType<TokenVerifier>>;
       try {
         session = await verify(token);
       } catch {
@@ -120,8 +140,7 @@ export function auth(opts: { allowRestricted?: boolean } = {}) {
       }
 
       req.clerkId = session.clerkId;
-      const user = await resolveUser(session.clerkId);
-      if (!user) throw unauthorized("Unauthorized: account not found");
+      const user = (await resolveUser(session.clerkId)) ?? (await adoptOrPending(session.clerkId));
       req.user = user;
 
       if (user.status === "suspended") {

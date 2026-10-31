@@ -40,6 +40,12 @@ export async function listInvoicesForStudent(
   return rows.map(toInvoice);
 }
 
+/** Every invoice, newest due date first (the admin list). */
+export async function listInvoices(conn: Tx | typeof db = db): Promise<Invoice[]> {
+  const rows = await conn.select().from(invoices).orderBy(desc(invoices.dueDate));
+  return rows.map(toInvoice);
+}
+
 export async function findInvoiceById(
   id: Id,
   conn: Tx | typeof db = db,
