@@ -139,6 +139,7 @@ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
 - Deep link for parent invites (`/invite`) configured in the native projects.
 - **Clerk in a native webview is the main risk.** Clerk has no dedicated Capacitor SDK. Email/password and email-code sign-in should work inside the webview. Social OAuth redirects may not. Do a small spike early (see phase 6) and record the result here.
   - Fallback if the spike fails: Capacitor `server.url` pointing at the hosted web app, accepting that the app then needs a network connection.
+- **Spike result (phase 6): partially blocked.** The Android project is generated (`apps/web/android`, `appId pk.fastly.lms`) and the debug APK builds. Running it on an emulator and testing Clerk sign-in was **not** done: this machine has an Android SDK at `D:\Android sdk` without an emulator or a system image. JDK 25 is installed and Gradle 8 rejects it (`class file major version 69`), so the wrapper was moved to Gradle 9.1.0, which builds with AGP 8.13. When an emulator is available: install the APK, build the web with `NEXT_PUBLIC_API_URL=http://10.0.2.2:4000/api/v1`, and test email-code and OAuth sign-in. If OAuth fails in the webview, the recommended fallback is `server.url` to the hosted web app (needs a network, works with OAuth).
 - App Store note: a thin wrapper around a website can be rejected by Apple. Keep native features (status bar, back button, deep links, offline shell) so it behaves like an app.
 
 ## 7. Migration map
@@ -167,8 +168,8 @@ Each phase ends with passing checks and a commit. Work on branch `refactor/api-s
 - [x] **1. Monorepo scaffold.** bun workspaces, `apps/api`, `apps/web`, `packages/shared`. Move the current Next app into `apps/web` unchanged and confirm it still runs.
 - [x] **2. Shared package.** Move validators, role/status enums, `ActionState`/envelope types. Update imports.
 - [x] **3. API foundation.** Express app, env, Drizzle client, error handler, auth + require-role middleware, `/health`, `/me`, Clerk webhook. Test auth with a real token.
-- [ ] **4. Port domains to the API,** one domain at a time (onboarding/requests, admin users, catalog, enrollment, teacher, student, parent, assessment, support, invoices, audit log). For each: routes, controllers, same guards and audit entries, plus a test for ownership rules.
-- [ ] **5. Web cut-over.** Add api-client, Clerk React auth, client guards. Convert pages domain by domain to API calls. Replace `[id]` routes. Delete server actions, queries, models, proxy, webhooks from web. Turn on `output: "export"`.
+- [x] **4. Port domains to the API,** one domain at a time (onboarding/requests, admin users, catalog, enrollment, teacher, student, parent, assessment, support, invoices, audit log). For each: routes, controllers, same guards and audit entries, plus a test for ownership rules.
+- [x] **5. Web cut-over.** Add api-client, Clerk React auth, client guards. Convert pages domain by domain to API calls. Replace `[id]` routes. Delete server actions, queries, models, proxy, webhooks from web. Turn on `output: "export"`.
 - [ ] **6. Capacitor spike.** Add Capacitor, build, run on an Android emulator. Test Clerk sign-in (email code and OAuth). Record the outcome in section 6.
 - [ ] **7. Capacitor finish.** Plugins, safe areas, back button, deep links, splash/icon, `cap:android` and `cap:ios` scripts.
 - [ ] **8. Cleanup.** Remove unused files and dependencies, delete `package-lock.json`, rewrite README (run instructions for api, web, mobile), update `docs/objective.md` stack and structure sections.
