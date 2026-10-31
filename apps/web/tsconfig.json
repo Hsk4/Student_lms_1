@@ -19,7 +19,11 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      // Server-side code that has not moved to apps/api yet (phases 3-5).
+      "@/db/*": ["./server/db/*"],
+      "@/lib/*": ["./server/lib/*"],
+      "@/actions/*": ["./server/actions/*"]
     }
   },
   "include": [
