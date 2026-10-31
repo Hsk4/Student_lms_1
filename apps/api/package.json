@@ -11,7 +11,9 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "seed:dev": "tsx --env-file=.env scripts/seed-dev.ts",
+    "seed:super-admin": "tsx --env-file=.env scripts/seed-super-admin.ts"
   },
   "dependencies": {
     "@clerk/backend": "^3.25.0",

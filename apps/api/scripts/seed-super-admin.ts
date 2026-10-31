@@ -2,9 +2,9 @@
 
 import { createClerkClient } from "@clerk/backend";
 import { eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { db } from "@/db";
 import { users } from "@/db/schema";
-import { findUserByClerkId, updateUser } from "@/lib/queries/users";
+import { findUserByClerkId, updateUser } from "@/db/queries/users";
 
 const email = process.argv[2];
 

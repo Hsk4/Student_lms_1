@@ -7,9 +7,10 @@
  * Usage: npx tsx scripts/seed-dev.ts
  */
 
-import { sql } from 'drizzle-orm';
-import { db } from '@/db/client';
-import { boards, courses, levels, subjects } from '@/db/schema';
+import { eq, sql } from 'drizzle-orm';
+import { createClerkClient } from '@clerk/backend';
+import { db } from '@/db';
+import { boards, courses, levels, subjects, users } from '@/db/schema';
 
 /**
  * Idempotent seed for the catalog.
@@ -208,6 +209,39 @@ async function seedData() {
 
   console.log(`✓ Created ${inserted.length} courses`);
 
+  // ============ USERS ============
+  // A signed-in Clerk account whose webhook never landed (local dev without a
+  // tunnel) would otherwise be invisible to the admin queue. Mirror it as a
+  // normal pending sign-up so it can be approved from /admin/requests.
+  if (process.env.CLERK_SECRET_KEY) {
+    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+    const listed = await clerk.users.getUserList({ limit: 500 });
+    for (const user of listed.data) {
+      const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.clerkId, user.id))
+        .limit(1);
+      if (existing) continue;
+      await db.insert(users).values({
+        clerkId: user.id,
+        email: (
+          user.primaryEmailAddress?.emailAddress ??
+          user.emailAddresses[0]?.emailAddress ??
+          ''
+        ).toLowerCase(),
+        name:
+          [user.firstName, user.lastName].filter(Boolean).join(' ') ||
+          user.username ||
+          'User',
+        role: null,
+        status: 'pending',
+        onboarded: false,
+      });
+      console.log(`✓ Mirrored Clerk account ${user.id} as pending`);
+    }
+  }
+
   console.log('\n✓ Development data seeding complete!');
   console.log('\nSummary:');
   console.log(`- ${boardDocs.length} boards`);
@@ -219,6 +253,8 @@ async function seedData() {
 
   process.exit(0);
 }
+
+
 
 seedData().catch((error) => {
   console.error('Seed error:', error.message);
