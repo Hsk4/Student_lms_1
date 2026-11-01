@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 /*
  * Design tokens.
@@ -34,7 +34,7 @@
   --tint-foreground: var(--accent-foreground);
   --navy: var(--primary);
   /**
-   * Always white: `.bg-navy` sits on the *fixed* navy primary, which stays dark
+   * Always white: `.bg-[#0a2540]` sits on the *fixed* navy primary, which stays dark
    * in both themes. Deriving it from `--primary-foreground` would turn it black
    * in dark mode, where primary is a light blue.
    */
@@ -48,6 +48,39 @@
   --status-amber-soft: #fdf3e3;
   --status-red: #b42318;
   --status-red-soft: #fdecea;
+
+  /*
+   * Fastly brand kit. Five colours only: navy ink, cobalt blue, pale blue
+   * tint, firoza teal (used sparingly, for positive/paid states) and warm
+   * gold. Gold is reserved for the star in the mark and for the single
+   * primary call to action on a screen.
+   *
+   * These are fixed, not themed: a `.dark` override would turn the brand
+   * gold into something else, so the landing page and the phone screens paint
+   * these directly instead of going through `--primary`.
+   */
+  --fastly-navy: #0a2540;
+  --fastly-cobalt: #1e4db7;
+  --fastly-cobalt-deep: #143a8f;
+  --fastly-tint: #eaf1ff;
+  --fastly-firoza: #0b7f8f;
+  --fastly-firoza-soft: #e6f3f4;
+  --fastly-gold: #f4b942;
+  --fastly-gold-deep: #d99a1f;
+
+  /* Text: navy ink on white is 15.9:1; ink/78% still clears 4.5:1 on tint. */
+  --fastly-ink: #0a2540;
+  --fastly-ink-soft: rgb(10 37 64 / 0.78);
+  --fastly-ink-faint: rgb(10 37 64 / 0.62);
+  --fastly-line: rgb(10 37 64 / 0.16);
+  --fastly-line-strong: rgb(10 37 64 / 0.34);
+  --fastly-on-navy-soft: rgb(255 255 255 / 0.84);
+  --fastly-on-navy-line: rgb(255 255 255 / 0.28);
+
+  /* Arch-shaped cards and the 30px phone sheet. */
+  --radius-arch: 24px 24px 12px 12px;
+  --radius-arch-lg: 28px 28px 16px 16px;
+  --radius-sheet: 30px;
 
   --radius: 12px;
 
@@ -110,11 +143,16 @@
   --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
   --color-surface: var(--surface);
-  --color-tint: var(--tint);
-  --color-tint-foreground: var(--tint-foreground);
-  --color-navy: var(--navy);
-  --color-navy-foreground: var(--navy-foreground);
-  --color-firoza: var(--firoza);
+  /*
+   * Shell surfaces. `--shell-tint` is the old grey accent; the brand uses
+   * `--color-tint`, which is now the pale blue. Both are overridable names, so
+   * no app page that already says `bg-tint` changes meaning.
+   */
+  --color-shell-tint: var(--accent);
+  --color-tint-foreground: var(--fastly-cobalt);
+  --color-navy: var(--fastly-navy);
+  --color-navy-foreground: #ffffff;
+  --color-firoza: var(--fastly-firoza);
   --color-border: var(--border);
   --color-field-border: var(--field-border);
   --color-status-green: var(--status-green);
@@ -124,10 +162,27 @@
   --color-status-red: var(--status-red);
   --color-status-red-soft: var(--status-red-soft);
 
+  /* Fastly brand ramp: navy ink, cobalt, pale tint, firoza, gold. */
+  --color-cobalt: var(--fastly-cobalt);
+  --color-cobalt-deep: var(--fastly-cobalt-deep);
+  --color-tint: var(--fastly-tint);
+  --color-firoza-soft: var(--fastly-firoza-soft);
+  --color-gold: var(--fastly-gold);
+  --color-gold-deep: var(--fastly-gold-deep);
+  --color-ink: var(--fastly-ink);
+  --color-ink-soft: var(--fastly-ink-soft);
+  --color-ink-faint: var(--fastly-ink-faint);
+  --color-line: var(--fastly-line);
+  --color-line-strong: var(--fastly-line-strong);
+  --color-on-navy-soft: var(--fastly-on-navy-soft);
+  --color-on-navy-line: var(--fastly-on-navy-line);
+
   /* Inter first (the reference kit's face), then system fallbacks. */
   --font-sans:
     var(--font-inter), ui-sans-serif, system-ui, "Noto Nastaliq Urdu", Arial,
     Helvetica, sans-serif;
+  /* Fraunces Bold carries every Fastly headline; Inter carries the rest. */
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
   --font-mono: var(--font-geist-mono);
 
   --radius-card: var(--radius);
@@ -153,6 +208,136 @@ body {
 .quiet-scroll {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
+}
+
+/*
+ * Fastly brand surfaces.
+ *
+ * Every colour here is a token from `:root`. The jaali lattice is an
+ * eight-point star tile repeated as a CSS background — white at 14% on navy,
+ * cobalt at 16% on the pale tint. There are no shadows in this block; depth
+ * is the 1.5px border on `.fastly-card`.
+ *
+ * Unthemable on purpose: Tailwind's `--color-*` utilities would read like
+ * brand names (`bg-[#0a2540]`, `text-tint`) but `--navy` / `--tint` / `--firoza`
+ * are already taken by the app shell and flip in dark mode. The brand layer
+ * therefore uses its own `.fastly-*` classes.
+ */
+@layer components {
+  .fastly-jaali {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.14' stroke-width='1'%3E%3Crect x='16' y='16' width='40' height='40'/%3E%3Crect x='16' y='16' width='40' height='40' transform='rotate(45 36 36)'/%3E%3Ccircle cx='36' cy='36' r='3.2'/%3E%3C/g%3E%3Cg fill='%23ffffff' fill-opacity='0.14'%3E%3Crect x='33' y='33' width='6' height='6' transform='rotate(45 36 36)'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 72px 72px;
+  }
+  .fastly-jaali-tint {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%231e4db7' stroke-opacity='0.16' stroke-width='1'%3E%3Crect x='16' y='16' width='40' height='40'/%3E%3Crect x='16' y='16' width='40' height='40' transform='rotate(45 36 36)'/%3E%3Ccircle cx='36' cy='36' r='3.2'/%3E%3C/g%3E%3Cg fill='%231e4db7' fill-opacity='0.16'%3E%3Crect x='33' y='33' width='6' height='6' transform='rotate(45 36 36)'/%3E%3C/svg%3E");
+    background-size: 72px 72px;
+  }
+
+  /* A rounded rectangle whose top corners come to a point: the mehrab. */
+  .fastly-arch {
+    border-radius: var(--radius-arch);
+  }
+  .fastly-sheet {
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  }
+
+  /* Headlines: Fraunces Bold, tight tracking. */
+  .fastly-display {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-variation-settings: "SOFT" 0, "WONK" 0, "opsz" 40;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+  }
+
+  /* The one gold call to action per screen. 48 px minimum height. */
+  .fastly-cta {
+    display: inline-flex;
+    min-height: 48px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 12px;
+    border: 1.5px solid transparent;
+    padding: 0 1.5rem;
+    background: var(--fastly-gold);
+    color: var(--fastly-navy);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 600;
+    transition: background-color 160ms ease;
+  }
+  .fastly-cta:hover {
+    background: var(--fastly-gold-deep);
+  }
+  .fastly-cta:focus-visible {
+    outline: 2px solid var(--fastly-gold);
+    outline-offset: 3px;
+  }
+
+  /* Outlined actions: 1.5 px border, no shadow, 48 px tall. */
+  .fastly-outline {
+    display: inline-flex;
+    min-height: 48px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 12px;
+    padding: 0 1.25rem;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 600;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+  }
+  .fastly-outline:focus-visible {
+    outline: 2px solid var(--fastly-gold);
+    outline-offset: 3px;
+  }
+
+  /* 1.5px hairline card, 12–24px corners, no shadow. */
+  .fastly-card {
+    border: 1.5px solid var(--fastly-line);
+    border-radius: 20px;
+    background: #ffffff;
+  }
+  .fastly-card-navy {
+    border-color: var(--fastly-on-navy-line);
+    background: var(--fastly-navy);
+    color: #ffffff;
+  }
+
+  .fastly-eyebrow {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+}
+
+/*
+ * Phone screens (390 × 844). The frame is display-only; inside it the screen
+ * fills the given height and scrolls its own body, so long content never
+ * leaks past the device edge.
+ */
+.fastly-phone {
+  width: 390px;
+  height: 844px;
+  border-radius: 44px;
+  border: 1.5px solid var(--fastly-line-strong);
+  overflow: hidden;
+  background: #ffffff;
+  flex: none;
+}
+
+/* Status-bar-free, but still respect the safe area on real phones. */
+.fastly-safe-bottom {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+/* A spacer of the same height, for footers already padded at the top. */
+.fastly-safe-gap {
+  height: max(16px, env(safe-area-inset-bottom));
 }
 
 /*
