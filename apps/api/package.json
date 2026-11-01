@@ -10,7 +10,7 @@
     "lint": "eslint src tests",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx --env-file=.env node_modules/drizzle-kit/bin.cjs migrate",
+    "db:migrate": "drizzle-kit migrate",
     "db:studio": "tsx --env-file=.env node_modules/drizzle-kit/bin.cjs studio",
     "seed:dev": "tsx --env-file=.env scripts/seed-dev.ts",
     "seed:super-admin": "tsx --env-file=.env scripts/seed-super-admin.ts"
@@ -31,7 +31,7 @@
     "@eslint/js": "^10.0.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5",
-    "@types/node": "^24",
+    "@types/node": "^26.6.6",
     "@types/supertest": "^7.2.1",
     "drizzle-kit": "^0.31.11",
     "eslint": "^10.14.0",
