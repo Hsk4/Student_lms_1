@@ -18,12 +18,19 @@ export function AuthRedirector() {
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !me.data) return;
-    const onAuthPage =
-      pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up");
-    if (!onAuthPage) return;
+
+    const isPublicEntryPage =
+      pathname === "/" ||
+      pathname === "/mobile" ||
+      pathname.startsWith("/sign-in") ||
+      pathname.startsWith("/sign-up");
+
+    if (!isPublicEntryPage) return;
+
+    const nextRoute = me.data.home || "/";
 
     // A single check after a brief delay lets the webhook land.
-    const timeout = setTimeout(() => router.replace(me.data.home), 500);
+    const timeout = setTimeout(() => router.replace(nextRoute), 500);
     return () => clearTimeout(timeout);
   }, [isLoaded, isSignedIn, me.data, pathname, router]);
 
