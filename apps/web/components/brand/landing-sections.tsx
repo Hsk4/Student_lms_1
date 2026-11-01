@@ -38,7 +38,7 @@ import {
 const CARD = "rounded-2xl border-[1.5px] border-line bg-white";
 const GOLD_CTA = "fastly-cta";
 const OUTLINE_ON_NAVY =
-  "fastly-outline border-[1.5px] border-on-navy-line text-white hover:border-white/60 hover:bg-white/[0.06]";
+  "fastly-outline border-[1.5px] border-on-navy-line text-white hover:border-white/60 hover:bg-white/6";
 
 function Check({ className = "" }: { className?: string }) {
   return (
@@ -70,7 +70,7 @@ function Hero() {
       aria-labelledby="hero-title"
     >
       <Jaali tone="navy" />
-      <div className="relative mx-auto grid w-full max-w-[1200px] items-center gap-14 px-6 pb-20 pt-16 lg:grid-cols-[minmax(0,1fr)_520px] lg:gap-16 lg:px-10 lg:pb-24 lg:pt-20">
+      <div className="relative mx-auto grid w-full max-w-300 items-center gap-14 px-6 pb-20 pt-16 lg:grid-cols-[minmax(0,1fr)_520px] lg:gap-16 lg:px-10 lg:pb-24 lg:pt-20">
         <div className="flex flex-col items-start">
           <Pill>
             <span
@@ -132,12 +132,12 @@ function Hero() {
 /** The illustration plus its three floating cards, shared by the hero and the dashboard peek. */
 export function HeroIllustration() {
   return (
-    <div className="relative mx-auto w-full max-w-[548px]">
+    <div className="relative mx-auto w-full max-w-137">
       <ArchIllustration className="block w-full" />
 
       {/* Homework due — top left, over the navy. */}
       <div
-        className={`${CARD} absolute left-0 top-[20%] w-[188px] p-3 sm:w-[212px]`}
+        className={`${CARD} absolute left-0 top-[20%] w-47 p-3 sm:w-53`}
       >
         <div className="flex items-start gap-2.5">
           <ArchTile size={32} tone="tint">
@@ -157,7 +157,7 @@ export function HeroIllustration() {
 
       {/* Fee voucher — bottom right, over the pale-blue arch. */}
       <div
-        className={`${CARD} absolute bottom-[1%] right-0 w-[196px] p-3 sm:w-[216px]`}
+        className={`${CARD} absolute bottom-[1%] right-0 w-49 p-3 sm:w-54`}
       >
         <div className="flex items-center justify-between gap-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#1e4db7]">
@@ -173,7 +173,7 @@ export function HeroIllustration() {
 
       {/* Attendance — top right, straddling the outer arch edge. */}
       <div
-        className={`${CARD} absolute right-0 top-[29%] w-[210px] p-3 sm:w-[238px]`}
+        className={`${CARD} absolute right-0 top-[29%] w-52.5 p-3 sm:w-59.5`}
       >
         <div className="flex items-center justify-between gap-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#1e4db7]">
@@ -233,7 +233,7 @@ function ThreeDoors() {
       className="relative bg-white py-20 lg:py-24"
       aria-labelledby="doors-title"
     >
-      <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-10">
+      <div className="mx-auto w-full max-w-300 px-6 lg:px-10">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <Eyebrow>How Fastly works</Eyebrow>
@@ -319,7 +319,7 @@ function AskOnce() {
       className="relative bg-[#eaf1ff] py-20 lg:py-24"
       aria-labelledby="ask-title"
     >
-      <div className="mx-auto grid w-full max-w-[1200px] items-center gap-14 px-6 lg:grid-cols-[minmax(0,1fr)_460px] lg:gap-20 lg:px-10">
+      <div className="mx-auto grid w-full max-w-300 items-center gap-14 px-6 lg:grid-cols-[minmax(0,1fr)_460px] lg:gap-20 lg:px-10">
         <div>
           <Eyebrow>One request</Eyebrow>
           <h2
@@ -377,7 +377,7 @@ function AskOnce() {
               >
                 {i < 2 ? (
                   <span
-                    className={`absolute left-[11px] top-6 h-full w-[1.5px] ${s.state === "done" ? "bg-[#1e4db7]" : "bg-line-strong"}`}
+                    className={`absolute left-2.75 top-6 h-full w-[1.5px] ${s.state === "done" ? "bg-[#1e4db7]" : "bg-line-strong"}`}
                     aria-hidden="true"
                   />
                 ) : null}
@@ -446,7 +446,7 @@ function ProductPeek() {
       className="relative bg-white py-20 lg:py-24"
       aria-labelledby="peek-title"
     >
-      <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-10">
+      <div className="mx-auto w-full max-w-300 px-6 lg:px-10">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <Eyebrow>The student dashboard</Eyebrow>
@@ -464,9 +464,9 @@ function ProductPeek() {
         </div>
 
         <BrowserFrame>
-          <div className="flex min-h-[470px]">
+          <div className="flex min-h-117.5">
             {/* Navy sidebar. */}
-            <aside className="hidden w-[184px] shrink-0 flex-col gap-1 bg-[#0a2540] p-4 text-white sm:flex">
+            <aside className="hidden w-46 shrink-0 flex-col gap-1 bg-[#0a2540] p-4 text-white sm:flex">
               <div className="flex items-center gap-2.5 px-2 pb-5">
                 <BrandMark size={26} tone="light" />
                 <span className="fastly-display text-[18px]">fastly</span>
@@ -528,7 +528,7 @@ function ProductPeek() {
                     key={stat.k}
                     className="rounded-xl border-[1.5px] border-line px-3 py-3"
                   >
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#1e4db7]">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-[#1e4db7]">
                       {stat.k}
                     </p>
                     <p className="fastly-display mt-1 text-[22px] text-[#0a2540]">
@@ -558,7 +558,7 @@ function ProductPeek() {
                         className="flex items-start justify-between gap-3 px-4 py-3"
                       >
                         <div className="min-w-0">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#1e4db7]">
+                          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#1e4db7]">
                             {a.subject}
                           </p>
                           <p className="mt-0.5 truncate text-[13px] font-medium text-[#0a2540]">
@@ -581,7 +581,7 @@ function ProductPeek() {
                 </div>
 
                 <div className="rounded-xl border-[1.5px] border-line bg-[#eaf1ff] p-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#1e4db7]">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#1e4db7]">
                     Fees
                   </p>
                   <p className="fastly-display mt-1 text-[22px] text-[#0a2540]">
@@ -673,7 +673,7 @@ function Features() {
       aria-labelledby="features-title"
     >
       <Jaali tone="tint" />
-      <div className="relative mx-auto w-full max-w-[1200px] px-6 lg:px-10">
+      <div className="relative mx-auto w-full max-w-300 px-6 lg:px-10">
         <Eyebrow>Built for a real school day</Eyebrow>
         <h2
           id="features-title"
@@ -734,7 +734,7 @@ function ParentCode() {
       aria-labelledby="code-title"
     >
       <Jaali tone="navy" />
-      <div className="relative mx-auto grid w-full max-w-[1200px] items-center gap-14 px-6 lg:grid-cols-[minmax(0,1fr)_440px] lg:gap-20 lg:px-10">
+      <div className="relative mx-auto grid w-full max-w-300 items-center gap-14 px-6 lg:grid-cols-[minmax(0,1fr)_440px] lg:gap-20 lg:px-10">
         <div>
           <Eyebrow dark>For parents and guardians</Eyebrow>
           <h2
@@ -784,7 +784,7 @@ function ParentCode() {
             {"H7K2M9QF".split("").map((ch, i) => (
               <span
                 key={i}
-                className={`flex h-[52px] flex-1 items-center justify-center rounded-lg border-[1.5px] text-[20px] font-semibold tabular-nums ${
+                className={`flex h-13 flex-1 items-center justify-center rounded-lg border-[1.5px] text-[20px] font-semibold tabular-nums ${
                   i < 3
                     ? "border-[#1e4db7] bg-[#eaf1ff] text-[#0a2540]"
                     : "border-line bg-white text-ink-faint"
@@ -831,7 +831,7 @@ function Closing() {
       className="bg-white pb-20 pt-20 lg:pb-24 lg:pt-20"
       aria-labelledby="closing-title"
     >
-      <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-10">
+      <div className="mx-auto w-full max-w-300 px-6 lg:px-10">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <Eyebrow>One syllabus at a time</Eyebrow>
@@ -909,7 +909,7 @@ function Footer() {
       className="relative overflow-hidden bg-[#0a2540] text-white"
       aria-label="Fastly"
     >
-      <div className="mx-auto grid w-full max-w-[1200px] gap-10 px-6 py-14 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))] lg:px-10">
+      <div className="mx-auto grid w-full max-w-300 gap-10 px-6 py-14 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))] lg:px-10">
         <div>
           <div className="flex items-center gap-2.5">
             <BrandMark size={30} tone="light" />
@@ -961,7 +961,7 @@ function Footer() {
       </div>
 
       <div className="border-t-[1.5px] border-on-navy-line">
-        <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-2 px-6 py-6 text-[12px] text-on-navy-soft sm:flex-row sm:items-center sm:justify-between lg:px-10">
+        <div className="mx-auto flex w-full max-w-300 flex-col gap-2 px-6 py-6 text-[12px] text-on-navy-soft sm:flex-row sm:items-center sm:justify-between lg:px-10">
           <p>© 2026 Fastly. Built for schools in Pakistan.</p>
           <div className="flex items-center gap-2">
             <Link
@@ -1023,7 +1023,7 @@ export function FastlyLanding() {
 function SiteHeader() {
   return (
     <header className="absolute inset-x-0 top-0 z-20">
-      <div className="mx-auto flex h-[72px] w-full max-w-[1200px] items-center justify-between px-6 lg:px-10">
+      <div className="mx-auto flex h-18 w-full max-w-300 items-center justify-between px-6 lg:px-10">
         <Link
           href="/"
           className="flex min-h-12 items-center gap-2.5 text-white"
@@ -1060,7 +1060,7 @@ function SiteHeader() {
           </Link>
           <Link
             href="/mobile"
-            className="fastly-outline border-[1.5px] border-on-navy-line px-4 text-[13px] text-white hover:border-white/60 hover:bg-white/[0.06]"
+            className="fastly-outline border-[1.5px] border-on-navy-line px-4 text-[13px] text-white hover:border-white/60 hover:bg-white/6"
           >
             App screens
           </Link>

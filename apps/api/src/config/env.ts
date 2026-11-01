@@ -18,8 +18,12 @@ const envSchema = z.object({
   CLERK_WEBHOOK_SIGNING_SECRET: z
     .string()
     .min(1, "CLERK_WEBHOOK_SIGNING_SECRET is required"),
-  /** The production web origin allowed through CORS. */
-  WEB_ORIGIN: z.string().url().optional(),
+  /**
+   * The production web origin(s) allowed through CORS. Comma-separated, e.g.
+   * `https://studentlms-sooty.vercel.app`. Local dev origins are added by
+   * `corsOrigins()` in `app.ts` and only when NODE_ENV is not production.
+   */
+  WEB_ORIGIN: z.string().optional(),
   /** Refresh JWTs live far longer than a session token; allow a little skew. */
   CLERK_CLOCK_SKEW_MS: z.coerce.number().int().nonnegative().default(5000),
 });

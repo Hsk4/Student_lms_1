@@ -139,11 +139,11 @@ function WelcomeScreen() {
         className={`${PHONE} flex flex-col overflow-hidden bg-white`}
       >
         {/* Top 45%: navy, with the arch. */}
-        <div className="relative flex h-[380px] shrink-0 items-center justify-center bg-[#0a2540]">
+        <div className="relative flex h-95[380px] shrink-0 items-center justify-center bg-[#0a2540]">
           <div className="fastly-jaali absolute inset-0" aria-hidden="true" />
           <div className="relative flex items-center gap-4 px-6">
             <BrandMark size={64} tone="light" />
-            <ArchIllustration className="h-[228px] w-[232px]" />
+            <ArchIllustration className="h-95[228px] w-58[232px]" />
           </div>
         </div>
 
@@ -163,7 +163,7 @@ function WelcomeScreen() {
                 <button
                   type="button"
                   tabIndex={-1}
-                  className="flex min-h-[64px] w-full items-center gap-3.5 rounded-xl border-[1.5px] border-line px-3.5 py-2.5 text-left"
+                  className="flex min-h-16[64px] w-full items-center gap-3.5 rounded-xl border-[1.5px] border-line px-3.5 py-2.5 text-left"
                 >
                   <ArchTile size={44} tone={row.tone}>
                     <row.icon size={20} strokeWidth={1.7} />
@@ -314,10 +314,10 @@ function StudentHomeScreen() {
             {DUE.map((item) => (
               <li
                 key={item.title}
-                className="flex min-h-[60px] items-center justify-between gap-3 border-b-[1.5px] border-line px-3.5 py-2.5 last:border-b-0"
+                className="flex min-h-15[60px] items-center justify-between gap-3 border-b-[1.5px] border-line px-3.5 py-2.5 last:border-b-0"
               >
                 <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#1e4db7]">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#1e4db7]">
                     {item.subject}
                   </p>
                   <p className="mt-0.5 truncate text-[13px] font-medium text-[#0a2540]">
@@ -482,7 +482,7 @@ function WaitingScreen() {
                   {i < TRACK.length - 1 ? (
                     <span
                       aria-hidden="true"
-                      className={`absolute left-[11px] top-6 h-full w-[1.5px] ${
+                      className={`absolute left-2.75 top-6 h-full w-[1.5px] ${
                         step.state === "done"
                           ? "bg-[#1e4db7]"
                           : "bg-line"
@@ -564,7 +564,7 @@ export default function MobileScreensPage() {
     <div className="min-h-screen bg-[#eaf1ff] font-sans">
       <header className="bg-[#0a2540] text-white">
         <div className="fastly-jaali absolute inset-0" aria-hidden="true" />
-        <div className="relative mx-auto flex w-full max-w-[1200px] flex-wrap items-center justify-between gap-4 px-6 py-5">
+        <div className="relative mx-auto flex w-full max-w-300 flex-wrap items-center justify-between gap-4 px-6 py-5">
           <Link href="/" className="flex items-center gap-2.5">
             <BrandMark size={30} tone="light" />
             <span className="fastly-display text-[20px]">fastly</span>
@@ -572,14 +572,14 @@ export default function MobileScreensPage() {
           <p className="text-[13px] text-on-navy-soft">App screens · 390 × 844</p>
           <Link
             href="/"
-            className="fastly-outline min-h-11 border-[1.5px] border-on-navy-line px-4 text-[13px] text-white hover:border-white/60 hover:bg-white/[0.06]"
+            className="fastly-outline min-h-11 border-[1.5px] border-on-navy-line px-4 text-[13px] text-white hover:border-white/60 hover:bg-white/6"
           >
             Back to the site
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1200px] px-6 py-12">
+      <main className="mx-auto w-full max-w-300 px-6 py-12">
         <h1 className="fastly-display max-w-[24ch] text-[32px] text-[#0a2540] sm:text-[40px]">
           Four screens, one calm school day.
         </h1>

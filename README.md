@@ -43,9 +43,9 @@ cp apps/web/.env.example apps/web/.env.local
 | `DATABASE_URL_UNPOOLED`             | api   | Used by `drizzle-kit migrate` only                                                                    |
 | `CLERK_SECRET_KEY`                  | api   | Clerk backend key                                                                                     |
 | `CLERK_WEBHOOK_SIGNING_SECRET`      | api   | Signing secret of the Clerk webhook endpoint                                                          |
-| `WEB_ORIGIN`                        | api   | Production web origin for CORS (`http://localhost:3000` and the Capacitor origins are always allowed) |
+| `WEB_ORIGIN`                        | api   | Production web origin for CORS, comma-separated (`http://localhost:3000` and the Capacitor origins are always allowed) |
 | `PORT`                              | api   | Default `4000`                                                                                        |
-| `NEXT_PUBLIC_API_URL`               | web   | `http://localhost:4000/api/v1`                                                                        |
+| `NEXT_PUBLIC_API_URL`               | web   | `http://localhost:4000/api/v1` in development, `https://student-lms-1-g0xa.onrender.com/api/v1` in production |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | web   | Clerk publishable key                                                                                 |
 
 Clerk setup: set the session token claim as `{"metadata": "{{user.public_metadata}}"}`
@@ -84,6 +84,37 @@ cd apps/web && bun run dev          # http://localhost:3000
 
 From the repository root: `bun run dev:api` and `bun run dev:web`.
 
+## Deployment
+
+| Part | Host | Notes |
+| --- | --- | --- |
+| Web | Vercel — `https://studentlms-sooty.vercel.app` | Static export from `apps/web` |
+| API | Render — `https://student-lms-1-g0xa.onrender.com` | Express, base path `/api/v1` |
+| Android | Capacitor, `apps/web/android` | Bundles `apps/web/out/` locally |
+
+Environment variables (values for secrets are never in the repository):
+
+```
+# Vercel -> Project Settings -> Environment Variables (Production)
+NEXT_PUBLIC_API_URL=https://student-lms-1-g0xa.onrender.com/api/v1
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=<same Clerk instance as the API>
+
+# Render -> Environment
+WEB_ORIGIN=https://studentlms-sooty.vercel.app
+DATABASE_URL=<pooled Postgres URL>
+DATABASE_URL_UNPOOLED=<direct Postgres URL, for migrations>
+CLERK_SECRET_KEY=<secret>
+CLERK_PUBLISHABLE_KEY=<public>
+CLERK_WEBHOOK_SIGNING_SECRET=<secret>
+```
+
+`apps/web/.env.production` holds the two `NEXT_PUBLIC_*` values so a local
+production build (Vercel CLI or the APK) matches the deployment. Vercel's own
+variables win when they are set.
+
+CORS: `WEB_ORIGIN` is a comma-separated allowlist. The Render value must be
+exactly the web origin, with no trailing slash.
+
 ## Build, lint, test
 
 ```bash
@@ -111,7 +142,7 @@ The Capacitor project lives in `apps/web/android`, wrapping the static export.
 
 ```bash
 cd apps/web
-bun run build             # next build -> out/
+bun run build             # next build -> out/ (reads .env.production)
 bun run cap:sync          # copy out/ into the native project
 bun run cap:android       # open Android Studio
 # or build the debug APK directly:
@@ -121,12 +152,17 @@ cd android && ./gradlew assembleDebug
 The APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
 Install it on a running emulator or device with `adb install -r <apk>`.
 
+Release builds need `apps/web/android/key.properties` plus the keystore it
+points at. Without them `assembleRelease` produces an unsigned APK that cannot
+be installed.
+
 Notes:
 
 - `androidScheme: "https"` makes the webview origin `https://localhost`, which
   the API allows through CORS.
-- `NEXT_PUBLIC_API_URL` is baked in at build time. On an emulator, `localhost`
-  is the device itself: use `http://10.0.2.2:4000/api/v1` when building for it.
+- `NEXT_PUBLIC_API_URL` is baked in at build time, so the APK talks to the
+  same Render API as the web build. For an emulator against a *local* API, use
+  `http://10.0.2.2:4000/api/v1` — `localhost` on an emulator is the device itself.
 - Clerk sign-in runs inside the webview; see `ARCHITECTURE-REFACTOR.md` section 6
   for what was tested.
 

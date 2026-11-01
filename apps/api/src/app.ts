@@ -20,16 +20,42 @@ import { panelRoutes } from "@/routes/panels";
  * supertest. `server.ts` owns the socket and the database shutdown.
  */
 
-/** Production web origin, the dev server, and the Capacitor webview origins. */
+/**
+ * Origins the browser and the native webview call the API from.
+ *
+ * - `WEB_ORIGIN` comes from the deployment: comma-separated, so one Render
+ *   service can serve Vercel previews and production without a wildcard.
+ * - `http://localhost:3000` and `localhost:5173` are *development only*. A
+ *   production API that allows them is not a vulnerability (a hostile site
+ *   cannot claim that origin), but it does mean a stray local dev build can
+ *   write to production data, so they are gated on NODE_ENV.
+ * - The two Capacitor webview origins are always allowed: the Android app
+ *   loads `out/` from `https://localhost`, and iOS from `capacitor://localhost`.
+ *   No wildcard is ever used.
+ */
 function corsOrigins(): string[] {
-  const origins = [
-    process.env.WEB_ORIGIN,
-    "http://localhost:3000",
-    // Capacitor: iOS uses the custom scheme, Android the https scheme.
-    "capacitor://localhost",
-    "https://localhost",
-  ].filter((origin): origin is string => Boolean(origin));
-  return [...new Set(origins)];
+  const configured = (process.env.WEB_ORIGIN ?? "")
+    .split(",")
+    .map((origin) => {
+      // A trailing slash survives a copy-paste from the browser; browsers never
+      // send it in `Origin`, so it would silently disable the whole entry.
+      const trimmed = origin.trim().replace(/\/+$/, "");
+      try {
+        return new URL(trimmed).origin;
+      } catch {
+        return trimmed;
+      }
+    })
+    .filter(Boolean);
+
+  const dev =
+    process.env.NODE_ENV === "production"
+      ? []
+      : ["http://localhost:3000", "http://localhost:5173", "http://localhost:3100"];
+
+  const webview = ["capacitor://localhost", "https://localhost"];
+
+  return [...new Set([...configured, ...dev, ...webview])];
 }
 
 export function createApp(
@@ -51,7 +77,11 @@ export function createApp(
     cors({
       origin: corsOrigins(),
       allowedHeaders: ["Authorization", "Content-Type"],
-      methods: ["GET", "POST", "PATCH", "DELETE"],
+      methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+      // Auth is a bearer token, never a cookie: credentials stay off so the
+      // browser does not expect `Access-Control-Allow-Credentials`.
+      credentials: false,
+      maxAge: 600,
     }),
   );
 

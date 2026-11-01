@@ -11,8 +11,21 @@ import type { ApiEnvelope } from "@lms/shared";
  * `/api/v1`; set it once from `NEXT_PUBLIC_API_URL`.
  */
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+const DEV_API_URL = "http://localhost:4000/api/v1";
+
+/**
+ * `NEXT_PUBLIC_API_URL` is inlined at build time. A production bundle that
+ * falls back to localhost is a build mistake, not a runtime condition — it
+ * ships an app that can reach nothing — so it says so in the console once
+ * instead of failing every request with an opaque `ERR_CONNECTION_REFUSED`.
+ */
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || DEV_API_URL;
+
+if (process.env.NODE_ENV === "production" && BASE_URL === DEV_API_URL) {
+  console.error(
+    "[api] NEXT_PUBLIC_API_URL is not set: this production build will call localhost. Rebuild with the hosted API URL.",
+  );
+}
 
 export class ApiError extends Error {
   readonly status: number;
@@ -61,11 +74,20 @@ export async function apiFetch<T>(
   };
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const response = await fetch(`${BASE_URL}${withQuery(path, query)}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  const url = `${BASE_URL}${withQuery(path, query)}`;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    // A `TypeError` here is a network or CORS failure, not an HTTP status: the
+    // browser withholds the response entirely when the API does not allow this
+    // origin. Saying so beats "Failed to fetch" on every screen.
+    throw new ApiError(0, `Cannot reach the school server at ${BASE_URL}.`);
+  }
 
   let payload: ApiEnvelope<T> | null = null;
   try {
