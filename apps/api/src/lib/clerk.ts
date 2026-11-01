@@ -1,11 +1,6 @@
-import { createClerkClient, type ClerkClient } from "@clerk/backend";
-
 /**
- * The single Clerk backend client and the single token verifier.
- *
- * `verifyToken` from `@clerk/backend` validates the bearer token the web client
- * sends. Session-token version 2 keeps custom session claims under `o`, which
- * is where the `metadata` template (`{{user.public_metadata}}`) lands.
+ * Legacy compatibility stub left behind by the previous hosted-auth migration.
+ * The API now verifies local JWTs directly in `src/middleware/auth.ts`.
  */
 
 export interface SessionMetadata {
@@ -19,21 +14,10 @@ export interface VerifiedSession {
   metadata: SessionMetadata;
 }
 
-let cachedClient: ClerkClient | null = null;
-
-export function clerkClient(): ClerkClient {
-  if (!cachedClient) {
-    const secretKey = process.env.CLERK_SECRET_KEY;
-    if (!secretKey) throw new Error("Missing CLERK_SECRET_KEY");
-    cachedClient = createClerkClient({ secretKey });
-  }
-  return cachedClient;
+export function clerkClient(): never {
+  throw new Error("Hosted auth provider support was removed; use local JWT auth instead.");
 }
 
-/** Reads `metadata` from a verified payload, tolerating both token shapes. */
-export function metadataOf(payload: Record<string, unknown>): SessionMetadata {
-  const direct = payload.metadata as SessionMetadata | undefined;
-  const nested = (payload.o as { metadata?: SessionMetadata } | undefined)
-    ?.metadata;
-  return direct ?? nested ?? {};
+export function metadataOf(): SessionMetadata {
+  return {};
 }

@@ -5,6 +5,7 @@ import type { Express } from "express";
 import { closeDb, db } from "@/db";
 import { users } from "@/db/schema";
 import { createApp } from "@/app";
+import { createLocalSessionToken, localTokenVerifier } from "@/middleware/auth";
 import { authHeader, resetDb, seedUser, testVerifier } from "./helpers";
 
 let app: Express;
@@ -120,5 +121,39 @@ describe("mirror adoption", () => {
 
     const rows = await db.select().from(users).where(eq(users.clerkId, "ghost_1"));
     expect(rows).toHaveLength(0);
+  });
+});
+
+describe("local JWT auth", () => {
+  it("accepts an HMAC-signed local token", async () => {
+    const token = createLocalSessionToken({
+      sub: "local-admin-1",
+      email: "admin@demo.local",
+      name: "Demo Admin",
+      role: "super_admin",
+      status: "active",
+      onboarded: true,
+    });
+
+    const session = await localTokenVerifier()(token);
+    expect(session).toMatchObject({
+      clerkId: "local-admin-1",
+      metadata: { role: "super_admin", status: "active", onboarded: true },
+    });
+  });
+
+  it("mints a token from a local sign-in request", async () => {
+    const res = await request(app)
+      .post("/api/v1/auth/sign-in")
+      .send({ email: "admin@demo.local", password: "demo123" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.data.token).toBeTypeOf("string");
+    expect(res.body.data.user).toMatchObject({
+      email: "admin@demo.local",
+      role: "super_admin",
+      status: "active",
+    });
   });
 });

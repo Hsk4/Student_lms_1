@@ -4,7 +4,6 @@ import { accessRequestSchema, type GateUser } from "@lms/shared";
 import { db } from "@/db";
 import { accessRequests } from "@/db/schema";
 import { conflict } from "@/lib/http-error";
-import { clerkClient } from "@/lib/clerk";
 import { actorOf } from "@/middleware/auth";
 import {
   createAccessRequest,
@@ -36,33 +35,14 @@ function assertCanApply(status: string, rejectedAt: Date | null | undefined) {
   }
 }
 
-/** Back to `pending` in Clerk first, then in Postgres (rolled back if that fails). */
+/** Reopen a rejected account in the local DB-backed identity model. */
 async function reopenRejectedAccount(user: GateUser) {
   if (user.status !== "rejected") return;
-  const oldMetadata = {
-    role: user.role ?? null,
-    status: user.status,
-    onboarded: user.onboarded,
-  };
-  await clerkClient().users.updateUser(user.clerkId, {
-    publicMetadata: {
-      role: user.role ?? null,
-      status: "pending",
-      onboarded: user.onboarded,
-    },
+  await updateUser(user.id, {
+    status: "pending",
+    rejectedAt: null,
+    rejectionReason: null,
   });
-  try {
-    await updateUser(user.id, {
-      status: "pending",
-      rejectedAt: null,
-      rejectionReason: null,
-    });
-  } catch (error) {
-    await clerkClient().users.updateUser(user.clerkId, {
-      publicMetadata: oldMetadata,
-    });
-    throw error;
-  }
 }
 
 /** `POST /api/v1/me/request` */

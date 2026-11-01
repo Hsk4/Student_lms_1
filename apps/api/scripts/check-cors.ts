@@ -7,8 +7,6 @@
 import { createApp } from "../src/app.ts";
 
 process.env.DATABASE_URL ??= "postgres://check:check@localhost:5432/check";
-process.env.CLERK_SECRET_KEY ??= "sk_test_placeholder";
-process.env.CLERK_WEBHOOK_SIGNING_SECRET ??= "whsec_placeholder";
 process.env.WEB_ORIGIN = "https://studentlms-sooty.vercel.app/";
 
 type Case = { origin: string; expect: "allow" | "deny" };

@@ -4,11 +4,10 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import {
   AUTH_VERIFIER,
-  clerkTokenVerifier,
+  localTokenVerifier,
   type TokenVerifier,
 } from "@/middleware/auth";
 import { errorHandler, notFoundHandler } from "@/middleware/error-handler";
-import { webhookRoutes } from "@/routes/webhooks";
 import { healthRoutes, meRoutes } from "@/routes/me";
 import { parentLinkRoutes, studentParentLinkRoutes } from "@/routes/parent";
 import { adminRoutes } from "@/routes/admin";
@@ -66,7 +65,7 @@ export function createApp(
       options.verifyToken;
   } else if (!(globalThis as Record<symbol, TokenVerifier>)[AUTH_VERIFIER]) {
     (globalThis as Record<symbol, TokenVerifier>)[AUTH_VERIFIER] =
-      clerkTokenVerifier();
+      localTokenVerifier();
   }
 
   const app = express();
@@ -84,9 +83,6 @@ export function createApp(
       maxAge: 600,
     }),
   );
-
-  // Before express.json(): the svix signature is over the raw body.
-  app.use(webhookRoutes);
 
   app.use(express.json({ limit: "256kb" }));
 

@@ -16,7 +16,6 @@
     "seed:super-admin": "tsx --env-file=.env scripts/seed-super-admin.ts"
   },
   "dependencies": {
-    "@clerk/backend": "^3.25.0",
     "@lms/shared": "workspace:*",
     "cors": "^2.8.6",
     "drizzle-orm": "^0.44.7",

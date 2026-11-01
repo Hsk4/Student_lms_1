@@ -1,9 +1,9 @@
 "use client";
 
-import { SignUp } from "@clerk/clerk-react";
+import { SignUp } from "@/lib/auth-compat";
 import { AuthRedirector } from "@/views/layout/auth-redirector";
 
-/** One static page: see the note on `/sign-in`. */
+/** Local-only sign-up page for the production demo. */
 export default function SignUpPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface px-4">

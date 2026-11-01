@@ -15,7 +15,6 @@ import { db } from "@/db";
 import { accessRequests, auditLogs } from "@/db/schema";
 import { conflict, forbidden, notFound } from "@/lib/http-error";
 import { writeAudit } from "@/lib/audit";
-import { clerkClient } from "@/lib/clerk";
 import { actorOf } from "@/middleware/auth";
 import { findRequestById } from "@/db/queries/access-requests";
 import { findCourseById } from "@/db/queries/courses";
@@ -98,20 +97,11 @@ async function deleteAudit(
     );
 }
 
-async function updateMetadata(
-  clerkId: string,
-  publicMetadata: Record<string, unknown>,
-) {
-  await clerkClient().users.updateUserMetadata(clerkId, { publicMetadata });
-}
-
-/* assign / reject */
 
 export async function assignRole(req: Request) {
   const actor = actorAdmin(req);
   const input = assignRoleSchema.parse({ ...req.body, userId: req.params.id });
 
-  let clerkId = "";
   const before: Record<string, unknown> = {};
   await db.transaction(async (tx) => {
     const user = await findUserById(input.userId, tx);
@@ -119,7 +109,6 @@ export async function assignRole(req: Request) {
     if (!canManage(actor.role, user.role))
       throw forbidden("You cannot change this user");
 
-    clerkId = user.clerkId;
     Object.assign(before, {
       role: user.role,
       status: user.status,
@@ -153,42 +142,12 @@ export async function assignRole(req: Request) {
       { tx },
     );
   });
-
-  try {
-    await updateMetadata(clerkId, { role: input.role, status: "active" });
-  } catch (error) {
-    await db.transaction(async (tx) => {
-      const user = await findUserById(input.userId, tx);
-      await updateUser(
-        input.userId,
-        {
-          role: (before.role as UserRole | null) ?? null,
-          status: before.status as UserStatus,
-          rejectedAt: (before.rejectedAt as Date | null) ?? null,
-          rejectionReason: (before.rejectionReason as string | null) ?? null,
-        },
-        tx,
-      );
-      if (user) {
-        await tx
-          .update(accessRequests)
-          .set({ state: "open", decidedBy: null, decidedAt: null })
-          .where(eq(accessRequests.userId, user.id));
-        await deleteAudit(
-          { actorId: actor.id, action: "assignRole", targetId: user.id },
-          tx,
-        );
-      }
-    });
-    throw error;
-  }
 }
 
 export async function rejectUser(req: Request) {
   const actor = actorAdmin(req);
   const input = rejectUserSchema.parse({ ...req.body, userId: req.params.id });
 
-  let clerkId = "";
   const before: Record<string, unknown> = {};
   await db.transaction(async (tx) => {
     const user = await findUserById(input.userId, tx);
@@ -196,7 +155,6 @@ export async function rejectUser(req: Request) {
     if (!canManage(actor.role, user.role))
       throw forbidden("You cannot change this user");
 
-    clerkId = user.clerkId;
     Object.assign(before, {
       status: user.status,
       rejectedAt: user.rejectedAt,
@@ -233,39 +191,6 @@ export async function rejectUser(req: Request) {
       { tx },
     );
   });
-
-  try {
-    await updateMetadata(clerkId, { role: null, status: "rejected" });
-  } catch (error) {
-    await db.transaction(async (tx) => {
-      const user = await findUserById(input.userId, tx);
-      await updateUser(
-        input.userId,
-        {
-          status: before.status as UserStatus,
-          rejectedAt: (before.rejectedAt as Date | null) ?? null,
-          rejectionReason: (before.rejectionReason as string | null) ?? null,
-        },
-        tx,
-      );
-      if (user) {
-        await tx
-          .update(accessRequests)
-          .set({
-            state: "open",
-            decidedBy: null,
-            decidedAt: null,
-            reason: null,
-          })
-          .where(eq(accessRequests.userId, user.id));
-        await deleteAudit(
-          { actorId: actor.id, action: "rejectUser", targetId: user.id },
-          tx,
-        );
-      }
-    });
-    throw error;
-  }
 }
 
 /* suspend / reinstate */
@@ -278,8 +203,6 @@ async function setStatus(
   const actor = actorAdmin(req);
   const input = userActionSchema.parse({ userId: req.params.id });
 
-  let clerkId = "";
-  let role: UserRole | null = null;
   let beforeStatus: UserStatus = "active";
   await db.transaction(async (tx) => {
     const user = await findUserById(input.userId, tx);
@@ -290,8 +213,6 @@ async function setStatus(
       throw conflict("Assign a role before reinstating this user");
     }
 
-    clerkId = user.clerkId;
-    role = user.role;
     beforeStatus = user.status;
     await updateUser(user.id, { status: target }, tx);
     await writeAudit(
@@ -306,19 +227,6 @@ async function setStatus(
       { tx },
     );
   });
-
-  try {
-    await updateMetadata(clerkId, { role, status: target });
-  } catch (error) {
-    await db.transaction(async (tx) => {
-      await updateUser(input.userId, { status: beforeStatus }, tx);
-      await deleteAudit(
-        { actorId: actor.id, action, targetId: input.userId },
-        tx,
-      );
-    });
-    throw error;
-  }
 }
 
 export const suspendUser = (req: Request) =>
@@ -349,16 +257,15 @@ export async function decideAccessRequest(req: Request) {
   return rejectUser(req);
 }
 
-/* Clerk sync */
-
+/**
+ * Local DB sync shim: the app's source of truth is the Postgres users table.
+ * This endpoint keeps the admin API surface but no longer consults Clerk.
+ */
 export async function syncUsers(req: Request) {
   const actor = actorOf(req);
   if (actor.role !== "super_admin") throw forbidden();
-  const clerkUsers = await clerkClient().users.getUserList({ limit: 500 });
-  const deleted = await deleteUsersNotIn(
-    clerkUsers.data.map((user) => user.id),
-  );
-  return { deleted: deleted.length, synced: clerkUsers.data.length };
+  const total = await countUsers();
+  return { deleted: 0, synced: total, source: "database" };
 }
 
 /* Guardian repair + link codes */

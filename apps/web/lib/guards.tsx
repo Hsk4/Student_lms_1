@@ -2,8 +2,8 @@
 
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@clerk/clerk-react";
 import type { MeResponse, UserRole } from "@lms/shared";
+import { useAuth } from "@/lib/auth-compat";
 import { ApiError } from "./api-client";
 import { useMe } from "./queries";
 
@@ -24,8 +24,8 @@ export function usePanelGuard(roles: UserRole[]) {
   // The API answers 403 (with the home page in the message) for an account that
   // is pending, rejected or not onboarded; `/me` itself is open to those.
   const notReady = me.error instanceof ApiError && me.error.status === 403;
-  // Clerk can report `isSignedIn` for a moment before `getToken()` returns a
-  // usable value; a 401 for a session Clerk says exists means "not yet".
+  // The local session can be present before the first `/me` load settles. A 401
+  // here means we still need to wait for the API to accept the stored token.
   const sessionSettling =
     isSignedIn && me.error instanceof ApiError && me.error.status === 401;
 

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { useAuth } from "@clerk/clerk-react";
 import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth-compat";
 import { useMe } from "@/lib/queries";
 
 /**

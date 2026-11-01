@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { asyncHandler } from "@/middleware/async-handler";
-import { auth } from "@/middleware/auth";
+import { auth, createLocalSessionToken } from "@/middleware/auth";
 import { freshStatus, me, myRequestStatus } from "@/controllers/me";
 import { requestParentAccess, submitAccessRequest } from "@/controllers/onboarding";
+import { findUserByEmail, createUser } from "@/db/queries/users";
 import { ok } from "@/lib/respond";
 
 export const meRoutes = Router();
@@ -10,6 +11,111 @@ export const meRoutes = Router();
 // The onboarding routes must answer for a pending, rejected or not-onboarded
 // account; everything else requires an active, onboarded one (see `auth`).
 const restricted = auth({ allowRestricted: true });
+
+meRoutes.post(
+  "/auth/sign-in",
+  asyncHandler(async (req, res) => {
+    const email = String(req.body?.email ?? "").trim().toLowerCase();
+    const password = String(req.body?.password ?? "");
+
+    if (!email || !password) {
+      res.status(400).json({ ok: false, error: "Email and password are required" });
+      return;
+    }
+
+    const isDemoAdmin = email === "admin@demo.local" && password === "demo123";
+    let user = isDemoAdmin ? await findUserByEmail(email) : await findUserByEmail(email);
+
+    if (!user && isDemoAdmin) {
+      user = await createUser({
+        clerkId: `local-demo-${Date.now()}`,
+        email,
+        name: "Demo Super Admin",
+        role: "super_admin",
+        status: "active",
+        onboarded: true,
+      });
+    }
+
+    if (!user) {
+      res.status(401).json({ ok: false, error: "Invalid email or password" });
+      return;
+    }
+
+    const token = createLocalSessionToken({
+      sub: user.clerkId,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      status: user.status,
+      onboarded: user.onboarded,
+    });
+
+    ok(res, {
+      token,
+      user: {
+        id: user.id,
+        clerkId: user.clerkId,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        status: user.status,
+        onboarded: user.onboarded,
+      },
+    });
+  }),
+);
+
+meRoutes.post(
+  "/auth/sign-up",
+  asyncHandler(async (req, res) => {
+    const email = String(req.body?.email ?? "").trim().toLowerCase();
+    const password = String(req.body?.password ?? "");
+    const name = String(req.body?.name ?? "Demo User").trim() || "Demo User";
+
+    if (!email || !password) {
+      res.status(400).json({ ok: false, error: "Email and password are required" });
+      return;
+    }
+
+    const existing = await findUserByEmail(email);
+    if (existing) {
+      res.status(409).json({ ok: false, error: "An account with that email already exists" });
+      return;
+    }
+
+    const user = await createUser({
+      clerkId: `local-${email.replace(/[^a-z0-9]/g, "-")}-${Date.now()}`,
+      email,
+      name,
+      role: null,
+      status: "pending",
+      onboarded: false,
+    });
+
+    const token = createLocalSessionToken({
+      sub: user.clerkId,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      status: user.status,
+      onboarded: user.onboarded,
+    });
+
+    ok(res, {
+      token,
+      user: {
+        id: user.id,
+        clerkId: user.clerkId,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        status: user.status,
+        onboarded: user.onboarded,
+      },
+    });
+  }),
+);
 
 meRoutes.get(
   "/me",

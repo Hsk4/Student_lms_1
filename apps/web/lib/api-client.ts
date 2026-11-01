@@ -5,7 +5,7 @@ import type { ApiEnvelope } from "@lms/shared";
 /**
  * The typed fetch wrapper for the API.
  *
- * Attaches the Clerk session token as `Authorization: Bearer`, unwraps the
+ * Attaches the local session token as `Authorization: Bearer`, unwraps the
  * `{ ok, data }` / `{ ok: false, error }` envelope, and throws `ApiError` on a
  * failure so TanStack Query treats it as an error. The base URL is the API's
  * `/api/v1`; set it once from `NEXT_PUBLIC_API_URL`.
@@ -41,7 +41,7 @@ type GetToken = () => Promise<string | null>;
 
 let getTokenRef: GetToken = async () => null;
 
-/** Called once by the providers, with Clerk's `getToken`. */
+/** Called once by the providers, with the local auth `getToken` hook. */
 export function setTokenGetter(getToken: GetToken) {
   getTokenRef = getToken;
 }

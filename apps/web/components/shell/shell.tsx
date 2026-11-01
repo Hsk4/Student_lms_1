@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { UserButton } from "@clerk/clerk-react";
+import { UserButton } from "@/lib/auth-compat";
 import { RoleChip, StatusChip } from "@/components/ui/nila";
 import {
   ADMIN_NAV_GROUPS,

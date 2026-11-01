@@ -1,15 +1,14 @@
+import crypto from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
-import { verifyToken } from "@clerk/backend";
 import { homeFor, type UserRole, type UserStatus } from "@lms/shared";
-import { clerkClient, metadataOf } from "@/lib/clerk";
 import { forbidden, notReady, unauthorized } from "@/lib/http-error";
-import { createUser, findUserByClerkId } from "@/db/queries/users";
+import { findUserByClerkId } from "@/db/queries/users";
 import type { GateUser } from "@lms/shared";
 
 /**
- * Token -> account. Mirrors `getCurrentUser` from the old `lib/auth/roles.ts`:
- * the Postgres mirror is authoritative for role/status; a token whose row is
- * missing is adopted from Clerk so a fresh sign-up is never stuck.
+ * Token -> account. The Postgres row is authoritative for role/status, and a
+ * verified token without a local row is treated as a pending account instead of
+ * depending on any hosted identity provider.
  */
 
 export const AUTH_VERIFIER = Symbol("auth-verifier");
@@ -22,14 +21,82 @@ export type TokenVerifier = (
   metadata: { role?: string | null; status?: string; onboarded?: boolean };
 }>;
 
-export function clerkTokenVerifier(): TokenVerifier {
+function getAuthSecret() {
+  const secret =
+    process.env.AUTH_JWT_SECRET ?? process.env.JWT_SECRET ?? "local-dev-secret-change-me";
+
+  if (
+    process.env.NODE_ENV === "production" &&
+    !process.env.AUTH_JWT_SECRET &&
+    !process.env.JWT_SECRET
+  ) {
+    throw new Error("AUTH_JWT_SECRET or JWT_SECRET is required in production");
+  }
+
+  return secret;
+}
+
+function base64UrlEncode(value: string) {
+  return Buffer.from(value).toString("base64url");
+}
+
+function base64UrlDecode(value: string) {
+  return Buffer.from(value, "base64url").toString("utf8");
+}
+
+export function createLocalSessionToken(payload: {
+  sub: string;
+  email?: string;
+  name?: string;
+  role?: string | null;
+  status?: string;
+  onboarded?: boolean;
+}) {
+  const header = { alg: "HS256", typ: "JWT" };
+  const claims = {
+    ...payload,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
+  };
+
+  const signingInput = `${base64UrlEncode(JSON.stringify(header))}.${base64UrlEncode(JSON.stringify(claims))}`;
+  const signature = crypto
+    .createHmac("sha256", getAuthSecret())
+    .update(signingInput)
+    .digest("base64url");
+
+  return `${signingInput}.${signature}`;
+}
+
+export function localTokenVerifier(): TokenVerifier {
   return async (token) => {
-    const payload = await verifyToken(token, {
-      secretKey: process.env.CLERK_SECRET_KEY,
-      clockSkewInMs: Number(process.env.CLERK_CLOCK_SKEW_MS ?? 5000),
-    });
+    const segments = token.split(".");
+    if (segments.length !== 3) throw new Error("Invalid JWT format");
+
+    const [headerB64, payloadB64, signature] = segments;
+    const signingInput = `${headerB64}.${payloadB64}`;
+    const expected = crypto
+      .createHmac("sha256", getAuthSecret())
+      .update(signingInput)
+      .digest("base64url");
+
+    const actual = Buffer.from(signature);
+    const expectedBuf = Buffer.from(expected);
+    if (actual.length !== expectedBuf.length || !crypto.timingSafeEqual(actual, expectedBuf)) {
+      throw new Error("JWT signature mismatch");
+    }
+
+    const payload = JSON.parse(base64UrlDecode(payloadB64));
     if (!payload.sub) throw new Error("Token has no subject");
-    return { clerkId: payload.sub, metadata: metadataOf(payload) };
+
+    return {
+      clerkId: String(payload.sub),
+      metadata: {
+        role: payload.role ?? null,
+        status: payload.status ?? "pending",
+        onboarded: Boolean(payload.onboarded),
+      },
+    };
   };
 }
 
@@ -50,41 +117,14 @@ function toGateUser(
 }
 
 async function resolveUser(clerkId: string): Promise<GateUser | null> {
-  let row = await findUserByClerkId(clerkId);
-
-  if (!row) {
-    try {
-      const clerkUser = await clerkClient().users.getUser(clerkId);
-      const email =
-        clerkUser.primaryEmailAddress?.emailAddress ??
-        clerkUser.emailAddresses[0]?.emailAddress ??
-        "";
-      const name =
-        [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
-        clerkUser.username ||
-        "User";
-      row = await createUser({
-        clerkId,
-        email,
-        name,
-        role: null,
-        status: "pending",
-        onboarded: false,
-      });
-    } catch {
-      // A concurrent webhook may have won the race on `users_clerk_id_unique`.
-      row = await findUserByClerkId(clerkId);
-    }
-  }
-
+  const row = await findUserByClerkId(clerkId);
   return row ? toGateUser(row) : null;
 }
 
 /**
- * The Clerk lookup failed, but the token verified: the account is a real
- * sign-up whose webhook has not landed. Treat it as pending (the product rule
- * for missing metadata) and check the mirror again first, so a user who was
- * just assigned a role is not demoted by a transient Clerk error.
+ * The token verified, but the account row is still missing. Treat the user as a
+ * pending local account so the first sign-in or sign-up can proceed without any
+ * hosted identity provider.
  */
 async function adoptOrPending(clerkId: string): Promise<GateUser> {
   return (
@@ -124,7 +164,7 @@ export function auth(opts: { allowRestricted?: boolean } = {}) {
     // Resolved per request: `createApp` installs the verifier once the app is built.
     const verify =
       (globalThis as Record<symbol, TokenVerifier>)[AUTH_VERIFIER] ??
-      clerkTokenVerifier();
+      localTokenVerifier();
     try {
       const header = req.headers.authorization ?? "";
       const [scheme, token] = header.split(" ");
