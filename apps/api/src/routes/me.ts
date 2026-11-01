@@ -23,19 +23,7 @@ meRoutes.post(
       return;
     }
 
-    const isDemoAdmin = email === "admin@demo.local" && password === "demo123";
-    let user = isDemoAdmin ? await findUserByEmail(email) : await findUserByEmail(email);
-
-    if (!user && isDemoAdmin) {
-      user = await createUser({
-        clerkId: `local-demo-${Date.now()}`,
-        email,
-        name: "Demo Super Admin",
-        role: "super_admin",
-        status: "active",
-        onboarded: true,
-      });
-    }
+    const user = await findUserByEmail(email);
 
     if (!user) {
       res.status(401).json({ ok: false, error: "Invalid email or password" });
@@ -71,7 +59,7 @@ meRoutes.post(
   asyncHandler(async (req, res) => {
     const email = String(req.body?.email ?? "").trim().toLowerCase();
     const password = String(req.body?.password ?? "");
-    const name = String(req.body?.name ?? "Demo User").trim() || "Demo User";
+    const name = String(req.body?.name ?? "User").trim() || "User";
 
     if (!email || !password) {
       res.status(400).json({ ok: false, error: "Email and password are required" });

@@ -128,8 +128,8 @@ describe("local JWT auth", () => {
   it("accepts an HMAC-signed local token", async () => {
     const token = createLocalSessionToken({
       sub: "local-admin-1",
-      email: "admin@demo.local",
-      name: "Demo Admin",
+      email: "admin@school.test",
+      name: "Local Admin",
       role: "super_admin",
       status: "active",
       onboarded: true,
@@ -142,18 +142,28 @@ describe("local JWT auth", () => {
     });
   });
 
-  it("mints a token from a local sign-in request", async () => {
+  it("rejects the demo super-admin backdoor", async () => {
     const res = await request(app)
       .post("/api/v1/auth/sign-in")
       .send({ email: "admin@demo.local", password: "demo123" });
+
+    expect(res.status).toBe(401);
+    expect(res.body).toMatchObject({ ok: false, error: "Invalid email or password" });
+  });
+
+  it("mints a token for a real local sign-up", async () => {
+    const res = await request(app)
+      .post("/api/v1/auth/sign-up")
+      .send({ name: "Alice Student", email: "alice@school.test", password: "strong-secret" });
 
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.data.token).toBeTypeOf("string");
     expect(res.body.data.user).toMatchObject({
-      email: "admin@demo.local",
-      role: "super_admin",
-      status: "active",
+      email: "alice@school.test",
+      name: "Alice Student",
+      role: null,
+      status: "pending",
     });
   });
 });

@@ -1,63 +1,43 @@
 "use client";
 
-import { useCallback, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
-const STORAGE_KEY = "fastly-demo-auth";
-const STORAGE_USER_KEY = "fastly-demo-user";
-const DEMO_TOKEN = "demo-super-admin";
-const DEMO_USER = {
-  name: "Demo Super Admin",
-  email: "admin@demo.local",
-  role: "super_admin",
-  status: "active",
-};
+const STORAGE_KEY = "lms-auth-token";
+const STORAGE_USER_KEY = "lms-auth-user";
 
-export function isLocalAuthConfigured() {
-  return true;
-}
+type StoredUser = {
+  id?: number | string;
+  name?: string;
+  email?: string;
+  role?: string | null;
+  status?: string;
+  onboarded?: boolean;
+} | null;
 
 function readStoredToken() {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem(STORAGE_KEY) ?? null;
 }
 
-function readStoredUser() {
-  if (typeof window === "undefined") return DEMO_USER;
+function readStoredUser(): StoredUser {
+  if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(STORAGE_USER_KEY);
-    return raw ? JSON.parse(raw) : DEMO_USER;
+    return raw ? (JSON.parse(raw) as StoredUser) : null;
   } catch {
-    return DEMO_USER;
+    return null;
   }
 }
 
-export function getDemoToken() {
-  return readStoredToken() ?? DEMO_TOKEN;
-}
-
-export function setDemoSession(
-  email = DEMO_USER.email,
-  tokenOverride?: string,
-  userOverride?: Partial<typeof DEMO_USER>,
-) {
-  const normalized = email.trim().toLowerCase();
-  const token = tokenOverride ?? DEMO_TOKEN;
-
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(STORAGE_KEY, token);
-    window.localStorage.setItem(
-      STORAGE_USER_KEY,
-      JSON.stringify({
-        name: userOverride?.name ?? normalized.split("@")[0] ?? "Demo User",
-        email: userOverride?.email ?? normalized,
-        role: userOverride?.role ?? "super_admin",
-        status: userOverride?.status ?? "active",
-      }),
-    );
+function writeStoredSession(token: string, user: StoredUser) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(STORAGE_KEY, token);
+  if (user) {
+    window.localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
+  } else {
+    window.localStorage.removeItem(STORAGE_USER_KEY);
   }
-
-  return token;
 }
 
 export function clearDemoSession() {
@@ -71,14 +51,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth() {
-  const signedIn =
-    typeof window === "undefined"
-      ? !isLocalAuthConfigured()
-      : Boolean(readStoredToken() || isLocalAuthConfigured());
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    setIsLoaded(true);
+  }, []);
+
+  const signedIn = typeof window !== "undefined" && Boolean(readStoredToken());
 
   const getToken = useCallback(async () => {
     if (!signedIn) return null;
-    return getDemoToken();
+    return readStoredToken();
   }, [signedIn]);
 
   const signOut = useCallback(async () => {
@@ -86,7 +69,7 @@ export function useAuth() {
   }, []);
 
   return {
-    isLoaded: true,
+    isLoaded,
     isSignedIn: signedIn,
     getToken,
     signOut,
@@ -96,12 +79,13 @@ export function useAuth() {
 export function UserButton() {
   const router = useRouter();
   const user = readStoredUser();
-  const initials = user.name
+  const initials = (user?.name ?? "User")
     .split(" ")
     .map((part: string) => part[0])
+    .filter(Boolean)
     .slice(0, 2)
     .join("")
-    .toUpperCase();
+    .toUpperCase() || "A";
 
   return (
     <button
@@ -112,9 +96,9 @@ export function UserButton() {
       }}
       className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
       aria-label="Sign out"
-      title={`${user.name} • ${user.email}`}
+      title={user?.email ? `${user.name ?? "User"} • ${user.email}` : "Sign out"}
     >
-      {initials || "A"}
+      {initials}
     </button>
   );
 }
@@ -131,8 +115,13 @@ export function SignIn({
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const email = String(form.get("email") || DEMO_USER.email);
-    const password = String(form.get("password") || "demo123");
+    const email = String(form.get("email") ?? "").trim().toLowerCase();
+    const password = String(form.get("password") ?? "");
+
+    if (!email || !password) {
+      window.alert("Email and password are required");
+      return;
+    }
 
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
@@ -146,7 +135,7 @@ export function SignIn({
         error?: string;
         data?: {
           token?: string;
-          user?: typeof DEMO_USER;
+          user?: StoredUser;
         };
       };
 
@@ -154,7 +143,7 @@ export function SignIn({
         throw new Error(payload.error ?? "Unable to sign in");
       }
 
-      setDemoSession(email, payload.data.token, payload.data.user);
+      writeStoredSession(payload.data.token, payload.data.user ?? null);
       router.replace(fallbackRedirectUrl);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to sign in";
@@ -168,7 +157,7 @@ export function SignIn({
         Sign in to your workspace
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Use the local API account or the demo admin account for development.
+        Use your school account to continue.
       </p>
 
       <form className="mt-6 space-y-4" onSubmit={onSubmit}>
@@ -177,7 +166,7 @@ export function SignIn({
           <input
             name="email"
             type="email"
-            defaultValue={DEMO_USER.email}
+            placeholder="you@school.edu"
             className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none ring-0 placeholder:text-muted-foreground"
           />
         </label>
@@ -187,7 +176,7 @@ export function SignIn({
           <input
             name="password"
             type="password"
-            defaultValue="demo123"
+            placeholder="Enter your password"
             className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none ring-0 placeholder:text-muted-foreground"
           />
         </label>
