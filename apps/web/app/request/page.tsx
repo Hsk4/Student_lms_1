@@ -24,14 +24,18 @@ function Body() {
     enabled: Boolean(user),
   });
 
+  // `isFetched && !user` is the 401 case (signed out or suspended).
   useEffect(() => {
-    if (!me.isLoading && !user) router.replace("/sign-in");
-  }, [me.isLoading, user, router]);
+    if (me.isFetched && !user) router.replace("/sign-in");
+  }, [me.isFetched, user, router]);
+
+  useEffect(() => {
+    if (user && user.status === "active") router.replace(user.home);
+  }, [user, router]);
 
   if (!user) return <div className="p-10 text-sm text-muted-foreground">Loading...</div>;
 
   if (user.status === "active") {
-    router.replace(user.home);
     return <div className="p-10 text-sm text-muted-foreground">Loading...</div>;
   }
 

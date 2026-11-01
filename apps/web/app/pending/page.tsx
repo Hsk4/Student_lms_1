@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { RequestStatusResponse } from "@lms/shared";
 import { PageHeader, Card, Notice } from "@/components/ui/nila";
 import { PanelShell } from "@/components/shell/shell";
+import { PanelLoading } from "@/lib/guards";
 import { api } from "@/lib/api-client";
 import { useMe } from "@/lib/queries";
 
@@ -27,9 +28,12 @@ export default function PendingPage() {
   });
   const status = statusQuery.data;
 
+  // `isLoading === false` with no data is a 401 (signed out or suspended):
+  // waiting on `isLoading` alone leaves a signed-out visitor on the spinner.
+  const signedOut = me.isFetched && !user;
   useEffect(() => {
-    if (!me.isLoading && !user) router.replace("/sign-in");
-  }, [me.isLoading, user, router]);
+    if (signedOut) router.replace("/sign-in");
+  }, [signedOut, router]);
 
   useEffect(() => {
     if (user && user.status !== "pending") router.replace(user.home);
@@ -44,10 +48,14 @@ export default function PendingPage() {
       ]
     : STEPS;
 
+  // Nothing until a pending account is loaded; the effect redirects anyone
+  // else, and showing the tracker first would be wrong for them.
+  if (!user || user.status !== "pending") return <PanelLoading />;
+
   return (
     <PanelShell
       title="Waiting for approval"
-      user={{ name: user?.name ?? "", role: user?.role ?? null }}
+      user={{ name: user.name, role: user.role }}
     >
       <PageHeader
         title="Your account is pending"

@@ -13,8 +13,9 @@ export function useMe() {
   return useQuery({
     queryKey: ["me"],
     queryFn: () => api.get<MeResponse>("/me"),
-    retry: (count, error) =>
-      !(error instanceof ApiError && error.status < 500) && count < 2,
+    // A 401/403 is an answer, not a transient failure: retrying only delays
+    // the guard's redirect.
+    retry: (count, error) => !(error instanceof ApiError) && count < 2,
   });
 }
 

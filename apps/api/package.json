@@ -4,14 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "tsx watch --env-file=.env src/server.ts",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src tests",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio",
+    "db:migrate": "tsx --env-file=.env node_modules/drizzle-kit/bin.cjs migrate",
+    "db:studio": "tsx --env-file=.env node_modules/drizzle-kit/bin.cjs studio",
     "seed:dev": "tsx --env-file=.env scripts/seed-dev.ts",
     "seed:super-admin": "tsx --env-file=.env scripts/seed-super-admin.ts"
   },

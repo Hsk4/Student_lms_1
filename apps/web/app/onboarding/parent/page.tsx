@@ -13,12 +13,12 @@ export default function ParentOnboardingPage() {
   const user = me.data;
 
   useEffect(() => {
-    if (me.isLoading) return;
+    if (!me.isFetched) return;
     if (!user) router.replace("/sign-in");
     else if (user.status !== "active" || user.role !== "student")
       router.replace(user.home);
     else if (user.onboarded) router.replace("/student");
-  }, [me.isLoading, user, router]);
+  }, [me.isFetched, user, router]);
 
   return (
     <PanelShell

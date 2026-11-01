@@ -10,10 +10,10 @@ export default function TeacherLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, allowed, isLoading } = usePanelGuard(["teacher"]);
+  const { user, allowed, denied, isLoading } = usePanelGuard(["teacher"]);
 
   return (
-    <Guarded allowed={allowed} isLoading={isLoading}>
+    <Guarded allowed={allowed} denied={denied} isLoading={isLoading}>
       <PanelShell
         panel="teacher"
         groups={TEACHER_NAV_GROUPS}

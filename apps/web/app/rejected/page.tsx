@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageHeader, Card, Notice, formatDate } from "@/components/ui/nila";
 import { PanelShell } from "@/components/shell/shell";
+import { PanelLoading } from "@/lib/guards";
 import { useMe } from "@/lib/queries";
 
 export default function RejectedPage() {
@@ -13,10 +14,17 @@ export default function RejectedPage() {
   const user = me.data;
 
   useEffect(() => {
-    if (me.isLoading) return;
+    if (!me.isFetched) return;
     if (!user) router.replace("/sign-in");
     else if (user.status !== "rejected") router.replace(user.status === "active" ? "/" : "/pending");
-  }, [me.isLoading, user, router]);
+  }, [me.isFetched, user, router]);
+
+  // Render nothing until a signed-in, rejected account is loaded: otherwise
+  // the "declined" card (and a "no role" header) is shown to a visitor that
+  // the effect is about to redirect away.
+  if (!user || user.status !== "rejected") {
+    return <PanelLoading />;
+  }
 
   const rejectedAt = user?.rejectedAt ? new Date(user.rejectedAt) : null;
   const reapplyAt = rejectedAt ? new Date(rejectedAt) : null;
