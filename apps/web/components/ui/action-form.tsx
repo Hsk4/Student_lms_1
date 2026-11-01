@@ -48,7 +48,7 @@ export function ActionForm({
         try {
           const state = await action(formData);
           setResult(state === null ? { ok: true } : state);
-          const ok = state === null || state === undefined || state.ok;
+          const ok = state == null ? true : (state as { ok: boolean }).ok;
           if (ok && resetOnSuccess) form.reset();
         } catch (error) {
           setResult({

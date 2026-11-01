@@ -44,10 +44,10 @@ export function usePanelGuard(roles: UserRole[]) {
     if (redirectTo) router.replace(redirectTo);
   }, [redirectTo, router]);
 
-  const allowed = !redirectTo && !notReady && Boolean(me.data);
-  const denied = Boolean(redirectTo);
-  const loading = !isLoaded || me.isLoading || (sessionSettling && !me.data);
-  return { user: me.data, allowed, denied: denied as boolean, isLoading: loading };
+  const allowed = !redirectTo && !notReady && me.data !== undefined;
+  const denied = redirectTo !== null;
+  const loading = !isLoaded || me.isLoading || Boolean(sessionSettling && !me.data);
+  return { user: me.data, allowed, denied, isLoading: loading };
 }
 
 export function PanelLoading() {
