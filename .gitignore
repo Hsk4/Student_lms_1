@@ -1,46 +1,45 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
+﻿# dependencies
+node_modules/
+.pnp
 .pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
 
-# testing
-/coverage
+# bun
+bun.lockb
 
 # next.js
-/.next/
-/out/
-.aider-desk
-# production
-/build
+.next/
+out/
+next-env.d.ts
 
-# misc
+# build output
+dist/
+build/
+*.tsbuildinfo
+
+# testing
+coverage/
+
+# native projects (cap add creates these; they are committed)
+# -> not ignored
+
+# env files: only the examples are committed
+.env
+.env.*
+!.env.example
+
+# OS / editors
 .DS_Store
 *.pem
-
-# local run logs
+.idea/
+.vscode/
 *.log
-!npm-debug.log*
-!yarn-debug.log*
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+!qa/**/*.png
+# Android build outputs and machine-local config
+apps/web/android/.gradle/
+apps/web/android/app/build/
+apps/web/android/build/
+apps/web/android/local.properties
+apps/web/android/app/src/main/assets/public/
+apps/web/android/app/src/main/assets/capacitor.config.json
+apps/web/android/app/src/main/assets/capacitor.plugins.json
+apps/web/android/capacitor-cordova-android-plugins/

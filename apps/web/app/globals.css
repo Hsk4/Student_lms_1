@@ -1,0 +1,225 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens.
+ *
+ * This palette is the reference kit's own (Hsk4/student-lms-system) — deep
+ * navy primary on white, slate greys, blue primary in dark mode. The UI kit's
+ * primitives were written against exactly these names, so nothing has to be
+ * renamed or washed out through an alias layer.
+ *
+ * Every colour the app paints is derived from these variables, so dark mode is
+ * one `.dark` block and no component needs a `dark:` variant.
+ */
+:root {
+  --background: #ffffff;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --secondary: #f1f4f8;
+  --secondary-foreground: #0f172a;
+  --accent: #e7ecf3;
+  --accent-foreground: #0a2540;
+  --border: #e2e8f0;
+  --foreground: #0f172a;
+  --muted-foreground: #64748b;
+  --primary: #0a2540;
+  --primary-hover: #0c3357;
+  --primary-foreground: #ffffff;
+  --ring: #0a2540;
+
+  /* Derived surfaces: one definition, so dark mode cannot drift from light. */
+  --surface: var(--secondary);
+  --muted: var(--secondary);
+  --tint: var(--accent);
+  --tint-foreground: var(--accent-foreground);
+  --navy: var(--primary);
+  /**
+   * Always white: `.bg-navy` sits on the *fixed* navy primary, which stays dark
+   * in both themes. Deriving it from `--primary-foreground` would turn it black
+   * in dark mode, where primary is a light blue.
+   */
+  --navy-foreground: #ffffff;
+  --firoza: #0b7f8f;
+  --field-border: #94a3b8;
+
+  --status-green: #15803d;
+  --status-green-soft: #eaf7ee;
+  --status-amber: #92400e;
+  --status-amber-soft: #fdf3e3;
+  --status-red: #b42318;
+  --status-red-soft: #fdecea;
+
+  --radius: 12px;
+
+  color-scheme: light;
+}
+
+/*
+ * Dark mode: applies when <html> carries `class="dark"`, which is what the
+ * theme control in `components/shell/page-actions.tsx` writes.
+ */
+.dark {
+  --background: #000000;
+  --card: #0d0d0d;
+  --card-foreground: #ffffff;
+  --secondary: #161616;
+  --secondary-foreground: #ffffff;
+  --accent: #15202b;
+  --accent-foreground: #e6edf5;
+  --border: #262626;
+  --foreground: #ffffff;
+  --muted-foreground: #a3a3a3;
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --primary-foreground: #000000;
+  --ring: #3b82f6;
+
+  /* `--accent` is `#15202b` (very dark), so its foreground must be light —
+   * inheriting the navy `--accent-foreground` made active nav items unreadable. */
+  --accent-foreground: #ffffff;
+  --field-border: #3f3f3f;
+
+  --status-green: #4ade80;
+  --status-green-soft: #0b2415;
+  --status-amber: #fbbf24;
+  --status-amber-soft: #2a1f08;
+  --status-red: #f87171;
+  --status-red-soft: #2b1010;
+
+  color-scheme: dark;
+}
+
+/*
+ * `@theme inline` is what makes `bg-card`, `text-muted-foreground`,
+ * `ring-ring`, `bg-accent`, … exist as utilities in Tailwind v4. Declaring the
+ * variables alone would not generate a single class.
+ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-surface: var(--surface);
+  --color-tint: var(--tint);
+  --color-tint-foreground: var(--tint-foreground);
+  --color-navy: var(--navy);
+  --color-navy-foreground: var(--navy-foreground);
+  --color-firoza: var(--firoza);
+  --color-border: var(--border);
+  --color-field-border: var(--field-border);
+  --color-status-green: var(--status-green);
+  --color-status-green-soft: var(--status-green-soft);
+  --color-status-amber: var(--status-amber);
+  --color-status-amber-soft: var(--status-amber-soft);
+  --color-status-red: var(--status-red);
+  --color-status-red-soft: var(--status-red-soft);
+
+  /* Inter first (the reference kit's face), then system fallbacks. */
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, "Noto Nastaliq Urdu", Arial,
+    Helvetica, sans-serif;
+  --font-mono: var(--font-geist-mono);
+
+  --radius-card: var(--radius);
+  --radius-lg: calc(var(--radius) - 2px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-xl: calc(var(--radius) + 2px);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "rlig" 1, "calt" 1;
+  min-height: 100vh;
+}
+
+/*
+ * Thin scrollbars for the collapsed sidebar rail and the mobile nav sheets.
+ * Purely cosmetic; the reference kit relies on `overflow-y-auto` looking tidy.
+ */
+.quiet-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/*
+ * Legacy semantic classes.
+ *
+ * Pages were written against `.btn`, `.card`, `.input`, … and the UI kit uses
+ * component classes instead. Keeping these as thin wrappers means every page
+ * picks up the new look without a 1:1 rewrite, and a page can still adopt
+ * `<Button>` directly where it needs variants.
+ */
+@layer components {
+  .card {
+    @apply rounded-xl border border-border bg-card text-card-foreground shadow-sm;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-foreground;
+  }
+  .input {
+    @apply flex h-10 w-full rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .textarea {
+    @apply flex min-h-24 w-full rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn,
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .btn-danger {
+    @apply inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-transparent px-4 text-sm font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover;
+  }
+  .btn-secondary {
+    @apply border-border bg-card text-foreground shadow-sm hover:bg-secondary hover:text-foreground;
+  }
+  .btn-ghost {
+    @apply text-primary-hover hover:bg-tint hover:text-tint-foreground;
+  }
+  .btn-danger {
+    @apply border-border bg-card text-status-red shadow-sm hover:bg-status-red-soft;
+  }
+  .table {
+    @apply w-full caption-bottom text-sm;
+  }
+  .table th {
+    @apply h-11 whitespace-nowrap border-b border-border bg-secondary/60 px-4 text-left align-middle text-xs font-semibold uppercase tracking-wide text-muted-foreground;
+  }
+  .table td {
+    @apply border-b border-border px-4 py-3 align-middle text-sm text-foreground;
+  }
+  /*
+   * Expanded detail rows (e.g. a teacher's course editor) sat on `bg-surface`,
+   * which is the page background — in dark mode that is pure black and the row
+   * read as a hole in the table. `secondary` is the muted surface in both themes.
+   */
+  tr.bg-surface > td,
+  td.bg-surface {
+    background-color: var(--secondary);
+  }
+  .chip {
+    @apply inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium;
+  }
+  .tab {
+    @apply inline-flex h-9 items-center justify-center whitespace-nowrap rounded-md px-3 text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground;
+  }
+  .tab-active {
+    @apply bg-card text-foreground shadow-sm;
+  }
+}

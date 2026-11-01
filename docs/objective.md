@@ -1,10 +1,10 @@
-# Fastly LMS: Project Objective
+﻿# Fastly LMS: Project Objective
 
-**Version 2.0 · 2026-10-20 · Single source of truth**
+**Version 3.0 · 2026-10-31 · Single source of truth**
 
 This file defines what we are building and how. The project starts from scratch, so nothing here describes older code. If the code and this file disagree, one of them is wrong. Fix it in the same pull request, and change this file first when the decision changes.
 
-Repo: `Hsk4/student_lms_3` · Stack: Next.js 16 (App Router) · Clerk · MongoDB with Mongoose · shadcn/ui · Tailwind v4 · bun
+Repo: `Hsk4/student_lms_3` · Stack: Next.js 16 (App Router, static export) web · Express 5 API · Clerk · PostgreSQL with Drizzle · Capacitor (Android) · shadcn/ui · Tailwind v4 · bun workspaces
 
 ---
 
@@ -14,7 +14,7 @@ A single-school learning platform for students, parents and teachers, run by adm
 
 ### Done when all of these are true
 
-- [ ] No user gets a role except through admin approval, or the invite flow for parents. The super admin is created by script only.
+- [ ] No user gets a role except through admin approval. The super admin is created by script only.
 - [ ] No Clerk Organizations and no tenant ids anywhere. One school.
 - [ ] Boards, levels, subjects, courses and books are admin-managed data, not hard-coded lists.
 - [ ] Student flow works end to end: request, approval, parent details, pick teacher, teacher accepts, class or one-on-one.
@@ -39,7 +39,7 @@ One role per user.
 | `admin` | Approves sign-ups, assigns roles, manages catalog, teachers, invoices, reassignments. Cannot change the super admin or other admins. |
 | `teacher` | Teaches assigned courses. Accepts students, runs classes, sets and grades work. |
 | `student` | Picks a teacher, attends, submits work, sees fees. |
-| `parent` | Joins by invite from their child. Read-only view of progress and fees. Can request meetings. |
+| `parent` | Links to their child with a code, then a read-only view of progress and fees. Can request meetings. |
 
 | Status | Meaning | Can reach |
 |---|---|---|
@@ -60,7 +60,7 @@ Allowed status changes:
 | `rejected` | `pending` | the user | Re-apply after 30 days (new access request) |
 | `active` | `suspended` | admin | Suspend |
 | `suspended` | `active` | admin | Reinstate |
-| (invite) | `active` | the parent | Accept a valid invite. Role is `parent`. |
+| (approved) | `active` | the parent | Redeem the child's link code. Role is `parent` and the link is written. |
 
 ---
 
@@ -69,7 +69,7 @@ Allowed status changes:
 | Topic | Decision |
 |---|---|
 | Tenancy | One school. No organizations. |
-| Source of truth for role and status | Clerk `publicMetadata`: `role`, `status`, `onboarded`. Exposed to the server through session claims. Mirrored into a Mongo `User` collection by webhook. |
+| Source of truth for role and status | Clerk `publicMetadata`: `role`, `status`, `onboarded`. Verified by the API from the session token. Mirrored into the `users` table by webhook. |
 | Missing metadata | Treated as `pending`. |
 | Boards | Real exam boards only (Sindh, Aga Khan and so on). Qualifications such as O Level are levels, not boards. |
 | Levels | A flat admin-managed list with an order. Which levels exist for which board is expressed by which courses exist. |
@@ -77,28 +77,29 @@ Allowed status changes:
 | Books | Recommended courseware only. Students buy them themselves. No prices, no payments. |
 | Past papers | No separate model. A `Material` with type `past_paper`. |
 | Payments | Tuition invoices only. Amounts are whole PKR, stored as integers. Admin marks paid. |
-| Parents | Student invites by email using Clerk's backend invitation API. No admin approval. Clerk handles delivery, one-use acceptance, and 7-day expiry; store the Clerk invitation id in Mongo. Public metadata grants the parent role only through this invite; the webhook links the accepting verified-email user to the student. Do not use `ignoreExisting` until existing-account linking is deliberately supported. |
+| Parents | The student issues an 8-character link code (`parent_invites`, 14-day expiry, one use) and shares it themselves. The parent signs up, asks for parent access, is approved by an admin, then enters the code under **Link a child**; that writes the `guardianships` row. No email is sent and Clerk invitations are not used. |
 | Enrollment | `requested`, then `active` when the teacher accepts (with or without a class), or `declined`. Later `cancelled` or `ended`. |
 | Grades | Numeric, 0 to 100, plus optional feedback text. |
 | Rejected users | May re-apply after 30 days. |
 | Time | Store UTC. Show Asia/Karachi. |
-| Mock data | None in app code. Dev data comes from `scripts/seed-dev.ts` only. |
+| Mock data | None in app code. Dev data comes from `apps/api/scripts/seed-dev.ts` only. |
 
 ---
 
 ## 4. Stack and conventions
 
-- **Auth:** Clerk. Sign-in, sign-up and the user button use Clerk components styled with the design tokens.
-- **Gate:** check access in layouts, pages, server actions and route handlers. Do not rely on path matching in a proxy, and do not use `createRouteMatcher` (deprecated by Clerk). A proxy, if used, only does coarse redirects.
-- **Validation:** zod on every server action input and route handler body.
-- **Mutations:** server actions in `actions/<panel>.ts`. Every one starts with a guard.
-- **Data access:** Mongoose models in `models/`. Always `await`. Use `lean()` for reads that go to the client. Register models with `models.X ?? model(...)`.
-- **Transactions:** use `withTransaction` for anything that changes more than one record, such as reassignment or role change plus audit entry.
+- **Architecture:** one API (`apps/api`, Express 5) owns all data and rules; one web client (`apps/web`, Next.js static export) and the Capacitor app are clients of it. See `ARCHITECTURE-REFACTOR.md`.
+- **Auth:** Clerk. The web signs in with `@clerk/clerk-react` and sends `Authorization: Bearer <session token>`; the API verifies it with `@clerk/backend` and reads role/status from the mirrored `users` row.
+- **Gate:** the API is the gate. Routes carry `requireRole(...)`; controllers check record ownership. The web's client guards are UX only and mirror the old redirects.
+- **Validation:** zod (from `packages/shared`) on every API input.
+- **Mutations:** `POST`/`PATCH`/`DELETE` endpoints under `/api/v1`. Each controller validates, checks ownership, and writes its audit entry in the same transaction.
+- **Data access:** Drizzle queries in `apps/api/src/db/queries/*` used by controllers (routes -> controllers -> db). The web has no database access.
+- **Transactions:** `db.transaction(async (tx) => ...)` for anything that changes more than one record, such as reassignment or role change plus audit entry.
 - **Files:** store a URL only (`fileUrl`). Provider is an open question (section 12).
 - **Naming:** files in kebab-case, components in PascalCase, models singular.
 - **Commits:** one commit per phase step. Run `bun run build` before each phase merge.
 
-Dev note for Windows: if `MONGODB_URI` is a `mongodb+srv://` string and a local DNS stub refuses SRV lookups, either set `dns.setServers(["8.8.8.8","1.1.1.1"])` in `lib/db.ts` when `NODE_ENV` is `development`, or use the standard `mongodb://` string. `lib/db.ts` must not parse the URI with `new URL`, because it throws on multi-host strings.
+Database setup: `DATABASE_URL` (pooled) is what the API connects with, `DATABASE_URL_UNPOOLED` is what `drizzle-kit migrate` uses. Migrations live in `apps/api/src/db/migrations/` and are generated offline with `bun run db:generate` in `apps/api`; review the SQL before `bun run db:migrate`. Postgres 15+ is required (`NULLS NOT DISTINCT` on the course uniqueness rule).
 
 ---
 
@@ -180,15 +181,15 @@ Baseline schema. Fields are the minimum needed. Add fields here before adding th
 
 **Claims.** Set once in the Clerk dashboard: the session token includes `{ "metadata": "{{user.public_metadata}}" }`.
 
-**Webhook** at `/api/webhooks/clerk`. Verify the signature with Clerk's signing secret. Handlers are idempotent.
-- `user.created`: if public metadata grants `role: parent` and a matching sent `ParentInvite` exists for the verified email (and invited student), create/update the parent as active, link through `guardianIds`, and mark the invite accepted. Otherwise create the `User` with `status: pending`, no role, and set `publicMetadata.status = "pending"`.
+**Webhook** at `<api>/webhooks/clerk`. Verify the signature with Clerk's signing secret (raw body, mounted before the JSON parser). Handlers are idempotent.
+- `user.created`: create the user as `pending` with no role. A parent is activated by admin approval, not by the webhook.
 - `user.updated` and `user.deleted`: keep the mirror in sync.
 
-**Seed.** `scripts/seed-super-admin.ts` takes an email, checks that the Clerk account exists and its email is verified, then sets `role: super_admin`, `status: active` in both Clerk and Mongo.
+**Seed.** `apps/api/scripts/seed-super-admin.ts` takes an email, checks that the Clerk account exists and its email is verified, then sets `role: super_admin`, `status: active` in both Clerk and Postgres. `seed-dev.ts` also mirrors any Clerk account whose webhook never landed as a normal `pending` row, so local testing without a tunnel still reaches the admin queue.
 
-**Admin actions.** `assignRole`, `rejectUser`, `suspendUser`, `reinstateUser`. Each one runs in a transaction, updates Clerk metadata and the Mongo mirror, and writes an `AuditLog` entry. Admins cannot act on `super_admin` or other admins. Changing a user away from teacher or student first lists and cancels their open enrollments.
+**Admin actions.** `assignRole`, `rejectUser`, `suspendUser`, `reinstateUser`. Each one commits Postgres (including the audit row) in a transaction, then updates Clerk metadata; if Clerk fails, the Postgres half is undone in a compensating transaction. Admins cannot act on `super_admin` or other admins. Changing a user away from teacher or student first lists and cancels their open enrollments.
 
-**Fresh reads.** Session claims can be stale for a moment after a role change. Guards for sensitive actions read the Clerk user directly (`fresh` option). The pending page polls a status route every 5 seconds and reloads the session when the status changes.
+**Fresh reads.** Role and status come from the Postgres mirror on every request, not from cached claims, so a role change takes effect on the next call. The pending page polls `GET /me` every 5 seconds and moves on when the status changes.
 
 **Panel guards (coarse).** Called at the top of each panel's layout.
 
@@ -223,7 +224,7 @@ Rule: **the panel guard gates the area, the row guard gates the record.** Never 
 Route names are fixed. Sidebar entries match the list order.
 
 ### Public and gate pages
-`/` landing · `/sign-in` · `/sign-up` · `/request` access form (name, email, board, level, subjects) · `/pending` waiting page with 3-step tracker and polling · `/rejected` with reason and re-apply date · `/invite/[token]` parent invite · `/onboarding/parent` student adds a parent.
+`/` landing · `/sign-in` · `/sign-up` · `/sign-up/parent` · `/request` access form (name, email, board, level, subjects) · `/pending` waiting page with 3-step tracker and polling · `/rejected` with reason and re-apply date · `/invite` (explains that parents now link by code) · `/onboarding/parent` student creates a link code.
 
 ### Admin
 Requests · Users · Boards · Courses · Books · Invoices · Tickets · Audit log · Analytics. Levels and subjects are tabs on the Courses page.
@@ -233,7 +234,7 @@ Requests · Users · Boards · Courses · Books · Invoices · Tickets · Audit 
 - Edit a teacher's `courseIds`. Reassign a student to another teacher, and change a student's board or books. Mismatched enrollments are listed and cancelled in one transaction.
 - Create and mark invoices.
 - Answer tickets, escalate to the super admin.
-- Analytics are built from Mongo, never from the Clerk API.
+- Analytics are built from Postgres, never from the Clerk API.
 
 ### Super admin
 Everything above, plus **Admins** (`/admin/admins`): create, suspend and reinstate admins. Receives escalated tickets.
@@ -262,11 +263,11 @@ Children · Invoices · Meetings.
 ## 8. Core flows
 
 **1. Sign-up to linked parent**
-1. User signs up. Webhook creates `User` as pending unless Clerk invitation metadata marks a matching parent invite.
+1. User signs up. The webhook creates the user as `pending` with no role.
 2. User fills `/request`. An `AccessRequest` is created.
 3. Admin assigns a role (status `active`) or rejects with a reason. Audit entry written.
-4. An active student enters the parent's name and email. The server creates a Clerk invitation with parent metadata and stores its invitation id in `ParentInvite`.
-5. Clerk sends the invitation email. On invited parent's `user.created` webhook, the server verifies a matching sent invite and email, activates the mirror, links the parent in `guardianIds`, and marks the invite accepted.
+4. An active student creates a link code (`ParentInvite`, 14 days, one use) and shares it themselves.
+5. The parent signs up, asks for parent access, is approved, then enters the code under **Link a child**. The server claims the code atomically, writes the `guardianships` row, and marks the student onboarded.
 
 **2. Student to teacher**
 1. Student sees teachers whose `courseIds` match their board and level.
@@ -316,21 +317,29 @@ grep -rEn "(pink|purple|fuchsia|violet|rose|indigo|cyan|emerald|teal|amber|lime|
 ## 10. Repository layout
 
 ```
-app/
-  (public)/        landing, sign-in, sign-up, request, pending, rejected, invite/[token]
-  onboarding/parent/
-  admin/  teacher/  student/  parent/
-  api/webhooks/clerk/   api/status/
-actions/           admin.ts teacher.ts student.ts parent.ts onboarding.ts
-components/        ui/ (shadcn)  shell/ (sidebar, header)  <panel>/
-lib/               db.ts  audit.ts  auth/{roles.ts,guards.ts}  validators/
-models/            one file per record in section 5
-scripts/           seed-super-admin.ts  seed-dev.ts
-tests/             authz/  (one file per row guard)
-docs/              design notes only. This file stays at the repo root.
+apps/
+  api/             Express 5
+    src/db/        schema.ts  migrations/  queries/   (the M in MVC)
+    src/routes/    me  admin  catalog  panels  webhooks
+    src/controllers/  one file per domain
+    src/middleware/   auth, require-role, error handler
+    src/lib/       audit.ts  link-codes.ts  ownership.ts  clerk.ts
+    scripts/       seed-dev.ts  seed-super-admin.ts
+    tests/         vitest + supertest (auth, isolation, parent links)
+  web/             Next.js 16, static export
+    app/           routes; thin client pages
+    views/         layout/ (root shell, signed-in redirect)
+    components/    ui/ (shadcn)  shell/ (sidebar, header)  shared/
+    lib/           api-client.ts  queries.ts  guards.tsx
+    android/       Capacitor project
+    public/
+packages/
+  shared/          validators, roles/status, API types
+qa/                QA screenshots
+docs/              this file, migration-plan.md
 ```
 
-Environment variables (`.env.example` is committed, real values are not): `MONGODB_URI`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`, plus provider keys for email, file storage and AI once chosen.
+Environment variables (each app's `.env.example` is committed, real values are not). API: `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`, `WEB_ORIGIN`, `PORT`. Web: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`. File storage and AI provider keys are added when those are chosen.
 
 ---
 
@@ -360,11 +369,10 @@ Each phase ends with a passing build, passing authorization tests for its guards
 - **Done when:** an admin creates a board, level, subject, course and recommended books with no code change.
 
 ### Phase 3: Student onboarding and parents
-- [ ] `/onboarding/parent` creates a Mongo `ParentInvite`, then calls Clerk `createInvitation` with `role: parent`, `status: active`, `onboarded: true`, a seven-day expiry, and a redirect containing Clerk's invitation id.
-- [ ] Clerk sends the invitation email. The `user.created` webhook matches the verified email to a sent invite, activates the parent mirror, links `guardianIds`, and marks the invite accepted; unmatched users remain pending.
-- [ ] Handle already-registered emails/open invitations explicitly; keep `ignoreExisting` false until safe existing-account linking is implemented.
-- [ ] Parent panel shell. `requireParentOf` and its tests.
-- **Done when:** request, approval and Clerk-delivered parent linking work with two test accounts.
+- [ ] `/onboarding/parent` creates a `ParentInvite` with an 8-character code (14-day expiry, one use).
+- [ ] The parent redeems the code from their panel; the server claims it atomically, writes the `guardianships` row, and marks the student onboarded.
+- [ ] Parent panel shell. `isGuardianOf` ownership checks and their tests.
+- **Done when:** request, approval and link-code parent linking work with two test accounts.
 
 ### Phase 4: Teacher matching and classes
 - [ ] Teacher `courseIds`, editable by admin.
@@ -386,7 +394,7 @@ Each phase ends with a passing build, passing authorization tests for its guards
 
 ### Phase 7: Quizzes, analytics, hardening
 - [ ] Material upload. AI quiz generation scoped to the student's enrolled courses.
-- [ ] Admin analytics built from Mongo.
+- [ ] Admin analytics built from Postgres.
 - [ ] Rate limits on webhook and AI routes.
 - [ ] Full pass over authorization tests, accessibility (focus rings, contrast) and phone-width layouts.
 - **Done when:** every item in section 1 is ticked.
@@ -398,7 +406,7 @@ Each phase ends with a passing build, passing authorization tests for its guards
 | Question | Default until decided |
 |---|---|
 | Where are uploaded files stored (materials, submissions)? | Object storage with signed URLs. Provider not chosen. |
-| How are parent invite emails sent? | Clerk's invitation email. Other transactional email is not currently required. |
+| How are parent invite emails sent? | Not sent: the student shares the link code with the parent directly. No transactional email provider is configured. |
 | Which AI provider generates quizzes? | Not chosen. Decide before Phase 7. |
 | What are the allowed values for course `medium`? | Free text, admin-managed later if needed. |
 | Is there a cap on guardians per student? | No cap. |
