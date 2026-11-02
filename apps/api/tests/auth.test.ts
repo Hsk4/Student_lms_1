@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import crypto from "node:crypto";
 import request from "supertest";
 import { eq } from "drizzle-orm";
@@ -135,13 +135,37 @@ describe("local JWT auth", () => {
       role: "super_admin",
       status: "active",
       onboarded: true,
+      sessionVersion: 7,
     });
 
     const session = await localTokenVerifier()(token);
     expect(session).toMatchObject({
       clerkId: "local-admin-1",
       metadata: { role: "super_admin", status: "active", onboarded: true },
+      sessionVersion: 7,
     });
+  });
+
+  it("revokes previously issued JWTs when the account session version changes", async () => {
+    await seedUser({ clerkId: "session-reset-user", role: "student" });
+    const token = createLocalSessionToken({
+      sub: "session-reset-user",
+      sessionVersion: 0,
+    });
+    await db
+      .update(users)
+      .set({ sessionVersion: 1 })
+      .where(eq(users.clerkId, "session-reset-user"));
+
+    try {
+      const jwtApp = createApp({ verifyToken: localTokenVerifier() });
+      const res = await request(jwtApp)
+        .get("/api/v1/me")
+        .set("Authorization", `Bearer ${token}`);
+      expect(res.status).toBe(401);
+    } finally {
+      createApp({ verifyToken: testVerifier });
+    }
   });
 
   it("rejects the demo super-admin backdoor", async () => {
@@ -197,6 +221,71 @@ describe("local JWT auth", () => {
     const expiredInput = `${header}.${expiredPayload}`;
     const expiredSignature = crypto.createHmac("sha256", secret).update(expiredInput).digest("base64url");
     await expect(localTokenVerifier()(`${expiredInput}.${expiredSignature}`)).rejects.toThrow(/expired/);
+  });
+
+  it("sends a one-time reset link, changes the password, and invalidates old password hashes", async () => {
+    const signup = await request(app)
+      .post("/api/v1/auth/sign-up")
+      .send({ name: "Reset Student", email: "reset@school.test", password: "original-password" });
+    expect(signup.status).toBe(200);
+
+    process.env.RESEND_API_KEY = "test-resend-key";
+    process.env.AUTH_EMAIL_FROM = "Fastly LMS <no-reply@example.test>";
+    process.env.WEB_APP_URL = "https://lms.example.test";
+    let emailPayload: Record<string, unknown> | undefined;
+    const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      emailPayload = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      return new Response(null, { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const forgot = await request(app)
+        .post("/api/v1/auth/forgot-password")
+        .send({ email: "reset@school.test" });
+      expect(forgot.status).toBe(200);
+      expect(forgot.body.data.message).toContain("If an account exists");
+      expect(fetchMock).toHaveBeenCalledOnce();
+
+      const emailText = String(emailPayload?.text ?? "");
+      const resetLink = emailText.split("\n").find((line) => line.startsWith("https://"));
+      expect(resetLink).toBeTruthy();
+      const resetToken = new URL(resetLink!).searchParams.get("token");
+      expect(resetToken).toBeTruthy();
+
+      const reset = await request(app)
+        .post("/api/v1/auth/reset-password")
+        .send({ token: resetToken, password: "replacement-password" });
+      expect(reset.status).toBe(200);
+
+      const reused = await request(app)
+        .post("/api/v1/auth/reset-password")
+        .send({ token: resetToken, password: "another-new-password" });
+      expect(reused.status).toBe(400);
+
+      const oldPassword = await request(app)
+        .post("/api/v1/auth/sign-in")
+        .send({ email: "reset@school.test", password: "original-password" });
+      expect(oldPassword.status).toBe(401);
+
+      const newPassword = await request(app)
+        .post("/api/v1/auth/sign-in")
+        .send({ email: "reset@school.test", password: "replacement-password" });
+      expect(newPassword.status).toBe(200);
+    } finally {
+      vi.unstubAllGlobals();
+      delete process.env.RESEND_API_KEY;
+      delete process.env.AUTH_EMAIL_FROM;
+      delete process.env.WEB_APP_URL;
+    }
+  });
+
+  it("returns the same forgot-password response for an unknown email", async () => {
+    const res = await request(app)
+      .post("/api/v1/auth/forgot-password")
+      .send({ email: "unknown@school.test" });
+    expect(res.status).toBe(200);
+    expect(res.body.data.message).toContain("If an account exists");
   });
 
   it("mints a token for a real local sign-up", async () => {
