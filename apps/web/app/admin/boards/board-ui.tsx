@@ -20,9 +20,19 @@ function useBoardRefresh() {
 
 export function BoardForm() {
   const refresh = useBoardRefresh();
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugEdited, setSlugEdited] = useState(false);
+
+  function updateName(value: string) {
+    setName(value);
+    if (!slugEdited) {
+      setSlug(value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
+    }
+  }
   return (
     <ActionForm
-      className="mt-3 space-y-3"
+      className="mt-4 space-y-4"
       submitLabel="Create board"
       action={async (form) => {
         await api.post("/admin/boards", {
@@ -31,6 +41,9 @@ export function BoardForm() {
           active: true,
         });
         await refresh();
+        setName("");
+        setSlug("");
+        setSlugEdited(false);
         return null;
       }}
     >
@@ -43,6 +56,9 @@ export function BoardForm() {
           name="name"
           className="input"
           placeholder="Sindh Board"
+          autoComplete="off"
+          value={name}
+          onChange={(event) => updateName(event.target.value)}
           required
         />
       </div>
@@ -55,8 +71,18 @@ export function BoardForm() {
           name="slug"
           className="input"
           placeholder="sindh-board"
+          autoComplete="off"
+          spellCheck={false}
+          value={slug}
+          onChange={(event) => {
+            setSlug(event.target.value);
+            setSlugEdited(true);
+          }}
           required
         />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Generated from the board name. You can edit it before saving.
+        </p>
       </div>
     </ActionForm>
   );
