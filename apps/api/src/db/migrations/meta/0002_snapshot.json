@@ -3300,6 +3300,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "users_password_reset_token_hash_idx": {
+          "name": "users_password_reset_token_hash_idx",
+          "columns": [
+            {
+              "expression": "password_reset_token_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
