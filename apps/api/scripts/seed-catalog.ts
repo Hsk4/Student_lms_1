@@ -65,7 +65,15 @@ const matricSubjects = [
 ] as const;
 
 const intermediateSubjects = [
-  ...matricSubjects,
+  "english",
+  "urdu",
+  "mathematics",
+  "physics",
+  "chemistry",
+  "biology",
+  "computer-science",
+  "pakistan-studies",
+  "islamic-studies",
   "accounting",
   "economics",
   "business-studies",
