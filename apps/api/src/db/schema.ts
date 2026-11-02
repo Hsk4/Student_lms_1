@@ -194,6 +194,8 @@ export const subjects = pgTable("subjects", {
 export const users = pgTable("users", {
   id: id(),
   clerkId: text("clerk_id").notNull(),
+  /** Nullable only for accounts created before local password authentication. */
+  passwordHash: text("password_hash"),
   /** Stored lowercase; enforce it with the CHECK below rather than in app code. */
   email: text("email").notNull(),
   name: text("name").notNull(),
