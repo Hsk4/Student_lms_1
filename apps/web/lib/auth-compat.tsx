@@ -172,7 +172,7 @@ export function SignIn({
       const payload = (await response.json()) as {
         ok?: boolean;
         error?: string;
-        data?: { token?: string };
+        data?: { token?: string; user?: StoredUser };
       };
 
       if (!response.ok || !payload.ok || !payload.data?.token) {
