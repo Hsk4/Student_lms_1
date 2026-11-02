@@ -184,7 +184,7 @@ describe("local JWT auth", () => {
 
     expect(signup.status).toBe(200);
     const [stored] = await db.select().from(users).where(eq(users.email, "alice@school.test"));
-    expect(stored.passwordHash).toMatch(/^scrypt\\$/);
+    expect(stored.passwordHash).toMatch(/^scrypt\$/);
     expect(stored.passwordHash).not.toContain("correct-horse-battery");
     expect(await verifyPassword("correct-horse-battery", stored.passwordHash)).toBe(true);
     expect(await verifyPassword("wrong-password", stored.passwordHash)).toBe(false);
