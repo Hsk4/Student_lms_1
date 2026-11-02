@@ -110,8 +110,9 @@ async function finishAuthentication(
   router: ReturnType<typeof useRouter>,
   queryClient: ReturnType<typeof useQueryClient>,
   fallbackRedirectUrl: string,
+  user: StoredUser,
 ) {
-  writeStoredSession(token, null);
+  writeStoredSession(token, user);
   try {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
     const response = await fetch(`${baseUrl}/me`, {
@@ -183,6 +184,7 @@ export function SignIn({
         router,
         queryClient,
         fallbackRedirectUrl,
+        payload.data.user ?? null,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to sign in";
