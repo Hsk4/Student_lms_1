@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -53,13 +53,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth() {
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  useEffect(() => {
-    setIsLoaded(true);
-  }, []);
-
-  const signedIn = typeof window !== "undefined" && Boolean(readStoredToken());
+  const isLoaded = typeof window !== "undefined";
+  const signedIn = isLoaded && Boolean(readStoredToken());
 
   // Read storage at call time so an API request made immediately after
   // sign-in never depends on a stale React closure from the signed-out render.
