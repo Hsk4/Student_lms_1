@@ -13,7 +13,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "tsx --env-file=.env node_modules/drizzle-kit/bin.cjs studio",
     "seed:dev": "tsx --env-file=.env scripts/seed-dev.ts",
-    "seed:super-admin": "tsx --env-file=.env scripts/seed-super-admin.ts"
+    "seed:catalog": "tsx scripts/seed-catalog.ts",
+    "seed:super-admin": "tsx scripts/seed-super-admin.ts"
   },
   "dependencies": {
     "@lms/shared": "workspace:*",

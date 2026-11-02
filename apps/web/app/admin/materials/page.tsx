@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Table,
   TableHeader,
@@ -10,6 +10,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { PageHeader, Card, Empty } from "@/components/ui/nila";
+import { ActionForm } from "@/components/ui/action-form";
 import { api } from "@/lib/api-client";
 
 type MaterialRow = {
@@ -21,24 +22,32 @@ type MaterialRow = {
   uploadedBy: string;
 };
 
+type CourseOption = { id: string; label: string };
+
 export default function AdminMaterialsPage() {
+  const queryClient = useQueryClient();
   const materialsQuery = useQuery({
     queryKey: ["admin-materials"],
     queryFn: () => api.get<MaterialRow[]>("/admin/materials"),
   });
+  const coursesQuery = useQuery({
+    queryKey: ["admin-courses"],
+    queryFn: () => api.get<CourseOption[]>("/admin/courses"),
+  });
   const materials = materialsQuery.data ?? [];
+  const courses = coursesQuery.data ?? [];
 
   return (
     <div>
       <PageHeader
         title="Materials"
-        description="Upload course materials: notes, past papers, worksheets."
+        description="Add links to course notes, past papers and worksheets."
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div>
           {materials.length === 0 ? (
-            <Empty>No materials uploaded yet.</Empty>
+            <Empty>No materials added yet.</Empty>
           ) : (
             <Card className="overflow-hidden">
               <Table>
@@ -47,7 +56,7 @@ export default function AdminMaterialsPage() {
                     <TableHead>Title</TableHead>
                     <TableHead>Course</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Uploaded by</TableHead>
+                    <TableHead>Added by</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -55,7 +64,7 @@ export default function AdminMaterialsPage() {
                     <TableRow key={mat.id}>
                       <TableCell className="font-medium">{mat.title}</TableCell>
                       <TableCell>{mat.courseLabel}</TableCell>
-                      <TableCell className="capitalize">{mat.type}</TableCell>
+                      <TableCell className="capitalize">{mat.type.replace("_", " ")}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {mat.uploadedBy}
                       </TableCell>
@@ -68,10 +77,81 @@ export default function AdminMaterialsPage() {
         </div>
 
         <Card className="h-fit p-5">
-          <h3 className="text-sm font-semibold">Upload material</h3>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Form coming soon. Supports PDF, DOCX, images.
+          <h2 className="text-sm font-semibold text-foreground">Add material link</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Add a shareable file URL. The file itself must already be hosted.
           </p>
+          {courses.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Create a course before adding its materials.
+            </p>
+          ) : (
+            <ActionForm
+              className="mt-4 space-y-4"
+              submitLabel="Add material"
+              action={async (form) => {
+                await api.post("/admin/materials", {
+                  courseId: form.get("courseId"),
+                  title: form.get("title"),
+                  type: form.get("type"),
+                  fileUrl: form.get("fileUrl"),
+                });
+                await queryClient.invalidateQueries({ queryKey: ["admin-materials"] });
+                return null;
+              }}
+            >
+              <div>
+                <label className="label" htmlFor="material-course">Course</label>
+                <select
+                  id="material-course"
+                  name="courseId"
+                  className="input"
+                  defaultValue=""
+                  required
+                >
+                  <option value="" disabled>Choose a course</option>
+                  {courses.map((course) => (
+                    <option key={course.id} value={course.id}>{course.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="material-title">Title</label>
+                <input
+                  id="material-title"
+                  name="title"
+                  className="input"
+                  placeholder="e.g. Chapter 1 revision notes"
+                  maxLength={160}
+                  required
+                />
+              </div>
+              <div>
+                <label className="label" htmlFor="material-type">Material type</label>
+                <select id="material-type" name="type" className="input" defaultValue="notes" required>
+                  <option value="notes">Notes</option>
+                  <option value="past_paper">Past paper</option>
+                  <option value="worksheet">Worksheet</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="material-url">File URL</label>
+                <input
+                  id="material-url"
+                  name="fileUrl"
+                  type="url"
+                  className="input"
+                  placeholder="https://..."
+                  autoComplete="url"
+                  required
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Use a link students can open, such as a public Drive or storage URL.
+                </p>
+              </div>
+            </ActionForm>
+          )}
         </Card>
       </div>
     </div>

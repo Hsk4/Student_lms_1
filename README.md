@@ -63,14 +63,21 @@ bun run db:studio     # browse
 Seeding:
 
 ```bash
-cd apps/api
-bun run seed:dev                    # boards, levels, subjects, courses; mirrors Clerk accounts as pending
-bun run seed:super-admin you@example.com   # promotes a verified Clerk account to super_admin
+# Safe to re-run; adds the Pakistani starter catalogue without duplicating rows.
+bun run --cwd apps/api seed:catalog
+
+# Sign up with this email on the website first, then run this once in Render Shell.
+bun run --cwd apps/api seed:super-admin <your-registered-email>
 ```
 
-A new sign-up is `pending` until an admin assigns a role on `/admin/requests`.
-If the webhook cannot reach your machine (no tunnel), run `seed:dev` after
-signing in: it creates the missing `pending` row so the request queue can see it.
+The catalogue seed adds five exam-board entries, seven levels, fourteen core
+subjects and the corresponding SSC, HSSC and Cambridge course combinations.
+It is idempotent and leaves existing course combinations untouched.
+
+The super-admin seed promotes an already registered local account to
+`super_admin`, activates it and invalidates its old session. It does not create
+an account or set a password. After running it, sign out and sign in again.
+
 
 ## Run
 

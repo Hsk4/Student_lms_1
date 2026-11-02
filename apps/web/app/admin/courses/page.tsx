@@ -191,7 +191,12 @@ function CoursesTab({
     selectedBoard?: string;
     selectedLevel?: string;
   }) {
-    return (
+    const hasActiveOptions =
+    boards.some((item) => item.active) &&
+    levels.some((item) => item.active) &&
+    subjects.some((item) => item.active);
+
+  return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <Filters
@@ -233,12 +238,10 @@ function CoursesTab({
 
         <Card className="h-fit p-5">
           <h2 className="text-sm font-semibold text-foreground">New course</h2>
-          {boards.length === 0 ||
-          levels.length === 0 ||
-          subjects.length === 0 ? (
+          {!hasActiveOptions ? (
             <p className="mt-2 text-sm text-muted-foreground">
-              Add at least one board, one level and one subject before creating
-              a course.
+              Add or activate at least one board, one level and one subject before
+              creating a course.
             </p>
           ) : (
             <CourseForm boards={boards} levels={levels} subjects={subjects} />

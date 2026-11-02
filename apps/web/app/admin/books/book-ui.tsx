@@ -62,7 +62,7 @@ export function BookForm({
   const queryClient = useQueryClient();
   return (
     <ActionForm
-      className="mt-3 space-y-3"
+      className="mt-4 space-y-4"
       submitLabel="Create book"
       action={async (form) => {
         await api.post("/admin/books", {
@@ -87,11 +87,16 @@ export function BookForm({
         </label>
         <input id="book-author" name="author" className="input" />
       </div>
-      <CoursePicker
-        courses={courses}
-        selected={preselect ? [preselect] : []}
-        idPrefix="new"
-      />
+      <div>
+        <CoursePicker
+          courses={courses}
+          selected={preselect ? [preselect] : []}
+          idPrefix="new"
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Select every course this book is recommended for.
+        </p>
+      </div>
       <div>
         <label className="label" htmlFor="book-note">
           Note (optional)

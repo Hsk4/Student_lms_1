@@ -21,7 +21,7 @@ export function LevelForm() {
   const refresh = useLevelRefresh();
   return (
     <ActionForm
-      className="mt-3 space-y-3"
+      className="mt-4 space-y-4"
       submitLabel="Create level"
       action={async (form) => {
         await api.post("/admin/levels", {
@@ -53,12 +53,16 @@ export function LevelForm() {
           id="level-order"
           name="order"
           type="number"
-          min={0}
+          min={1}
           max={999}
+          inputMode="numeric"
           className="input"
           placeholder="3"
           required
         />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Controls the order in which levels appear in student forms.
+        </p>
       </div>
     </ActionForm>
   );
