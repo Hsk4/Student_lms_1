@@ -103,23 +103,21 @@ async function seedCatalog() {
     .select({ id: boards.id, slug: boards.slug })
     .from(boards);
 
-  const levelRows = await db
+  await db
     .insert(levels)
     .values(levelSeed.map((item) => ({ ...item, active: true })))
-    .onConflictDoUpdate({
-      target: levels.order,
-      set: { name: sql`excluded.name`, active: true },
-    })
-    .returning({ id: levels.id, order: levels.order });
+    .onConflictDoNothing();
+  const levelRows = await db
+    .select({ id: levels.id, order: levels.order })
+    .from(levels);
 
-  const subjectRows = await db
+  await db
     .insert(subjects)
     .values(subjectSeed.map((item) => ({ ...item, active: true })))
-    .onConflictDoUpdate({
-      target: subjects.slug,
-      set: { name: sql`excluded.name`, active: true },
-    })
-    .returning({ id: subjects.id, slug: subjects.slug });
+    .onConflictDoNothing();
+  const subjectRows = await db
+    .select({ id: subjects.id, slug: subjects.slug })
+    .from(subjects);
 
   const boardId = new Map(boardRows.map((row) => [row.slug, row.id]));
   const levelId = new Map(levelRows.map((row) => [row.order, row.id]));
