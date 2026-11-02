@@ -1,5 +1,9 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
+import crypto from "node:crypto";
+import { and, eq, gt, sql } from "drizzle-orm";
+import { db } from "@/db";
+import { users } from "@/db/schema";
 import { asyncHandler } from "@/middleware/async-handler";
 import { auth, createLocalSessionToken } from "@/middleware/auth";
 import { freshStatus, me, myRequestStatus } from "@/controllers/me";
@@ -7,6 +11,7 @@ import { requestParentAccess, submitAccessRequest } from "@/controllers/onboardi
 import { findUserByEmail, findUserCredentialsByEmail, createUser } from "@/db/queries/users";
 import { ok } from "@/lib/respond";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { sendPasswordResetEmail } from "@/lib/password-reset-email";
 
 const authAttemptLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -15,6 +20,25 @@ const authAttemptLimit = rateLimit({
   legacyHeaders: false,
   message: { ok: false, error: "Too many authentication attempts. Try again later." },
 });
+
+const passwordResetRequestLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 3,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { ok: false, error: "Too many reset requests. Try again later." },
+});
+
+const passwordResetSubmitLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { ok: false, error: "Too many reset attempts. Try again later." },
+});
+
+const hashResetToken = (token: string) =>
+  crypto.createHash("sha256").update(token).digest("hex");
 
 // A syntactically valid dummy hash keeps unknown accounts on the same scrypt
 // verification path as accounts with an incorrect password.
@@ -62,6 +86,7 @@ meRoutes.post(
       role: user.role,
       status: user.status,
       onboarded: user.onboarded,
+      sessionVersion: credentials.sessionVersion,
     });
 
     ok(res, {
@@ -138,6 +163,99 @@ meRoutes.post(
         onboarded: user.onboarded,
       },
     });
+  }),
+);
+
+meRoutes.post(
+  "/auth/forgot-password",
+  passwordResetRequestLimit,
+  asyncHandler(async (req, res) => {
+    const email = String(req.body?.email ?? "").trim().toLowerCase();
+    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      res.status(400).json({ ok: false, error: "Enter a valid email address" });
+      return;
+    }
+
+    // Always return the same response so callers cannot discover registered emails.
+    const user = await findUserByEmail(email);
+    if (user) {
+      const token = crypto.randomBytes(32).toString("base64url");
+      const tokenHash = hashResetToken(token);
+      await db
+        .update(users)
+        .set({
+          passwordResetTokenHash: tokenHash,
+          passwordResetExpiresAt: new Date(Date.now() + 30 * 60 * 1000),
+        })
+        .where(eq(users.id, user.id));
+
+      try {
+        await sendPasswordResetEmail({ to: user.email, name: user.name, token });
+      } catch (error) {
+        // Never log the reset token. This should be monitored as an email delivery failure.
+        console.error("[auth] password reset email delivery failed", error);
+      }
+    }
+
+    ok(res, {
+      message: "If an account exists for that email, a password reset link will be sent.",
+    });
+  }),
+);
+
+meRoutes.post(
+  "/auth/reset-password",
+  passwordResetSubmitLimit,
+  asyncHandler(async (req, res) => {
+    const token = String(req.body?.token ?? "").trim();
+    const password = String(req.body?.password ?? "");
+    if (!token || token.length > 256) {
+      res.status(400).json({ ok: false, error: "This password reset link is invalid or has expired." });
+      return;
+    }
+    if (password.length < 12 || password.length > 128) {
+      res.status(400).json({ ok: false, error: "Password must be between 12 and 128 characters." });
+      return;
+    }
+
+    const tokenHash = hashResetToken(token);
+    const now = new Date();
+    const [matchingUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(
+        eq(users.passwordResetTokenHash, tokenHash),
+        gt(users.passwordResetExpiresAt, now),
+      ))
+      .limit(1);
+
+    if (!matchingUser) {
+      res.status(400).json({ ok: false, error: "This password reset link is invalid or has expired." });
+      return;
+    }
+
+    const passwordHash = await hashPassword(password);
+    const [updated] = await db
+      .update(users)
+      .set({
+        passwordHash,
+        passwordResetTokenHash: null,
+        passwordResetExpiresAt: null,
+        sessionVersion: sql`${users.sessionVersion} + 1`,
+      })
+      .where(and(
+        eq(users.id, matchingUser.id),
+        eq(users.passwordResetTokenHash, tokenHash),
+        gt(users.passwordResetExpiresAt, new Date()),
+      ))
+      .returning({ id: users.id });
+
+    if (!updated) {
+      res.status(400).json({ ok: false, error: "This password reset link is invalid or has expired." });
+      return;
+    }
+
+    ok(res, { message: "Your password has been reset. Please sign in again." });
   }),
 );
 
