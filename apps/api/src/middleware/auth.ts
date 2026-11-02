@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 import { homeFor, type UserRole, type UserStatus } from "@lms/shared";
 import { forbidden, notReady, unauthorized } from "@/lib/http-error";
-import { findUserByClerkId } from "@/db/queries/users";
+import { findUserAuthByClerkId } from "@/db/queries/users";
 import type { GateUser } from "@lms/shared";
 
 /**
@@ -19,6 +19,7 @@ export type TokenVerifier = (
 ) => Promise<{
   clerkId: string;
   metadata: { role?: string | null; status?: string; onboarded?: boolean };
+  sessionVersion?: number;
 }>;
 
 function getAuthSecret() {
@@ -56,6 +57,7 @@ export function createLocalSessionToken(payload: {
   role?: string | null;
   status?: string;
   onboarded?: boolean;
+  sessionVersion?: number;
 }) {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: "HS256", typ: "JWT" };
@@ -122,26 +124,32 @@ function toGateUser(
   };
 }
 
-async function resolveUser(clerkId: string): Promise<GateUser | null> {
-  const row = await findUserByClerkId(clerkId);
-  return row ? toGateUser(row) : null;
+async function resolveUser(clerkId: string): Promise<{ user: GateUser; sessionVersion: number } | null> {
+  const record = await findUserAuthByClerkId(clerkId);
+  return record
+    ? { user: toGateUser(record.user), sessionVersion: record.sessionVersion }
+    : null;
 }
 
 /**
- * The token verified, but the account row is still missing. Treat the user as a
- * pending local account so the first sign-in or sign-up can proceed without any
- * hosted identity provider.
+ * A valid token whose account row is not present is treated as pending.
+ * Its initial session version is zero, matching newly-created local accounts.
  */
-async function adoptOrPending(clerkId: string): Promise<GateUser> {
+async function adoptOrPending(
+  clerkId: string,
+): Promise<{ user: GateUser; sessionVersion: number }> {
   return (
-    (await findUserByClerkId(clerkId).then((row) => (row ? toGateUser(row) : null))) ?? {
-      id: clerkId,
-      clerkId,
-      email: "",
-      name: "User",
-      role: null,
-      status: "pending",
-      onboarded: false,
+    (await resolveUser(clerkId)) ?? {
+      user: {
+        id: clerkId,
+        clerkId,
+        email: "",
+        name: "User",
+        role: null,
+        status: "pending",
+        onboarded: false,
+      },
+      sessionVersion: 0,
     }
   );
 }
@@ -186,7 +194,11 @@ export function auth(opts: { allowRestricted?: boolean } = {}) {
       }
 
       req.clerkId = session.clerkId;
-      const user = (await resolveUser(session.clerkId)) ?? (await adoptOrPending(session.clerkId));
+      const record = await adoptOrPending(session.clerkId);
+      if ((session.sessionVersion ?? 0) !== record.sessionVersion) {
+        throw unauthorized();
+      }
+      const user = record.user;
       req.user = user;
 
       if (user.status === "suspended") {
