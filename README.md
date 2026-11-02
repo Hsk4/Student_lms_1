@@ -67,7 +67,7 @@ Seeding:
 bun run --cwd apps/api seed:catalog
 
 # Sign up with this email on the website first, then run this once in Render Shell.
-bun run --cwd apps/api seed:super-admin muhammadhhammad2006@gmail.com
+bun run --cwd apps/api seed:super-admin <your-registered-email>
 ```
 
 The catalogue seed adds five exam-board entries, seven levels, fourteen core
