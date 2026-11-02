@@ -104,12 +104,16 @@ export function localTokenVerifier(): TokenVerifier {
         status: typeof payload.status === "string" ? payload.status : "pending",
         onboarded: payload.onboarded === true,
       },
+      sessionVersion:
+        typeof payload.sessionVersion === "number" && Number.isInteger(payload.sessionVersion) && payload.sessionVersion >= 0
+          ? payload.sessionVersion
+          : 0,
     };
   };
 }
 
 function toGateUser(
-  row: NonNullable<Awaited<ReturnType<typeof findUserByClerkId>>>,
+  row: NonNullable<Awaited<ReturnType<typeof findUserAuthByClerkId>>>["user"],
 ): GateUser {
   return {
     id: row.id,
