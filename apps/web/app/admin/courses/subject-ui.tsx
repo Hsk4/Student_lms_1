@@ -19,9 +19,19 @@ function useSubjectRefresh() {
 
 export function SubjectForm() {
   const refresh = useSubjectRefresh();
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugEdited, setSlugEdited] = useState(false);
+
+  function updateName(value: string) {
+    setName(value);
+    if (!slugEdited) {
+      setSlug(value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
+    }
+  }
   return (
     <ActionForm
-      className="mt-3 space-y-3"
+      className="mt-4 space-y-4"
       submitLabel="Create subject"
       action={async (form) => {
         await api.post("/admin/subjects", {
@@ -30,6 +40,9 @@ export function SubjectForm() {
           active: true,
         });
         await refresh();
+        setName("");
+        setSlug("");
+        setSlugEdited(false);
         return null;
       }}
     >
@@ -42,6 +55,9 @@ export function SubjectForm() {
           name="name"
           className="input"
           placeholder="Mathematics"
+          autoComplete="off"
+          value={name}
+          onChange={(event) => updateName(event.target.value)}
           required
         />
       </div>
@@ -54,8 +70,18 @@ export function SubjectForm() {
           name="slug"
           className="input"
           placeholder="mathematics"
+          autoComplete="off"
+          spellCheck={false}
+          value={slug}
+          onChange={(event) => {
+            setSlug(event.target.value);
+            setSlugEdited(true);
+          }}
           required
         />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Generated from the subject name. You can edit it before saving.
+        </p>
       </div>
     </ActionForm>
   );
