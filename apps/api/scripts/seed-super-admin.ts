@@ -8,7 +8,7 @@
  * Shell (or with the API environment loaded locally).
  *
  * Usage:
- *   bun run --cwd apps/api seed:super-admin muhammadhhammad2006@gmail.com
+ *   bun run --cwd apps/api seed:super-admin <email>
  */
 
 import { eq, sql } from "drizzle-orm";
