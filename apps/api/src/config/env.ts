@@ -15,6 +15,9 @@ const envSchema = z.object({
   DATABASE_URL_UNPOOLED: z.string().min(1).optional(),
   AUTH_JWT_SECRET: z.string().min(1).optional(),
   JWT_SECRET: z.string().min(1).optional(),
+  RESEND_API_KEY: z.string().optional(),
+  AUTH_EMAIL_FROM: z.string().optional(),
+  WEB_APP_URL: z.string().url().optional(),
   /**
    * The production web origin(s) allowed through CORS. Comma-separated, e.g.
    * `https://studentlms-sooty.vercel.app`. Local dev origins are added by
