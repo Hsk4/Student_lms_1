@@ -95,7 +95,7 @@ meRoutes.post(
       res.status(400).json({ ok: false, error: "Password must be between 12 and 128 characters" });
       return;
     }
-    if (email.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       res.status(400).json({ ok: false, error: "Enter a valid email address" });
       return;
     }
