@@ -194,6 +194,8 @@ export const subjects = pgTable("subjects", {
 export const users = pgTable("users", {
   id: id(),
   clerkId: text("clerk_id").notNull(),
+  /** Nullable only for accounts created before local password authentication. */
+  passwordHash: text("password_hash"),
   /** Stored lowercase; enforce it with the CHECK below rather than in app code. */
   email: text("email").notNull(),
   name: text("name").notNull(),
@@ -212,7 +214,7 @@ export const users = pgTable("users", {
   unique("users_clerk_id_unique").on(table.clerkId),
   index("users_role_idx").on(table.role),
   index("users_status_idx").on(table.status),
-  index("users_email_idx").on(table.email),
+  uniqueIndex("users_email_unique").on(table.email),
   // Keep the old lowercase rule from Mongoose (`lowercase: true`).
   check("users_email_lowercase", sql`${table.email} = lower(${table.email})`),
 ]);

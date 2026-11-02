@@ -40,8 +40,13 @@ function base64UrlEncode(value: string) {
   return Buffer.from(value).toString("base64url");
 }
 
-function base64UrlDecode(value: string) {
-  return Buffer.from(value, "base64url").toString("utf8");
+function decodeBase64UrlJson(value: string): Record<string, unknown> {
+  if (!/^[A-Za-z0-9_-]+$/.test(value)) throw new Error("Invalid JWT encoding");
+  const parsed: unknown = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Invalid JWT claims");
+  }
+  return parsed as Record<string, unknown>;
 }
 
 export function createLocalSessionToken(payload: {
@@ -52,49 +57,50 @@ export function createLocalSessionToken(payload: {
   status?: string;
   onboarded?: boolean;
 }) {
+  const now = Math.floor(Date.now() / 1000);
   const header = { alg: "HS256", typ: "JWT" };
-  const claims = {
-    ...payload,
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
-  };
-
+  const claims = { ...payload, iat: now, exp: now + 60 * 60 * 24 * 7 };
   const signingInput = `${base64UrlEncode(JSON.stringify(header))}.${base64UrlEncode(JSON.stringify(claims))}`;
-  const signature = crypto
-    .createHmac("sha256", getAuthSecret())
-    .update(signingInput)
-    .digest("base64url");
-
+  const signature = crypto.createHmac("sha256", getAuthSecret()).update(signingInput).digest("base64url");
   return `${signingInput}.${signature}`;
 }
 
 export function localTokenVerifier(): TokenVerifier {
   return async (token) => {
     const segments = token.split(".");
-    if (segments.length !== 3) throw new Error("Invalid JWT format");
+    if (segments.length !== 3 || segments.some((part) => !part)) throw new Error("Invalid JWT format");
 
     const [headerB64, payloadB64, signature] = segments;
-    const signingInput = `${headerB64}.${payloadB64}`;
-    const expected = crypto
-      .createHmac("sha256", getAuthSecret())
-      .update(signingInput)
-      .digest("base64url");
+    const header = decodeBase64UrlJson(headerB64);
+    if (header.alg !== "HS256" || header.typ !== "JWT") throw new Error("Unsupported JWT header");
 
-    const actual = Buffer.from(signature);
-    const expectedBuf = Buffer.from(expected);
-    if (actual.length !== expectedBuf.length || !crypto.timingSafeEqual(actual, expectedBuf)) {
+    const signingInput = `${headerB64}.${payloadB64}`;
+    const expected = crypto.createHmac("sha256", getAuthSecret()).update(signingInput).digest();
+    if (!/^[A-Za-z0-9_-]+$/.test(signature)) throw new Error("Invalid JWT signature encoding");
+    const actual = Buffer.from(signature, "base64url");
+    if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) {
       throw new Error("JWT signature mismatch");
     }
 
-    const payload = JSON.parse(base64UrlDecode(payloadB64));
-    if (!payload.sub) throw new Error("Token has no subject");
+    const payload = decodeBase64UrlJson(payloadB64);
+    const now = Math.floor(Date.now() / 1000);
+    if (typeof payload.sub !== "string" || payload.sub.length === 0) throw new Error("Token has no subject");
+    if (typeof payload.exp !== "number" || !Number.isFinite(payload.exp) || payload.exp <= now) {
+      throw new Error("Token is expired or has no valid expiry");
+    }
+    if (payload.nbf !== undefined && (typeof payload.nbf !== "number" || payload.nbf > now)) {
+      throw new Error("Token is not active");
+    }
+    if (payload.iat !== undefined && (typeof payload.iat !== "number" || payload.iat > now + 60)) {
+      throw new Error("Invalid token issued-at time");
+    }
 
     return {
-      clerkId: String(payload.sub),
+      clerkId: payload.sub,
       metadata: {
-        role: payload.role ?? null,
-        status: payload.status ?? "pending",
-        onboarded: Boolean(payload.onboarded),
+        role: typeof payload.role === "string" ? payload.role : null,
+        status: typeof payload.status === "string" ? payload.status : "pending",
+        onboarded: payload.onboarded === true,
       },
     };
   };

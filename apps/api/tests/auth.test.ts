@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import crypto from "node:crypto";
 import request from "supertest";
 import { eq } from "drizzle-orm";
 import type { Express } from "express";
@@ -6,6 +7,7 @@ import { closeDb, db } from "@/db";
 import { users } from "@/db/schema";
 import { createApp } from "@/app";
 import { createLocalSessionToken, localTokenVerifier } from "@/middleware/auth";
+import { verifyPassword } from "@/lib/password";
 import { authHeader, resetDb, seedUser, testVerifier } from "./helpers";
 
 let app: Express;
@@ -149,6 +151,52 @@ describe("local JWT auth", () => {
 
     expect(res.status).toBe(401);
     expect(res.body).toMatchObject({ ok: false, error: "Invalid email or password" });
+  });
+
+  it("stores a password hash and only signs in with the correct password", async () => {
+    const signup = await request(app)
+      .post("/api/v1/auth/sign-up")
+      .send({ name: "Alice Student", email: "alice@school.test", password: "correct-horse-battery" });
+
+    expect(signup.status).toBe(200);
+    const [stored] = await db.select().from(users).where(eq(users.email, "alice@school.test"));
+    expect(stored.passwordHash).toMatch(/^scrypt\\$/);
+    expect(stored.passwordHash).not.toContain("correct-horse-battery");
+    expect(await verifyPassword("correct-horse-battery", stored.passwordHash)).toBe(true);
+    expect(await verifyPassword("wrong-password", stored.passwordHash)).toBe(false);
+
+    const wrong = await request(app)
+      .post("/api/v1/auth/sign-in")
+      .send({ email: "alice@school.test", password: "wrong-password" });
+    expect(wrong.status).toBe(401);
+
+    const correct = await request(app)
+      .post("/api/v1/auth/sign-in")
+      .send({ email: "alice@school.test", password: "correct-horse-battery" });
+    expect(correct.status).toBe(200);
+    expect(correct.body.data.token).toBeTypeOf("string");
+  });
+
+  it("rejects sign-in for legacy accounts without a password hash", async () => {
+    await seedUser({ clerkId: "legacy-user", email: "legacy@school.test" });
+    const res = await request(app)
+      .post("/api/v1/auth/sign-in")
+      .send({ email: "legacy@school.test", password: "any-password-at-all" });
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects JWTs without an expiry claim", async () => {
+    const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+    const payload = Buffer.from(JSON.stringify({ sub: "no-expiry" })).toString("base64url");
+    const input = `${header}.${payload}`;
+    const secret = process.env.AUTH_JWT_SECRET ?? process.env.JWT_SECRET ?? "local-dev-secret-change-me";
+    const signature = crypto.createHmac("sha256", secret).update(input).digest("base64url");
+    await expect(localTokenVerifier()(`${input}.${signature}`)).rejects.toThrow();
+
+    const expiredPayload = Buffer.from(JSON.stringify({ sub: "expired", exp: 1 })).toString("base64url");
+    const expiredInput = `${header}.${expiredPayload}`;
+    const expiredSignature = crypto.createHmac("sha256", secret).update(expiredInput).digest("base64url");
+    await expect(localTokenVerifier()(`${expiredInput}.${expiredSignature}`)).rejects.toThrow(/expired/);
   });
 
   it("mints a token for a real local sign-up", async () => {

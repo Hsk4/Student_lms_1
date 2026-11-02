@@ -85,6 +85,19 @@ export async function findUserByEmail(
   return row ? toStudent(row) : null;
 }
 
+/** Credential lookup kept separate so password hashes never enter public user DTOs. */
+export async function findUserCredentialsByEmail(
+  email: string,
+  conn: Tx | typeof db = db,
+): Promise<{ user: Student; passwordHash: string | null } | null> {
+  const [row] = await conn
+    .select()
+    .from(users)
+    .where(eq(users.email, email.trim().toLowerCase()))
+    .limit(1);
+  return row ? { user: toStudent(row), passwordHash: row.passwordHash } : null;
+}
+
 export async function listUsersByRole(
   role: UserRole,
   filter: { status?: UserStatus } = {},
@@ -179,6 +192,7 @@ export async function createUser(
     role?: UserRole | null;
     status?: UserStatus;
     onboarded?: boolean;
+    passwordHash?: string | null;
     boardId?: Id | null;
     levelId?: Id | null;
   },
@@ -195,6 +209,7 @@ export async function createUser(
       role: input.role ?? null,
       status: input.status ?? "pending",
       onboarded: input.onboarded ?? false,
+      passwordHash: input.passwordHash ?? null,
       boardId: input.boardId ?? null,
       levelId: input.levelId ?? null,
     })
