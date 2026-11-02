@@ -59,6 +59,7 @@ const matricSubjects = [
   "chemistry",
   "biology",
   "computer-science",
+  "general-science",
   "pakistan-studies",
   "islamic-studies",
 ] as const;
