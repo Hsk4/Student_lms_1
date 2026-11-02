@@ -6,9 +6,9 @@ import { useAuth } from "@/lib/auth-compat";
 import { useMe } from "@/lib/queries";
 
 /**
- * After sign-in or sign-up, send the user to their role home from `GET /me`.
- * Also bounces a signed-in visitor away from the auth pages. UX only: the API
- * remains the gate.
+ * Keep authenticated visitors out of public entry pages. Login itself primes
+ * the /me query and navigates directly to the API-provided role home, so this
+ * also handles app relaunches with an existing local session.
  */
 export function AuthRedirector() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -25,13 +25,9 @@ export function AuthRedirector() {
       pathname.startsWith("/sign-in") ||
       pathname.startsWith("/sign-up");
 
-    if (!isPublicEntryPage) return;
-
-    const nextRoute = me.data.home || "/";
-
-    // A single check after a brief delay lets the webhook land.
-    const timeout = setTimeout(() => router.replace(nextRoute), 500);
-    return () => clearTimeout(timeout);
+    if (isPublicEntryPage) {
+      router.replace(me.data.home || "/pending");
+    }
   }, [isLoaded, isSignedIn, me.data, pathname, router]);
 
   return null;

@@ -15,6 +15,9 @@ const envSchema = z.object({
   DATABASE_URL_UNPOOLED: z.string().min(1).optional(),
   AUTH_JWT_SECRET: z.string().min(1).optional(),
   JWT_SECRET: z.string().min(1).optional(),
+  RESEND_API_KEY: z.string().optional(),
+  AUTH_EMAIL_FROM: z.string().optional(),
+  WEB_APP_URL: z.string().url().optional(),
   /**
    * The production web origin(s) allowed through CORS. Comma-separated, e.g.
    * `https://studentlms-sooty.vercel.app`. Local dev origins are added by
@@ -37,6 +40,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     const secret = parsed.data.AUTH_JWT_SECRET ?? parsed.data.JWT_SECRET;
     if (!secret || secret.length < 32) {
       throw new Error("Invalid environment variables: AUTH_JWT_SECRET (minimum 32 characters required in production)");
+    }
+    if (!parsed.data.RESEND_API_KEY || !parsed.data.AUTH_EMAIL_FROM || !parsed.data.WEB_APP_URL) {
+      throw new Error("Invalid environment variables: RESEND_API_KEY, AUTH_EMAIL_FROM and WEB_APP_URL are required in production for password recovery email delivery");
     }
   }
   return parsed.data;

@@ -15,6 +15,13 @@
       "when": 1793580936000,
       "tag": "0001_add_password_hash",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793607540000,
+      "tag": "0002_password_recovery",
+      "breakpoints": true
     }
   ]
 }
