@@ -61,10 +61,9 @@ export function useAuth() {
 
   const signedIn = typeof window !== "undefined" && Boolean(readStoredToken());
 
-  const getToken = useCallback(async () => {
-    if (!signedIn) return null;
-    return readStoredToken();
-  }, [signedIn]);
+  // Read storage at call time so an API request made immediately after
+  // sign-in never depends on a stale React closure from the signed-out render.
+  const getToken = useCallback(async () => readStoredToken(), []);
 
   const signOut = useCallback(async () => {
     clearDemoSession();
