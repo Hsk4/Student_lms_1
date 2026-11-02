@@ -196,6 +196,9 @@ export const users = pgTable("users", {
   clerkId: text("clerk_id").notNull(),
   /** Nullable only for accounts created before local password authentication. */
   passwordHash: text("password_hash"),
+  passwordResetTokenHash: text("password_reset_token_hash"),
+  passwordResetExpiresAt: timestamp("password_reset_expires_at", { withTimezone: true }),
+  sessionVersion: integer("session_version").notNull().default(0),
   /** Stored lowercase; enforce it with the CHECK below rather than in app code. */
   email: text("email").notNull(),
   name: text("name").notNull(),
