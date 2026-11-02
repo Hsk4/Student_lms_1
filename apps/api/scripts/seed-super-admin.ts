@@ -1,39 +1,65 @@
 #!/usr/bin/env node
 
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
+/**
+ * Promote an already registered local account to the first super admin.
+ *
+ * This intentionally does not create an account or set a password. The owner
+ * must sign up first, then run this one-time bootstrap command from Render
+ * Shell (or with the API environment loaded locally).
+ *
+ * Usage:
+ *   bun run --cwd apps/api seed:super-admin muhammadhhammad2006@gmail.com
+ */
+
+import { eq, sql } from "drizzle-orm";
+import { closeDb, db } from "@/db";
 import { users } from "@/db/schema";
 
-const email = process.argv[2];
-
-if (!email) {
-  console.error("Usage: bun scripts/seed-super-admin.ts <email>");
-  process.exit(1);
-}
+const email = process.argv[2]?.trim().toLowerCase();
 
 async function seedSuperAdmin() {
-  const normalized = email.trim().toLowerCase();
-  const [row] = await db
+  if (!email) {
+    throw new Error("Usage: bun run --cwd apps/api seed:super-admin <email>");
+  }
+
+  const [user] = await db
     .select()
     .from(users)
-    .where(eq(users.email, normalized))
+    .where(eq(users.email, email))
     .limit(1);
 
-  if (!row) {
-    console.error(`No local user found with email: ${normalized}`);
-    process.exit(1);
+  if (!user) {
+    throw new Error(
+      `No account found for ${email}. Sign up with this email first, then run the command again.`,
+    );
+  }
+
+  if (user.role === "super_admin" && user.status === "active" && user.onboarded) {
+    console.log(`${email} is already an active super admin; no changes made.`);
+    return;
   }
 
   await db
     .update(users)
-    .set({ role: "super_admin", status: "active", onboarded: true })
-    .where(eq(users.id, row.id));
+    .set({
+      role: "super_admin",
+      status: "active",
+      onboarded: true,
+      // Revoke any pending-user token so the promoted account signs in again
+      // and receives a fresh session reflecting its new role.
+      sessionVersion: sql`${users.sessionVersion} + 1`,
+    })
+    .where(eq(users.id, user.id));
 
-  console.log(`Promoted local user ${row.id} to super_admin`);
-  process.exit(0);
+  console.log(`Promoted ${email} to active super admin.`);
+  console.log("Sign out and sign in again to receive the super-admin session.");
 }
 
-seedSuperAdmin().catch((error) => {
-  console.error("Error:", error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+seedSuperAdmin()
+  .catch((error: unknown) => {
+    console.error("Super-admin seed failed:", error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await closeDb();
+  });
