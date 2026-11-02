@@ -4,7 +4,7 @@ import { asyncHandler } from "@/middleware/async-handler";
 import { auth, createLocalSessionToken } from "@/middleware/auth";
 import { freshStatus, me, myRequestStatus } from "@/controllers/me";
 import { requestParentAccess, submitAccessRequest } from "@/controllers/onboarding";
-import { findUserByEmail, createUser } from "@/db/queries/users";
+import { findUserByEmail, findUserCredentialsByEmail, createUser } from "@/db/queries/users";
 import { ok } from "@/lib/respond";
 import { hashPassword, verifyPassword } from "@/lib/password";
 
@@ -43,10 +43,11 @@ meRoutes.post(
       return;
     }
 
-    const user = await findUserByEmail(email);
+    const credentials = await findUserCredentialsByEmail(email);
+    const user = credentials?.user ?? null;
     const passwordMatches = await verifyPassword(
       password,
-      user?.passwordHash ?? DUMMY_PASSWORD_HASH,
+      credentials?.passwordHash ?? DUMMY_PASSWORD_HASH,
     );
 
     if (!user || !passwordMatches) {
