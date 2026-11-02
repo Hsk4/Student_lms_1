@@ -33,5 +33,11 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
       .join(", ");
     throw new Error(`Invalid environment variables: ${names}`);
   }
+  if (parsed.data.NODE_ENV === "production") {
+    const secret = parsed.data.AUTH_JWT_SECRET ?? parsed.data.JWT_SECRET;
+    if (!secret || secret.length < 32) {
+      throw new Error("Invalid environment variables: AUTH_JWT_SECRET (minimum 32 characters required in production)");
+    }
+  }
   return parsed.data;
 }
