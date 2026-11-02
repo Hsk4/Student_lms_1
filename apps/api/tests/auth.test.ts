@@ -224,10 +224,8 @@ describe("local JWT auth", () => {
   });
 
   it("sends a one-time reset link, changes the password, and invalidates old password hashes", async () => {
-    const signup = await request(app)
-      .post("/api/v1/auth/sign-up")
-      .send({ name: "Reset Student", email: "reset@school.test", password: "original-password" });
-    expect(signup.status).toBe(200);
+    // Existing users from before local passwords have no password_hash yet.
+    await seedUser({ clerkId: "legacy-reset-user", email: "reset@school.test" });
 
     process.env.RESEND_API_KEY = "test-resend-key";
     process.env.AUTH_EMAIL_FROM = "Fastly LMS <no-reply@example.test>";
