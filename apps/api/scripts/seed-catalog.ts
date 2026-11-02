@@ -92,7 +92,7 @@ async function seedCatalog() {
     .values(boardSeed.map((item) => ({ ...item, active: true })))
     .onConflictDoUpdate({
       target: boards.slug,
-      set: { name: sql`excluded.name`, active: true },
+      set: { name: sql`excluded.name` },
     })
     .returning({ id: boards.id, slug: boards.slug });
 
