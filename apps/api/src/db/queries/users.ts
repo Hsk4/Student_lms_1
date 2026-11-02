@@ -61,6 +61,19 @@ export async function findUserByClerkId(
   return row ? toStudent(row) : null;
 }
 
+/** Authentication-only lookup; includes the DB-side session version. */
+export async function findUserAuthByClerkId(
+  clerkId: string,
+  conn: Tx | typeof db = db,
+): Promise<{ user: Student; sessionVersion: number } | null> {
+  const [row] = await conn
+    .select()
+    .from(users)
+    .where(eq(users.clerkId, clerkId))
+    .limit(1);
+  return row ? { user: toStudent(row), sessionVersion: row.sessionVersion } : null;
+}
+
 export async function findUserById(
   id: Id,
   conn: Tx | typeof db = db,
@@ -89,13 +102,13 @@ export async function findUserByEmail(
 export async function findUserCredentialsByEmail(
   email: string,
   conn: Tx | typeof db = db,
-): Promise<{ user: Student; passwordHash: string | null } | null> {
+): Promise<{ user: Student; passwordHash: string | null; sessionVersion: number } | null> {
   const [row] = await conn
     .select()
     .from(users)
     .where(eq(users.email, email.trim().toLowerCase()))
     .limit(1);
-  return row ? { user: toStudent(row), passwordHash: row.passwordHash } : null;
+  return row ? { user: toStudent(row), passwordHash: row.passwordHash, sessionVersion: row.sessionVersion } : null;
 }
 
 export async function listUsersByRole(
