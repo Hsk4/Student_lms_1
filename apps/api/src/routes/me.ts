@@ -86,7 +86,7 @@ meRoutes.post(
       role: user.role,
       status: user.status,
       onboarded: user.onboarded,
-      sessionVersion: credentials.sessionVersion,
+      sessionVersion: credentials?.sessionVersion ?? 0,
     });
 
     ok(res, {
