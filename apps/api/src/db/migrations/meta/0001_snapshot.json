@@ -3286,8 +3286,8 @@
           "method": "btree",
           "with": {}
         },
-        "users_email_idx": {
-          "name": "users_email_idx",
+        "users_email_unique": {
+          "name": "users_email_unique",
           "columns": [
             {
               "expression": "email",
@@ -3296,7 +3296,7 @@
               "nulls": "last"
             }
           ],
-          "isUnique": false,
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
