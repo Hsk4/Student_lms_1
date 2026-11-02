@@ -12,7 +12,6 @@
  *   bun run --cwd apps/api seed:catalog
  */
 
-import { sql } from "drizzle-orm";
 import { closeDb, db } from "@/db";
 import { boards, courses, levels, subjects } from "@/db/schema";
 
@@ -96,14 +95,13 @@ const cambridgeSubjects = [
 ] as const;
 
 async function seedCatalog() {
-  const boardRows = await db
+  await db
     .insert(boards)
     .values(boardSeed.map((item) => ({ ...item, active: true })))
-    .onConflictDoUpdate({
-      target: boards.slug,
-      set: { name: sql`excluded.name` },
-    })
-    .returning({ id: boards.id, slug: boards.slug });
+    .onConflictDoNothing();
+  const boardRows = await db
+    .select({ id: boards.id, slug: boards.slug })
+    .from(boards);
 
   const levelRows = await db
     .insert(levels)
