@@ -70,6 +70,9 @@ export function createApp(
 
   const app = express();
 
+  // Render terminates TLS at one trusted ingress proxy. Trust that single hop
+  // so IP-based API and sign-in rate limits use the real client address.
+  app.set("trust proxy", 1);
   app.disable("x-powered-by");
   app.use(helmet());
   app.use(
