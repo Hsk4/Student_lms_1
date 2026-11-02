@@ -135,12 +135,14 @@ describe("local JWT auth", () => {
       role: "super_admin",
       status: "active",
       onboarded: true,
+      sessionVersion: 7,
     });
 
     const session = await localTokenVerifier()(token);
     expect(session).toMatchObject({
       clerkId: "local-admin-1",
       metadata: { role: "super_admin", status: "active", onboarded: true },
+      sessionVersion: 7,
     });
   });
 
