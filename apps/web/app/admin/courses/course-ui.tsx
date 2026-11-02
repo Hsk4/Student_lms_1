@@ -45,7 +45,7 @@ export function CourseForm({
 
   return (
     <ActionForm
-      className="mt-3 space-y-3"
+      className="mt-4 space-y-4"
       submitLabel="Create course"
       action={async (form) => {
         await api.post("/admin/courses", {
@@ -63,7 +63,8 @@ export function CourseForm({
         <label className="label" htmlFor="course-board">
           Board
         </label>
-        <select id="course-board" name="boardId" className="input" required>
+        <select id="course-board" name="boardId" className="input" defaultValue="" required>
+          <option value="" disabled>Choose an exam board</option>
           {active(boards).map((board) => (
             <option key={board.id} value={board.id}>
               {board.name}
@@ -75,7 +76,8 @@ export function CourseForm({
         <label className="label" htmlFor="course-level">
           Level
         </label>
-        <select id="course-level" name="levelId" className="input" required>
+        <select id="course-level" name="levelId" className="input" defaultValue="" required>
+          <option value="" disabled>Choose a level</option>
           {active(levels).map((level) => (
             <option key={level.id} value={level.id}>
               {level.name}
@@ -87,7 +89,8 @@ export function CourseForm({
         <label className="label" htmlFor="course-subject">
           Subject
         </label>
-        <select id="course-subject" name="subjectId" className="input" required>
+        <select id="course-subject" name="subjectId" className="input" defaultValue="" required>
+          <option value="" disabled>Choose a subject</option>
           {active(subjects).map((subject) => (
             <option key={subject.id} value={subject.id}>
               {subject.name}
@@ -103,8 +106,13 @@ export function CourseForm({
           id="course-medium"
           name="medium"
           className="input"
-          placeholder="English"
+          placeholder="e.g. English or Urdu"
+          maxLength={60}
+          autoComplete="off"
         />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Leave blank if the course is not tied to a specific teaching medium.
+        </p>
       </div>
     </ActionForm>
   );
