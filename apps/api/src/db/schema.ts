@@ -218,6 +218,7 @@ export const users = pgTable("users", {
   index("users_role_idx").on(table.role),
   index("users_status_idx").on(table.status),
   uniqueIndex("users_email_unique").on(table.email),
+  index("users_password_reset_token_hash_idx").on(table.passwordResetTokenHash),
   // Keep the old lowercase rule from Mongoose (`lowercase: true`).
   check("users_email_lowercase", sql`${table.email} = lower(${table.email})`),
 ]);
