@@ -293,6 +293,7 @@ export function SignUp({
         router,
         queryClient,
         fallbackRedirectUrl,
+        payload.data.user ?? null,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to create account";
