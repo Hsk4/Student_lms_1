@@ -12,7 +12,7 @@ import {
   type UserStatus,
 } from "@lms/shared";
 import { db } from "@/db";
-import { accessRequests, auditLogs } from "@/db/schema";
+import { accessRequests } from "@/db/schema";
 import { conflict, forbidden, notFound } from "@/lib/http-error";
 import { writeAudit } from "@/lib/audit";
 import { actorOf } from "@/middleware/auth";
@@ -29,7 +29,7 @@ import {
   listCourseIdsForTeacher,
   replaceTeacherCourses,
 } from "@/db/queries/teacher-courses";
-import { deleteUsersNotIn, findUserById, updateUser } from "@/db/queries/users";
+import { findUserById, updateUser } from "@/db/queries/users";
 import { LINK_CODE_TTL_DAYS, uniqueLinkCode } from "@/lib/link-codes";
 import {
   countOpenRequests,
@@ -81,22 +81,6 @@ function actorAdmin(
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-async function deleteAudit(
-  key: { actorId: string; action: string; targetId: string },
-  tx: Tx,
-) {
-  await tx
-    .delete(auditLogs)
-    .where(
-      and(
-        eq(auditLogs.actorId, key.actorId),
-        eq(auditLogs.action, key.action),
-        eq(auditLogs.targetId, key.targetId),
-      ),
-    );
-}
-
 
 export async function assignRole(req: Request) {
   const actor = actorAdmin(req);
