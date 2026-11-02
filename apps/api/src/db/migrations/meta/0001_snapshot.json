@@ -3253,25 +3253,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "password_reset_token_hash": {
-          "name": "password_reset_token_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "password_reset_expires_at": {
-          "name": "password_reset_expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "session_version": {
-          "name": "session_version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
         }
       },
       "indexes": {
