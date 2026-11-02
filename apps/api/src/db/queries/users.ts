@@ -179,6 +179,7 @@ export async function createUser(
     role?: UserRole | null;
     status?: UserStatus;
     onboarded?: boolean;
+    passwordHash?: string | null;
     boardId?: Id | null;
     levelId?: Id | null;
   },
@@ -195,6 +196,7 @@ export async function createUser(
       role: input.role ?? null,
       status: input.status ?? "pending",
       onboarded: input.onboarded ?? false,
+      passwordHash: input.passwordHash ?? null,
       boardId: input.boardId ?? null,
       levelId: input.levelId ?? null,
     })
