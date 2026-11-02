@@ -80,8 +80,6 @@ function actorAdmin(
   return actor as GateUser & { role: "admin" | "super_admin" };
 }
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
 export async function assignRole(req: Request) {
   const actor = actorAdmin(req);
   const input = assignRoleSchema.parse({ ...req.body, userId: req.params.id });
