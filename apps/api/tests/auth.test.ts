@@ -146,6 +146,28 @@ describe("local JWT auth", () => {
     });
   });
 
+  it("revokes previously issued JWTs when the account session version changes", async () => {
+    await seedUser({ clerkId: "session-reset-user", role: "student" });
+    const token = createLocalSessionToken({
+      sub: "session-reset-user",
+      sessionVersion: 0,
+    });
+    await db
+      .update(users)
+      .set({ sessionVersion: 1 })
+      .where(eq(users.clerkId, "session-reset-user"));
+
+    try {
+      const jwtApp = createApp({ verifyToken: localTokenVerifier() });
+      const res = await request(jwtApp)
+        .get("/api/v1/me")
+        .set("Authorization", `Bearer ${token}`);
+      expect(res.status).toBe(401);
+    } finally {
+      createApp({ verifyToken: testVerifier });
+    }
+  });
+
   it("rejects the demo super-admin backdoor", async () => {
     const res = await request(app)
       .post("/api/v1/auth/sign-in")
