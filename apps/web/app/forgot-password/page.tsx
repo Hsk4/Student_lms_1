@@ -36,7 +36,7 @@ export default function ForgotPasswordPage() {
     <main className="flex min-h-screen items-center justify-center bg-surface px-4 py-10">
       <section className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-sm">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Reset your password</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Enter the email address on your school account. If it exists, we'll send you a one-time reset link.</p>
+        <p className="mt-2 text-sm text-muted-foreground">Enter the email address on your school account. If it exists, we&apos;ll send you a one-time reset link.</p>
         <form className="mt-6 space-y-4" onSubmit={submit}>
           <label className="block text-sm text-foreground">
             <span className="mb-1.5 block">Email</span>
