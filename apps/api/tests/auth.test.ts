@@ -192,6 +192,11 @@ describe("local JWT auth", () => {
     const secret = process.env.AUTH_JWT_SECRET ?? process.env.JWT_SECRET ?? "local-dev-secret-change-me";
     const signature = crypto.createHmac("sha256", secret).update(input).digest("base64url");
     await expect(localTokenVerifier()(`${input}.${signature}`)).rejects.toThrow();
+
+    const expiredPayload = Buffer.from(JSON.stringify({ sub: "expired", exp: 1 })).toString("base64url");
+    const expiredInput = `${header}.${expiredPayload}`;
+    const expiredSignature = crypto.createHmac("sha256", secret).update(expiredInput).digest("base64url");
+    await expect(localTokenVerifier()(`${expiredInput}.${expiredSignature}`)).rejects.toThrow(/expired/);
   });
 
   it("mints a token for a real local sign-up", async () => {
