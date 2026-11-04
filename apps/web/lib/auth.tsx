@@ -1,6 +1,11 @@
 "use client";
 
-import { useCallback, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,6 +20,8 @@ import { Button } from "@/components/ui/button";
 
 const STORAGE_KEY = "lms-auth-token";
 const STORAGE_USER_KEY = "lms-auth-user";
+/** Fired in this tab when the token is written or cleared. */
+const SESSION_CHANGED = "lms-auth-changed";
 
 export type StoredUser = {
   id?: number | string;
@@ -54,6 +61,7 @@ function writeStoredSession(token: string, user: StoredUser) {
   } else {
     window.localStorage.removeItem(STORAGE_USER_KEY);
   }
+  window.dispatchEvent(new Event(SESSION_CHANGED));
 }
 
 /** Drop the token and the cached profile. Safe to call when signed out. */
@@ -61,6 +69,19 @@ export function clearLocalSession() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(STORAGE_KEY);
   window.localStorage.removeItem(STORAGE_USER_KEY);
+  // Notify `useSyncExternalStore` subscribers in this tab; `storage` only
+  // fires for other tabs.
+  window.dispatchEvent(new Event(SESSION_CHANGED));
+}
+
+/** Re-render the auth hooks when the token is set or cleared. */
+function subscribeToStorage(onChange: () => void) {
+  window.addEventListener(SESSION_CHANGED, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(SESSION_CHANGED, onChange);
+    window.removeEventListener("storage", onChange);
+  };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -68,8 +89,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth() {
+  /*
+   * The token lives in `localStorage`, which does not exist during the static
+   * export's prerender. Reading it during render makes the first client paint
+   * say "signed out", and a panel guard then redirects a signed-in user to
+   * /sign-in on every hard load or refresh. `useSyncExternalStore` reports the
+   * server snapshot (`false`) first and switches to the real value on the
+   * client, so the guard never sees a wrong answer.
+   */
+  const token = useSyncExternalStore(
+    subscribeToStorage,
+    readStoredToken,
+    () => null,
+  );
   const isLoaded = typeof window !== "undefined";
-  const signedIn = isLoaded && Boolean(readStoredToken());
+  const signedIn = isLoaded && Boolean(token);
 
   // Read storage at call time so an API request made immediately after
   // sign-in never depends on a stale React closure from the signed-out render.
