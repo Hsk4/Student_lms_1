@@ -42,13 +42,32 @@ describe("parent link codes", () => {
     expect(res.status).toBe(403);
   });
 
-  it("403s for an active student who has not onboarded", async () => {
+  it("lets a student who has not onboarded issue the code that onboards them", async () => {
+    /*
+     * This call IS the onboarding step, so the gate that otherwise holds an
+     * un-onboarded student back must let it through. Refusing it returned 403
+     * with no way out: the only request that fixes onboarding was the one
+     * being rejected, so no student could ever reach their panel.
+     */
     await seedUser({
       clerkId: "student_new",
       role: "student",
       onboarded: false,
     });
     const res = await createCode("student_new");
+    expect(res.status).toBe(200);
+    expect(res.body.data.code).toMatch(/^[A-Z0-9]{8}$/);
+  });
+
+  it("still refuses the rest of the student API before onboarding", async () => {
+    await seedUser({
+      clerkId: "student_new",
+      role: "student",
+      onboarded: false,
+    });
+    const res = await request(app)
+      .get("/api/v1/student/assignments")
+      .set(authHeader("student_new"));
     expect(res.status).toBe(403);
     expect(res.body.error).toContain("/onboarding/parent");
   });
