@@ -64,6 +64,24 @@ Against a hosted database, load its environment first (for example from a local
 file you do not commit) so `DATABASE_URL` points there. The script prints only
 the database host, then creates or reconciles the row.
 
+On Render the database variables already exist in the service environment, so
+the seed is the last step of the build command:
+
+```bash
+bun run --cwd packages/shared build \
+  && bun run --cwd apps/api build \
+  && bun run --cwd apps/api db:migrate \
+  && bun run --cwd apps/api seed:super-admin
+```
+
+Do not pass `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` inline before the
+command (as in `cd apps/api SUPER_ADMIN_EMAIL=... bun run seed:super-admin`): a
+`VAR=value` word placed after a path turns into a second argument for `cd`, and
+the shell fails with `cd: too many arguments` after the migrations have
+already run. Set them in the Render dashboard instead. Every further step must
+use `--cwd` from the repository root, because each command in a chained
+`&&` sequence runs in a fresh shell.
+
 ## Database
 
 ```bash
