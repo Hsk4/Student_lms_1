@@ -101,7 +101,15 @@ export function Notice({
       ? "border-status-red bg-status-red-soft text-status-red"
       : tone === "success"
         ? "border-status-green bg-status-green-soft text-status-green"
-        : "border-border bg-tint text-tint-foreground";
+        : /*
+           * `bg-tint` is the *fixed* brand pale blue (it is the landing page's
+           * wash and does not flip in dark mode). Using it here painted a
+           * bright bar across a black page with cobalt type on top — the
+           * exact failure mode of mixing brand-fixed and themed surfaces.
+           * The themed equivalents (`--accent` / `--accent-foreground`) stay
+           * pale blue on white and dark slate on black.
+           */
+          "border-border bg-accent text-accent-foreground";
 
   return (
     <p

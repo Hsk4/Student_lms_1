@@ -24,6 +24,14 @@ const envSchema = z.object({
    * `corsOrigins()` in `app.ts` and only when NODE_ENV is not production.
    */
   WEB_ORIGIN: z.string().optional(),
+  /**
+   * Wildcard matchers for hosting previews (Vercel per-deploy hostnames).
+   * Comma-separated; `*` matches any run of characters in a host, e.g.
+   * `https://studentlms-*-<team-slug>.vercel.app`. Matched against the exact
+   * `Origin` the browser sent and only ever used to *add* origins — never as
+   * `Access-Control-Allow-Origin: *`.
+   */
+  PREVIEW_ORIGIN_PATTERNS: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

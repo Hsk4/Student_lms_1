@@ -53,7 +53,7 @@ export default function ParentSignUpPage() {
               <li key={step.title} className="flex items-start gap-3">
                 <ArchNumber n={index + 1} size={30} tone="cobalt" />
                 <div>
-                  <p className="text-sm font-semibold text-ink">
+                  <p className="text-sm font-semibold text-foreground">
                     {step.title}
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">

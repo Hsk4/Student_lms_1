@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { UserButton } from "@/lib/auth-compat";
 import { BrandMark } from "@/components/brand/primitives";
+import { ThemeToggle } from "@/components/shell/page-actions";
 import { RoleChip, StatusChip } from "@/components/ui/nila";
 import { SCHOOL_NAME } from "@/lib/school";
 import {
@@ -100,6 +101,7 @@ export function GateShell({
           </div>
           <div className="flex items-center gap-2">
             {user ? <RoleChip role={user.role} /> : null}
+            <ThemeToggle tone="onNavy" />
             <UserButton />
           </div>
         </div>

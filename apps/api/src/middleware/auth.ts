@@ -211,10 +211,17 @@ export function auth(opts: { allowRestricted?: boolean } = {}) {
 
       if (restricted) return next();
 
-      // Authenticated but not usable yet: 403, with the page the client should
-      // send the user to. Suspended is refused above; `homeFor` would say
-      // "/?error=account_suspended" here, which is for the web, not the API.
-      if (user.status !== "active") {
+      /*
+       * Authenticated but not usable yet: 403, with the page the client should
+       * send the user to. Suspended is refused above; `homeFor` would say
+       * "/?error=account_suspended" here, which is for the web, not the API.
+       *
+       * A `pending` account that already holds a role is not waiting on the
+       * office — the role *is* the approval (a seeded or admin-assigned
+       * account, notably the first super admin). Only a role-less account is
+       * held at the gate.
+       */
+      if (user.status !== "active" && !(user.status === "pending" && user.role)) {
         throw notReady(`Account is ${user.status}: ${homeFor(user)}`);
       }
       if (user.role === "student" && !user.onboarded) {
@@ -232,7 +239,13 @@ export function requireRole(...roles: UserRole[]) {
   return (req: Request, _res: Response, next: NextFunction) => {
     const user = req.user;
     if (!user) return next(unauthorized());
-    if (user.status !== "active" || !user.role || !roles.includes(user.role)) {
+    /*
+     * Same rule as `auth`: a role is the approval, so a `pending` account
+     * that holds one (the seeded super admin) is admitted. `suspended` is
+     * already refused by `auth`; the role check below is what actually
+     * decides access here.
+     */
+    if (!user.role || !roles.includes(user.role)) {
       return next(
         forbidden(
           `Unauthorized: role ${user.role ?? "none"} not in ${roles.join(", ")}`,

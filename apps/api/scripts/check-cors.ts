@@ -85,6 +85,36 @@ for (const form of pastedForms) {
   );
 }
 
+/*
+ * Preview deployments. A Vercel preview host must be allowed through the
+ * pattern, while another project's preview on the same `vercel.app` must not.
+ */
+process.env.WEB_ORIGIN = "https://studentlms-sooty.vercel.app";
+process.env.PREVIEW_ORIGIN_PATTERNS =
+  "https://studentlms-*-hammads-projects-095fbd61.vercel.app";
+
+const previewCases: Case[] = [
+  {
+    origin: "https://studentlms-202bxznta-hammads-projects-095fbd61.vercel.app",
+    expect: "allow",
+  },
+  { origin: "https://studentlms-sooty.vercel.app", expect: "allow" },
+  {
+    origin: "https://someone-else-abc123-hammads-projects-095fbd61.vercel.app",
+    expect: "deny",
+  },
+  { origin: "https://studentlms-evil.example.com", expect: "deny" },
+  { origin: "https://evil.example.com", expect: "deny" },
+];
+
+const previewApp = createApp();
+for (const c of previewCases) {
+  const got = await preflight(previewApp, c.origin);
+  const ok = c.expect === "allow" ? got !== null : got === null;
+  if (!ok) failures++;
+  console.log(`preview: ${c.origin} -> ${got ?? "(denied)"} ${ok ? "ok" : "FAIL"}`);
+}
+
 if (failures > 0) {
   console.error(`${failures} CORS/WEB_ORIGIN check(s) failed`);
   process.exit(1);

@@ -14,7 +14,7 @@ import {
   type NavGroup,
 } from "@/components/shell/nav-config";
 import { MobileNavSheet } from "@/components/shell/mobile-nav-sheet";
-import { PageActions } from "@/components/shell/page-actions";
+import { PageActions, ThemeToggle } from "@/components/shell/page-actions";
 import { SidebarNav } from "@/components/shell/sidebar-nav";
 import { UserMenu } from "@/components/shell/user-menu";
 import { NotificationsDrawer } from "@/components/shared/notifications-drawer";
@@ -120,6 +120,12 @@ export function PanelShell({
               {notifications.length ? (
                 <NotificationsDrawer items={notifications} />
               ) : null}
+
+              {/* The theme control must be reachable on phones too, where
+                  `PageActions` (which also carries it) is hidden. */}
+              <span className="lg:hidden">
+                <ThemeToggle tone="onNavy" />
+              </span>
 
               <span className="hidden lg:block">
                 <PageActions user={user} />

@@ -97,7 +97,7 @@ export default function Home() {
       </div>
 
       <div className="fastly-sheet relative -mt-7 flex flex-1 flex-col border-[1.5px] border-line bg-card px-6 pt-8">
-        <h1 className="fastly-display text-[28px] leading-tight text-ink">
+        <h1 className="fastly-display text-[28px] leading-tight text-foreground">
           Welcome. Who are you?
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
@@ -117,14 +117,14 @@ export default function Home() {
                   <role.icon size={20} strokeWidth={1.7} />
                 </ArchTile>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-semibold text-ink">
+                  <span className="block text-[15px] font-semibold text-foreground">
                     {role.label}
                   </span>
-                  <span className="mt-0.5 block truncate text-[12px] text-ink-soft">
+                  <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">
                     {role.hint}
                   </span>
                 </span>
-                <ChevronRight size={18} className="shrink-0 text-ink-faint" />
+                <ChevronRight size={18} className="shrink-0 text-muted-foreground" />
               </Link>
             </li>
           ))}

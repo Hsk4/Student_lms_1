@@ -233,13 +233,13 @@ export default function TeacherDashboardPage() {
                 className="block"
               >
                 <Card className="h-full p-4 transition-colors duration-150 hover:bg-tint">
-                  <p className="fastly-display text-[17px] text-ink">
+                  <p className="fastly-display text-[17px] text-foreground">
                     {klass.name}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {klass.courseLabel}
                   </p>
-                  <p className="mt-2 flex items-center gap-1.5 text-xs text-ink-faint">
+                  <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Users className="h-3.5 w-3.5" aria-hidden="true" />
                     {klass.schedule || "Schedule not set"} /{" "}
                     {klass.studentCount} students

@@ -87,7 +87,7 @@ export default function ParentDashboardPage() {
               <Card key={child.id} className="flex h-full flex-col p-5">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h2 className="fastly-display text-[22px] text-ink">
+                    <h2 className="fastly-display text-[22px] text-foreground">
                       {child.name}
                     </h2>
                     <p className="text-sm text-muted-foreground">

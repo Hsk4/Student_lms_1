@@ -51,9 +51,17 @@ export function homeFor(user: {
   status: UserStatus;
   onboarded: boolean;
 }): string {
-  if (user.status === "pending") return "/pending";
-  if (user.status === "rejected") return "/rejected";
   if (user.status === "suspended") return "/?error=account_suspended";
+
+  /*
+   * `pending` only gates accounts that are waiting to be *given* something.
+   * An account that already holds a role was seeded or assigned by an admin —
+   * the role is the approval — so it goes straight to its panel. Only a
+   * pending account with no role is actually waiting on the office.
+   */
+  if (user.status === "pending" && !user.role) return "/pending";
+  if (user.status === "rejected" && !user.role) return "/rejected";
+
   if (user.role === "student" && !user.onboarded) return "/onboarding/parent";
   if (!user.role) return "/request";
   return ROLE_HOME[user.role];

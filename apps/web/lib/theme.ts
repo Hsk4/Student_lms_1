@@ -26,11 +26,18 @@ export function prefersDark(choice: ThemeChoice): boolean {
 }
 
 /**
+ * Default when nobody has chosen: **light**. The brand is navy ink on white,
+ * and the default has to match the brand kit even on a machine whose OS is
+ * set to dark. "System" stays an explicit option for anyone who wants it.
+ */
+export const DEFAULT_THEME: ThemeChoice = "light";
+
+/**
  * Runs in <head> before first paint. Kept as a string (not a module) so it can
  * be inlined; it must not depend on anything from this file.
  */
 export const THEME_BOOT_SCRIPT =
   "(function(){try{" +
   `var k=${JSON.stringify(THEME_STORAGE_KEY)},c=localStorage.getItem(k);` +
-  'var d=c==="dark"||((!c||c==="system")&&window.matchMedia("(prefers-color-scheme: dark)").matches);' +
+  'var d=c==="dark";' +
   'document.documentElement.classList.toggle("dark",d)}catch(e){}})()';

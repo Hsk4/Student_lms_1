@@ -33,7 +33,12 @@ export function usePanelGuard(roles: UserRole[]) {
   if (isLoaded && !isSignedIn) redirectTo = "/sign-in";
   else if (me.data) {
     const user = me.data;
-    if (user.status !== "active" || !user.role || !roles.includes(user.role)) {
+    /*
+     * A role is the approval. `pending` only holds an account back when it has
+     * no role yet; a seeded or admin-assigned account (the first super admin)
+     * lands in its own panel. `user.home` already encodes this.
+     */
+    if (!user.role || !roles.includes(user.role)) {
       redirectTo = user.home;
     } else if (user.role === "student" && !user.onboarded) {
       redirectTo = "/onboarding/parent";

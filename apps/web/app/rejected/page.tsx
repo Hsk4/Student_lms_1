@@ -36,7 +36,7 @@ export default function RejectedPage() {
     <PanelShell title="Request rejected" user={{ name: user?.name ?? "", role: user?.role ?? null }}>
       <header className="mb-6">
         <p className="fastly-eyebrow text-cobalt">Decision</p>
-        <h1 className="fastly-display mt-2 text-[26px] text-ink">
+        <h1 className="fastly-display mt-2 text-[26px] text-foreground">
           Your request was declined
         </h1>
       </header>

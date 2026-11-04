@@ -42,10 +42,22 @@ export default function PendingPage() {
   }, [signedOut, router]);
 
   useEffect(() => {
-    if (user && user.status !== "pending") router.replace(user.home);
+    // A role is the approval: a pending account that already has one (the
+    // seeded super admin) belongs in its panel, not on this page.
+    if (user && (user.status !== "pending" || user.role))
+      router.replace(user.home);
   }, [user, router]);
 
   const isParentRequest = status?.requestedRole === "parent";
+  /*
+   * An account that already carries a role was seeded or assigned by an admin,
+   * not created through a request form — so `hasOpenRequest` is legitimately
+   * false for it. Offering that account "fill in the request form" is wrong
+   * (and it is what a freshly seeded super admin was being shown). It needs
+   * activation, not an application.
+   */
+  const assignedRole = Boolean(user?.role);
+  const needsRequest = !assignedRole && !status?.hasOpenRequest;
   const steps = isParentRequest
     ? [
         "Account created",
@@ -56,7 +68,7 @@ export default function PendingPage() {
 
   // Nothing until a pending account is loaded; the effect redirects anyone
   // else, and showing the tracker first would be wrong for them.
-  if (!user || user.status !== "pending") return <PanelLoading />;
+  if (!user || user.status !== "pending" || user.role) return <PanelLoading />;
 
   return (
     <PanelShell
@@ -67,7 +79,7 @@ export default function PendingPage() {
         <HourglassIllustration size={120} className="shrink-0" />
         <div className="mt-3 sm:mt-0 sm:ml-6">
           <p className="fastly-eyebrow text-cobalt">Request received</p>
-          <h1 className="fastly-display mt-2 text-[26px] text-ink sm:text-[30px]">
+          <h1 className="fastly-display mt-2 text-[26px] text-foreground sm:text-[30px]">
             Your account is pending
           </h1>
           <p className="mt-2 max-w-[46ch] text-sm leading-relaxed text-muted-foreground">
@@ -99,8 +111,8 @@ export default function PendingPage() {
                   <p
                     className={
                       done || current
-                        ? "text-sm font-semibold text-ink"
-                        : "text-sm font-medium text-ink-faint"
+                        ? "text-sm font-semibold text-foreground"
+                        : "text-sm font-medium text-muted-foreground"
                     }
                   >
                     {step}
@@ -109,11 +121,13 @@ export default function PendingPage() {
                     {index === 0
                       ? "Signed in with Clerk."
                       : index === 1
-                        ? status?.hasOpenRequest
-                          ? "Submitted. Nothing else to do here."
-                          : isParentRequest
-                            ? "Send it from the parent page."
-                            : "Submit the access request first."
+                        ? assignedRole
+                          ? `Your ${user.role?.replace("_", " ")} role is assigned. Waiting for activation.`
+                          : status?.hasOpenRequest
+                            ? "Submitted. Nothing else to do here."
+                            : isParentRequest
+                              ? "Send it from the parent page."
+                              : "Submit the access request first."
                         : isParentRequest
                           ? "After approval, enter the code your child gave you."
                           : "You will be sent to your panel."}
@@ -124,7 +138,7 @@ export default function PendingPage() {
           })}
         </ol>
 
-        {!status?.hasOpenRequest ? (
+        {needsRequest ? (
           <div className="mt-6 space-y-3">
             <Notice tone="info">
               You have not sent an access request yet.
@@ -137,6 +151,13 @@ export default function PendingPage() {
                 <Link href="/sign-up/parent">I am a parent</Link>
               </Button>
             </div>
+          </div>
+        ) : assignedRole && !isParentRequest ? (
+          <div className="mt-6">
+            <Notice tone="info">
+              An administrator has to activate this account. Nothing else is
+              needed from you; this page updates on its own.
+            </Notice>
           </div>
         ) : null}
 

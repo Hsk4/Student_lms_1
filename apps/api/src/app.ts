@@ -32,7 +32,7 @@ import { panelRoutes } from "@/routes/panels";
  *   loads `out/` from `https://localhost`, and iOS from `capacitor://localhost`.
  *   No wildcard is ever used.
  */
-function corsOrigins(): string[] {
+function corsOrigins(): { origins: string[]; patterns: RegExp[] } {
   const configured = (process.env.WEB_ORIGIN ?? "")
     .split(",")
     .map((origin) => {
@@ -59,9 +59,43 @@ function corsOrigins(): string[] {
       ? []
       : ["http://localhost:3000", "http://localhost:5173", "http://localhost:3100"];
 
+  /* The Android webview loads the export from `https://localhost`; iOS uses
+   * `capacitor://localhost`. Both are always allowed, never a wildcard. */
   const webview = ["capacitor://localhost", "https://localhost"];
 
-  return [...new Set([...configured, ...dev, ...webview])];
+  /*
+   * Vercel preview deployments get a fresh per-deploy hostname
+   * (`<project>-<hash>-<team-slug>.vercel.app`), so an exact-match allowlist
+   * would need editing after every push. `PREVIEW_ORIGIN_PATTERNS` takes
+   * comma-separated matchers instead — `*` matches one or more characters
+   * within a host label, e.g.
+   *
+   *   PREVIEW_ORIGIN_PATTERNS=https://studentlms-*-hammads-projects-095fbd61.vercel.app
+   *
+   * A pattern is only ever matched against a literal origin the browser
+   * sent; allowing `studentlms-*` on your own project's preview hosts is far
+   * narrower than a wildcard, and the host suffix in the pattern is the part
+   * that matters — another team cannot deploy under it.
+   */
+  const patterns = (process.env.PREVIEW_ORIGIN_PATTERNS ?? "")
+    .split(",")
+    .map((pattern) => pattern.trim())
+    .filter(Boolean)
+    .map((pattern) => {
+      /*
+       * Split on `*` first, escape each literal run, then join the runs with
+       * `.+`. Doing it in that order avoids needing a placeholder character —
+       * and the escape table correctly turns `.` in `vercel.app` into `\.`,
+       * which is the whole point of not using the raw string.
+       */
+      const body = pattern
+        .split("*")
+        .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        .join(".+");
+      return new RegExp(`^${body}$`, "i");
+    });
+
+  return { origins: [...new Set([...configured, ...dev, ...webview])], patterns };
 }
 
 export function createApp(
@@ -84,7 +118,21 @@ export function createApp(
   app.use(helmet());
   app.use(
     cors({
-      origin: corsOrigins(),
+      /*
+       * A callback, not an array: the exact allowlist answers from a Set, and
+       * preview deployments are matched by pattern. Returning `false` (not
+       * throwing) makes `cors` omit `Access-Control-Allow-Origin` entirely, so
+       * an unlisted origin is refused by the browser rather than allowed.
+       */
+      origin: (origin, callback) => {
+        const { origins, patterns } = corsOrigins();
+        // No `Origin` header: a same-origin or non-browser caller (curl, the
+        // Android webview's native fetch). CORS does not apply; allow it.
+        if (!origin) return callback(null, true);
+        const allowed =
+          origins.includes(origin) || patterns.some((re) => re.test(origin));
+        callback(null, allowed);
+      },
       allowedHeaders: ["Authorization", "Content-Type"],
       methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
       // Auth is a bearer token, never a cookie: credentials stay off so the

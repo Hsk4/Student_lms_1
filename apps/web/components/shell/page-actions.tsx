@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/popover";
 import {
   prefersDark,
+  DEFAULT_THEME,
   THEME_OPTIONS,
   THEME_STORAGE_KEY,
   type ThemeChoice,
@@ -59,7 +60,7 @@ function applyTheme(next: ThemeChoice) {
 
 function useThemeChoice() {
   const [theme, setThemeState] = React.useState<ThemeChoice>(
-    () => readStoredTheme() ?? "system",
+    () => readStoredTheme() ?? DEFAULT_THEME,
   );
   const mounted = useIsClient();
 
@@ -92,6 +93,37 @@ function ThemeIcon({ theme }: { theme: ThemeChoice }) {
     <Moon className="h-5 w-5" />
   ) : (
     <Sun className="h-5 w-5" />
+  );
+}
+
+/**
+ * The plain light/dark toggle, for headers that have no room for a menu
+ * (gate pages, the navy topbar). One tap flips the palette; the choice is
+ * stored under the same key the boot script reads, so it survives a reload
+ * and applies before first paint.
+ *
+ * `tone="onNavy"` draws it white for the navy bands.
+ */
+export function ThemeToggle({ tone = "default" }: { tone?: "default" | "onNavy" }) {
+  const { theme, setTheme, mounted } = useThemeChoice();
+  // Before hydration the OS-resolved value is unknowable on the server; the
+  // boot script has already painted the right palette, so show the sun.
+  const isDark = mounted && prefersDark(theme);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+      aria-pressed={isDark}
+      className={
+        tone === "onNavy"
+          ? "inline-flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-on-navy-line text-white transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+          : "inline-flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-line text-ink transition-colors hover:bg-tint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+      }
+    >
+      {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+    </button>
   );
 }
 

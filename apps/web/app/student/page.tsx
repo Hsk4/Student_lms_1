@@ -122,13 +122,13 @@ export default function StudentDashboardPage() {
                   <GraduationCap size={20} strokeWidth={1.7} />
                 </ArchTile>
                 <div className="min-w-0">
-                  <p className="fastly-display truncate text-[17px] text-ink">
+                  <p className="fastly-display truncate text-[17px] text-foreground">
                     {teacher.name}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {teacher.courseLabel}
                   </p>
-                  <p className="text-xs text-ink-faint">
+                  <p className="text-xs text-muted-foreground">
                     {teacher.className ?? "One-on-one"}
                   </p>
                 </div>
