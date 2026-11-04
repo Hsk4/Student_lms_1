@@ -74,6 +74,7 @@ export function useAuth() {
 
 export function UserButton() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const user = readStoredUser();
   const initials = (user?.name ?? "User")
     .split(" ")
@@ -88,6 +89,8 @@ export function UserButton() {
       type="button"
       onClick={async () => {
         clearDemoSession();
+        // Cached queries are keyed without the user id; drop them all.
+        queryClient.clear();
         router.push("/sign-in");
       }}
       className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"

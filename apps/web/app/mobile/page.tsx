@@ -43,24 +43,13 @@ const SPLASH_BACKGROUND = {
   backgroundSize: "72px 72px",
 };
 
-function PhoneLabel({ n, name }: { n: string; name: string }) {
-  return (
-    <div className="mb-4 flex items-baseline gap-2.5">
-      <span className="fastly-display text-[13px] tabular-nums text-[#1e4db7]">
-        {n}
-      </span>
-      <span className="text-[13px] font-semibold text-[#0a2540]">{name}</span>
-      <span className="ml-auto text-[12px] text-ink-faint">390 × 844</span>
-    </div>
-  );
-}
+
 
 /* ------------------------------------------------------------- 1. splash */
 
 function SplashScreen() {
   return (
     <article>
-      <PhoneLabel n="01" name="Splash" />
       <section
         aria-label="Splash screen"
         style={SPLASH_BACKGROUND}
@@ -133,17 +122,16 @@ const WHO = [
 function WelcomeScreen() {
   return (
     <article>
-      <PhoneLabel n="02" name="Welcome" />
       <section
         aria-label="Welcome screen"
         className={`${PHONE} flex flex-col overflow-hidden bg-white`}
       >
         {/* Top 45%: navy, with the arch. */}
-        <div className="relative flex h-95[380px] shrink-0 items-center justify-center bg-[#0a2540]">
+        <div className="relative flex h-95 shrink-0 items-center justify-center bg-[#0a2540]">
           <div className="fastly-jaali absolute inset-0" aria-hidden="true" />
           <div className="relative flex items-center gap-4 px-6">
             <BrandMark size={64} tone="light" />
-            <ArchIllustration className="h-95[228px] w-58[232px]" />
+            <ArchIllustration className="h-95 w-58" />
           </div>
         </div>
 
@@ -163,7 +151,7 @@ function WelcomeScreen() {
                 <button
                   type="button"
                   tabIndex={-1}
-                  className="flex min-h-16[64px] w-full items-center gap-3.5 rounded-xl border-[1.5px] border-line px-3.5 py-2.5 text-left"
+                  className="flex min-h-16 w-full items-center gap-3.5 rounded-xl border-[1.5px] border-line px-3.5 py-2.5 text-left"
                 >
                   <ArchTile size={44} tone={row.tone}>
                     <row.icon size={20} strokeWidth={1.7} />
@@ -236,7 +224,6 @@ const TABS = [
 function StudentHomeScreen() {
   return (
     <article>
-      <PhoneLabel n="03" name="Student home" />
       <section
         aria-label="Student home screen"
         className={`${PHONE} flex flex-col overflow-hidden bg-white`}
@@ -314,7 +301,7 @@ function StudentHomeScreen() {
             {DUE.map((item) => (
               <li
                 key={item.title}
-                className="flex min-h-15[60px] items-center justify-between gap-3 border-b-[1.5px] border-line px-3.5 py-2.5 last:border-b-0"
+                className="flex min-h-15 items-center justify-between gap-3 border-b-[1.5px] border-line px-3.5 py-2.5 last:border-b-0"
               >
                 <div className="min-w-0">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#1e4db7]">
@@ -447,7 +434,6 @@ const TRACK = [
 function WaitingScreen() {
   return (
     <article>
-      <PhoneLabel n="04" name="Waiting for approval" />
       <section
         aria-label="Waiting for approval screen"
         className={`${PHONE} relative overflow-hidden bg-white`}
@@ -559,17 +545,93 @@ function WaitingScreen() {
 
 /* ------------------------------------------------------------- assembly */
 
+/** 390 x 844 drawn at 1:1, then shrunk. The wrapper reserves the scaled size so layout does not jump. */
+const SCALE = 0.62;
+
+function ScaledPhone({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="relative mx-auto shrink-0"
+      style={{ width: 390 * SCALE, height: 844 * SCALE }}
+    >
+      <div
+        style={{
+          width: 390,
+          height: 844,
+          transform: `scale(${SCALE})`,
+          transformOrigin: "top left",
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const SCREENS = [
+  {
+    n: "01",
+    name: "Splash",
+    screen: <SplashScreen />,
+    summary:
+      "The first frame is calm and branded: the arch mark on navy, the jaali lattice behind it, and the promise in one line.",
+    points: [
+      "Three-dot loader sits clear of the bottom safe area",
+      "No fake status bar; the device draws its own",
+      "Brand mark, wordmark and tagline only; nothing to tap",
+    ],
+  },
+  {
+    n: "02",
+    name: "Welcome",
+    screen: <WelcomeScreen />,
+    summary:
+      "Three doors: student, parent and teacher. Choosing one starts a request; the school office confirms it before anything opens.",
+    points: [
+      "Student: homework, courses and results",
+      "Parent: link to your child with a code",
+      "Teacher: classes, attendance and marks",
+      "Returning users skip ahead with \u201cI already have an account\u201d",
+    ],
+  },
+  {
+    n: "03",
+    name: "Student home",
+    screen: <StudentHomeScreen />,
+    summary:
+      "What a student opens at 8 a.m.: the next class, what is due, and the month's fee status, in the order they matter.",
+    points: [
+      "Next class card overlaps the header for quick glance",
+      "Due soon list with Due / New / Open chips",
+      "Fees voucher with paid status",
+      "Bottom tabs: Home, Courses, Work, Fees, More",
+    ],
+  },
+  {
+    n: "04",
+    name: "Waiting for approval",
+    screen: <WaitingScreen />,
+    summary:
+      "After a request is sent, the account waits for the school office. The screen says where things stand instead of leaving a blank wait.",
+    points: [
+      "Timeline: request sent, office reviewing, account ready",
+      "\u201cCheck again\u201d refreshes the status on demand",
+      "Opens the right home automatically once approved",
+    ],
+  },
+];
+
 export default function MobileScreensPage() {
   return (
     <div className="min-h-screen bg-[#eaf1ff] font-sans">
-      <header className="bg-[#0a2540] text-white">
+      <header className="relative bg-[#0a2540] text-white">
         <div className="fastly-jaali absolute inset-0" aria-hidden="true" />
         <div className="relative mx-auto flex w-full max-w-300 flex-wrap items-center justify-between gap-4 px-6 py-5">
           <Link href="/" className="flex items-center gap-2.5">
             <BrandMark size={30} tone="light" />
             <span className="fastly-display text-[20px]">fastly</span>
           </Link>
-          <p className="text-[13px] text-on-navy-soft">App screens · 390 × 844</p>
+          <p className="text-[13px] text-on-navy-soft">App screens</p>
           <Link
             href="/"
             className="fastly-outline min-h-11 border-[1.5px] border-on-navy-line px-4 text-[13px] text-white hover:border-white/60 hover:bg-white/6"
@@ -579,22 +641,57 @@ export default function MobileScreensPage() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-300 px-6 py-12">
+      <main className="mx-auto w-full max-w-300 px-6 py-12 lg:py-16">
         <h1 className="fastly-display max-w-[24ch] text-[32px] text-[#0a2540] sm:text-[40px]">
           Four screens, one calm school day.
         </h1>
         <p className="mt-3 max-w-[60ch] text-[15px] leading-relaxed text-ink-soft">
-          Splash, role choice, the student&rsquo;s morning, and the wait for the
-          office. Thumb-reachable actions, 48 px minimum touch height, no
-          decorative status bar, safe-area padding at the bottom.
+          Thumb-reachable actions, 48 px minimum touch height, safe-area
+          padding at the bottom. Each screen is shown at 62% of its real
+          390 &times; 844 size.
         </p>
 
-        <div className="mt-10 flex flex-wrap gap-x-8 gap-y-12">
-          <SplashScreen />
-          <WelcomeScreen />
-          <StudentHomeScreen />
-          <WaitingScreen />
-        </div>
+        <ol className="mt-12 space-y-14 lg:mt-16 lg:space-y-20">
+          {SCREENS.map((s) => (
+            <li
+              key={s.n}
+              className="grid items-center gap-8 md:grid-cols-[auto_minmax(0,1fr)] md:gap-14"
+            >
+              <ScaledPhone>{s.screen}</ScaledPhone>
+
+              <div className="max-w-[52ch]">
+                <p className="flex items-baseline gap-2.5">
+                  <span className="fastly-display text-[15px] tabular-nums text-[#1e4db7]">
+                    {s.n}
+                  </span>
+                  <span className="text-[12px] font-semibold uppercase tracking-widest text-ink-soft">
+                    {s.name}
+                  </span>
+                </p>
+                <h2 className="fastly-display mt-2 text-[26px] leading-tight text-[#0a2540] sm:text-[32px]">
+                  {s.name}
+                </h2>
+                <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
+                  {s.summary}
+                </p>
+                <ul className="mt-5 space-y-2.5">
+                  {s.points.map((p) => (
+                    <li
+                      key={p}
+                      className="flex gap-3 text-[14px] leading-relaxed text-[#0a2540]"
+                    >
+                      <span
+                        className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#f4b942]"
+                        aria-hidden="true"
+                      />
+                      {p}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </li>
+          ))}
+        </ol>
       </main>
     </div>
   );
