@@ -14,10 +14,15 @@ export default function ParentLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, allowed, denied, isLoading } = usePanelGuard(["parent"]);
+  const { user, allowed, denied, isLoading, error } = usePanelGuard(["parent"]);
 
   return (
-    <Guarded allowed={allowed} denied={denied} isLoading={isLoading}>
+    <Guarded
+      allowed={allowed}
+      denied={denied}
+      isLoading={isLoading}
+      error={error}
+    >
       <PanelShell
         panel="parent"
         groups={PARENT_NAV_GROUPS}

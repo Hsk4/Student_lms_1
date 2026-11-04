@@ -3,25 +3,35 @@
 import { useState } from "react";
 import { ActionButton } from "@/components/ui/action-form";
 import { api } from "@/lib/api-client";
-import { useApiMutation } from "@/lib/queries";
+import { useAction } from "@/lib/use-async";
 
 const ROLES = ["student", "teacher", "parent", "admin"] as const;
 
 export function RequestActions({
   requestId,
   defaultRole = "student",
+  onDecided,
 }: {
   requestId: string;
   defaultRole?: string;
+  /** The list reloads itself; this is the screen saying "my data changed". */
+  onDecided: () => void;
 }) {
   const [role, setRole] = useState<string>(defaultRole);
   const [reason, setReason] = useState("");
 
-  const refresh = [["admin-requests"], ["me"]];
-  const decide = useApiMutation<
-    null,
-    { decision: "approve" | "reject"; role?: string; reason?: string }
-  >("post", () => `/admin/requests/${requestId}/decision`, refresh);
+  const decide = useAction(onDecided);
+
+  const submit = (
+    decision: "approve" | "reject",
+    body: { role?: string; reason?: string },
+  ) =>
+    decide.run(() =>
+      api.post<null>(`/admin/requests/${requestId}/decision`, {
+        decision,
+        ...body,
+      }),
+    );
 
   return (
     <div className="flex flex-wrap items-end gap-3 border-t border-border pt-4">
@@ -44,7 +54,7 @@ export function RequestActions({
       </div>
 
       <ActionButton
-        action={() => decide.mutateAsync({ decision: "approve", role })}
+        action={() => submit("approve", { role })}
         tone="secondary"
       >
         Approve
@@ -63,7 +73,7 @@ export function RequestActions({
       </div>
 
       <ActionButton
-        action={() => decide.mutateAsync({ decision: "reject", reason })}
+        action={() => submit("reject", { reason })}
         confirm="Reject this request? The user cannot re-apply for 30 days."
         tone="danger"
       >

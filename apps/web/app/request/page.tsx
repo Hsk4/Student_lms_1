@@ -8,14 +8,14 @@ import { PageHeader } from "@/components/ui/nila";
 import { PanelShell } from "@/components/shell/shell";
 import { ArchNumber } from "@/components/brand/primitives";
 import { api } from "@/lib/api-client";
-import { useMe } from "@/lib/queries";
+import { useAuth } from "@/lib/auth-context";
 import { RequestForm } from "./request-form";
 import { InlineLoading } from "@/components/shared/skeleton";
 
 function Body() {
-  const me = useMe();
+  const me = useAuth();
   const router = useRouter();
-  const user = me.data;
+  const user = me.user;
 
   const optionsQuery = useQuery({
     queryKey: ["form-options"],
@@ -28,8 +28,8 @@ function Body() {
 
   // `isFetched && !user` is the 401 case (signed out or suspended).
   useEffect(() => {
-    if (me.isFetched && !user) router.replace("/sign-in");
-  }, [me.isFetched, user, router]);
+    if (me.settled && !user) router.replace("/sign-in");
+  }, [me.settled, user, router]);
 
   useEffect(() => {
     if (user && user.status === "active") router.replace(user.home);

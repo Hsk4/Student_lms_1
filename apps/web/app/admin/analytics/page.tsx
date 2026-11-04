@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { StatStrip } from "@/components/shared/stat-strip";
 import { PageHeader, Card } from "@/components/ui/nila";
 import { api } from "@/lib/api-client";
-import { useMe } from "@/lib/queries";
+import { useAuth } from "@/lib/auth-context";
 
 type Analytics = {
   users: number;
@@ -17,15 +17,15 @@ type Analytics = {
 };
 
 export default function AdminAnalyticsPage() {
-  const me = useMe();
+  const me = useAuth();
   const router = useRouter();
 
   // The super-admin-only screens are UX-gated here; the API enforces it.
   useEffect(() => {
-    if (me.data && me.data.role !== "super_admin" && me.data.role !== "admin") {
-      router.replace(me.data.home);
+    if (me.user && me.user.role !== "super_admin" && me.user.role !== "admin") {
+      router.replace(me.user.home);
     }
-  }, [me.data, router]);
+  }, [me.user, router]);
 
   const analyticsQuery = useQuery({
     queryKey: ["admin-analytics"],

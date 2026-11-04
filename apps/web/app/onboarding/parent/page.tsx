@@ -4,22 +4,22 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PanelShell } from "@/components/shell/shell";
 import { PageHeader, Card } from "@/components/ui/nila";
-import { useMe } from "@/lib/queries";
+import { useAuth } from "@/lib/auth-context";
 import { ArchNumber } from "@/components/brand/primitives";
 import { ParentOnboardingForm } from "./parent-form";
 
 export default function ParentOnboardingPage() {
-  const me = useMe();
+  const me = useAuth();
   const router = useRouter();
-  const user = me.data;
+  const user = me.user;
 
   useEffect(() => {
-    if (!me.isFetched) return;
+    if (!me.settled) return;
     if (!user) router.replace("/sign-in");
     else if (user.status !== "active" || user.role !== "student")
       router.replace(user.home);
     else if (user.onboarded) router.replace("/student");
-  }, [me.isFetched, user, router]);
+  }, [me.settled, user, router]);
 
   return (
     <PanelShell

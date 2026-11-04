@@ -1,15 +1,11 @@
 "use client";
 
-import {
-  useCallback,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "./auth-context";
+import { readStoredUser, type StoredUser } from "./session";
 
 /**
  * Local authentication: a bearer JWT in `localStorage`, the API as the only
@@ -18,19 +14,7 @@ import { Button } from "@/components/ui/button";
  * from `/me` after sign-in and on every panel load.
  */
 
-const STORAGE_KEY = "lms-auth-token";
-const STORAGE_USER_KEY = "lms-auth-user";
-/** Fired in this tab when the token is written or cleared. */
-const SESSION_CHANGED = "lms-auth-changed";
-
-export type StoredUser = {
-  id?: number | string;
-  name?: string;
-  email?: string;
-  role?: string | null;
-  status?: string;
-  onboarded?: boolean;
-} | null;
+export type { StoredUser } from "./session";
 
 export const DEV_API_URL = "http://localhost:4000/api/v1";
 
@@ -38,92 +22,11 @@ export function apiBaseUrl() {
   return process.env.NEXT_PUBLIC_API_URL || DEV_API_URL;
 }
 
-function readStoredToken() {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(STORAGE_KEY) ?? null;
-}
-
-export function readStoredUser(): StoredUser {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_USER_KEY);
-    return raw ? (JSON.parse(raw) as StoredUser) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredSession(token: string, user: StoredUser) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, token);
-  if (user) {
-    window.localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
-  } else {
-    window.localStorage.removeItem(STORAGE_USER_KEY);
-  }
-  window.dispatchEvent(new Event(SESSION_CHANGED));
-}
-
-/** Drop the token and the cached profile. Safe to call when signed out. */
-export function clearLocalSession() {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(STORAGE_KEY);
-  window.localStorage.removeItem(STORAGE_USER_KEY);
-  // Notify `useSyncExternalStore` subscribers in this tab; `storage` only
-  // fires for other tabs.
-  window.dispatchEvent(new Event(SESSION_CHANGED));
-}
-
-/** Re-render the auth hooks when the token is set or cleared. */
-function subscribeToStorage(onChange: () => void) {
-  window.addEventListener(SESSION_CHANGED, onChange);
-  window.addEventListener("storage", onChange);
-  return () => {
-    window.removeEventListener(SESSION_CHANGED, onChange);
-    window.removeEventListener("storage", onChange);
-  };
-}
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  return <>{children}</>;
-}
-
-export function useAuth() {
-  /*
-   * The token lives in `localStorage`, which does not exist during the static
-   * export's prerender. Reading it during render makes the first client paint
-   * say "signed out", and a panel guard then redirects a signed-in user to
-   * /sign-in on every hard load or refresh. `useSyncExternalStore` reports the
-   * server snapshot (`false`) first and switches to the real value on the
-   * client, so the guard never sees a wrong answer.
-   */
-  const token = useSyncExternalStore(
-    subscribeToStorage,
-    readStoredToken,
-    () => null,
-  );
-  const isLoaded = typeof window !== "undefined";
-  const signedIn = isLoaded && Boolean(token);
-
-  // Read storage at call time so an API request made immediately after
-  // sign-in never depends on a stale React closure from the signed-out render.
-  const getToken = useCallback(async () => readStoredToken(), []);
-
-  const signOut = useCallback(async () => {
-    clearLocalSession();
-  }, []);
-
-  return {
-    isLoaded,
-    isSignedIn: signedIn,
-    getToken,
-    signOut,
-  };
-}
+/** @deprecated Import from `@/lib/auth-context`. */
+export { AuthProvider, useAuth } from "./auth-context";
 
 export function UserButton() {
-  const router = useRouter();
-  const queryClient = useQueryClient();
+  const { signOut } = useAuth();
   const user = readStoredUser();
   const initials =
     (user?.name ?? "User")
@@ -138,11 +41,9 @@ export function UserButton() {
     <button
       type="button"
       onClick={() => {
-        clearLocalSession();
-        // Cached queries are keyed without the user id; drop them all so the
-        // next account never sees this one's data.
-        queryClient.clear();
-        router.replace("/sign-in");
+        // The provider clears the session and navigates. Pages reload their own
+        // data on mount, so nothing from this account can leak to the next.
+        signOut();
       }}
       className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
       aria-label="Sign out"
@@ -155,37 +56,13 @@ export function UserButton() {
   );
 }
 
-type MeData = { home?: string; [key: string]: unknown };
-
 type AuthPayload = {
   ok?: boolean;
   error?: string;
   data?: { token?: string; user?: StoredUser; home?: string };
 };
 
-/**
- * Ask the API where the account belongs. The returned `home` is computed
- * server-side from role/status, so the browser never decides access.
- */
-export async function fetchHome(token: string): Promise<MeData> {
-  const response = await fetch(`${apiBaseUrl()}/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  let payload: { ok?: boolean; error?: string; data?: MeData } | null = null;
-  try {
-    payload = (await response.json()) as {
-      ok?: boolean;
-      error?: string;
-      data?: MeData;
-    };
-  } catch {
-    payload = null;
-  }
-  if (!response.ok || !payload?.ok || !payload.data) {
-    throw new Error(payload?.error ?? "Your account could not be loaded");
-  }
-  return payload.data;
-}
+
 
 function AuthForm({
   title,
@@ -212,7 +89,7 @@ function AuthForm({
   footer: ReactNode;
 }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const { completeSignIn } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   // Controlled fields: a failed submission must not wipe what was typed.
@@ -252,16 +129,13 @@ function AuthForm({
         );
       }
 
-      writeStoredSession(payload.data.token, payload.data.user ?? null);
-      const me = await fetchHome(payload.data.token);
-      // The root shell may already have cached an unauthenticated /me response.
-      // Replace it before navigating so the redirect is immediate and correct.
-      queryClient.setQueryData(["me"], me);
+      // Stores the token, then loads `/me` (which decides the destination).
+      const me = await completeSignIn(
+        payload.data.token,
+        payload.data.user ?? null,
+      );
       router.replace(me.home || "/pending");
     } catch (caught) {
-      // Keep the token only if the follow-up /me call was what failed; the
-      // next load rehydrates from it.
-      if (!readStoredToken()) clearLocalSession();
       setError(
         caught instanceof Error
           ? caught.message

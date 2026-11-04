@@ -1,39 +1,29 @@
-﻿"use client";
+"use client";
 
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import type { MeResponse, UserRole } from "@lms/shared";
-import { useAuth } from "@/lib/auth";
+import type { UserRole } from "@lms/shared";
+import { useAuth } from "./auth-context";
 import { PanelSkeleton } from "@/components/shared/skeleton";
-import { ApiError } from "./api-client";
-import { useMe } from "./queries";
 
 /**
- * Client panel guard. UX only: it mirrors the old `checkAccess` /
- * `requirePanelUser` redirects, but the API is the real gate.
+ * Client panel guard. UX only: it mirrors the API's rules so a wrong-area visit
+ * is redirected without a flash of content, but the API is the real gate.
  *
  * - not signed in -> /sign-in
- * - not active, wrong role, or a student who has not onboarded -> the account's
- *   home page from the API (`homeFor`)
- * - suspended -> /?error=account_suspended (that is what `home` says)
+ * - wrong role, or a student who has not onboarded -> the account's home
+ *   page from the API (`/me` returns `home`)
+ *
+ * The account is read from the auth provider, not fetched here: one `/me` per
+ * page load, no matter how many components guard themselves.
  */
 export function usePanelGuard(roles: UserRole[]) {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { ready, signedIn, user, loading, error } = useAuth();
   const router = useRouter();
-  const me = useMe();
-
-  // The API answers 403 (with the home page in the message) for an account that
-  // is pending, rejected or not onboarded; `/me` itself is open to those.
-  const notReady = me.error instanceof ApiError && me.error.status === 403;
-  // The local session can be present before the first `/me` load settles. A 401
-  // here means we still need to wait for the API to accept the stored token.
-  const sessionSettling =
-    isSignedIn && me.error instanceof ApiError && me.error.status === 401;
 
   let redirectTo: string | null = null;
-  if (isLoaded && !isSignedIn) redirectTo = "/sign-in";
-  else if (me.data) {
-    const user = me.data;
+  if (ready && !signedIn) redirectTo = "/sign-in";
+  else if (user) {
     /*
      * A role is the approval. `pending` only holds an account back when it has
      * no role yet; a seeded or admin-assigned account (the first super admin)
@@ -50,10 +40,12 @@ export function usePanelGuard(roles: UserRole[]) {
     if (redirectTo) router.replace(redirectTo);
   }, [redirectTo, router]);
 
-  const allowed = !redirectTo && !notReady && me.data !== undefined;
   const denied = redirectTo !== null;
-  const loading = !isLoaded || me.isLoading || Boolean(sessionSettling && !me.data);
-  return { user: me.data, allowed, denied, isLoading: loading };
+  // Nothing to render until we know whether this account may be here.
+  const isLoading = !ready || (signedIn && !user && !error) || loading;
+  const allowed = !denied && Boolean(user);
+
+  return { user, allowed, denied, isLoading, error };
 }
 
 export function PanelLoading() {
@@ -65,29 +57,38 @@ export function PanelLoading() {
  *
  * `denied` means a redirect is on its way (still signed in, wrong area or
  * status), so the spinner is honest. Without it the API refused the account
- * while the redirect does not apply (e.g. a pending user opening a panel):
- * saying so beats a permanent "Loading...".
+ * while the redirect does not apply: saying so beats a permanent "Loading...".
  */
 export function Guarded({
   allowed,
   denied = false,
   isLoading,
+  error,
   children,
 }: {
   allowed: boolean;
   denied?: boolean;
   isLoading: boolean;
+  /** A failed `/me` load, as opposed to a policy refusal. */
+  error?: string | null;
   children: ReactNode;
 }) {
   if (isLoading || denied) return <PanelLoading />;
   if (!allowed) {
     return (
       <div className="mx-auto max-w-md p-10 text-center">
-        <p className="text-sm font-medium text-foreground">This area is not available yet.</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your account may be waiting for approval.
+        <p className="text-sm font-medium text-foreground">
+          {error
+            ? "We could not load your account."
+            : "This area is not available yet."}
         </p>
-        <a href="/pending" className="mt-4 inline-block text-sm font-medium text-primary hover:underline">
+        <p className="mt-1 text-sm text-muted-foreground">
+          {error ?? "Your account may be waiting for approval."}
+        </p>
+        <a
+          href="/pending"
+          className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
+        >
           Check your status
         </a>
       </div>
@@ -96,18 +97,18 @@ export function Guarded({
   return <>{children}</>;
 }
 
-/** The page-level check for an unauthenticated form: sign in first. */
+/** For a page that only needs a signed-in visitor: sign in first. */
 export function useSignedInOnly() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { ready, signedIn, user, loading, error } = useAuth();
   const router = useRouter();
-  const me = useMe();
 
   useEffect(() => {
-    if (isLoaded && !isSignedIn) router.replace("/sign-in");
-  }, [isLoaded, isSignedIn, router]);
+    if (ready && !signedIn) router.replace("/sign-in");
+  }, [ready, signedIn, router]);
 
   return {
-    user: me.data as MeResponse | undefined,
-    isLoading: !isLoaded || me.isLoading,
+    user,
+    error,
+    isLoading: !ready || loading || (signedIn && !user && !error),
   };
 }

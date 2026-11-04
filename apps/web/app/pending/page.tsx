@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import type { RequestStatusResponse } from "@lms/shared";
 import {
   Card,
@@ -15,28 +14,27 @@ import { Button } from "@/components/ui/button";
 import { PanelShell } from "@/components/shell/shell";
 import { PanelLoading } from "@/lib/guards";
 import { api } from "@/lib/api-client";
-import { useMe } from "@/lib/queries";
+import { useAuth } from "@/lib/auth-context";
+import { usePolling } from "@/lib/queries";
 
 const STEPS = ["Account created", "Request under review", "Access granted"];
 
 export default function PendingPage() {
-  const me = useMe();
+  const { user, signedIn, loading: meLoading } = useAuth();
   const router = useRouter();
-  const user = me.data;
 
-  // Called on mount and every 5 seconds: the page moves on by itself once an
-  // admin decides. The API is what decides; this is a redirect.
-  const statusQuery = useQuery({
-    queryKey: ["me", "request"],
-    queryFn: () => api.get<RequestStatusResponse>("/me/request"),
-    enabled: Boolean(user),
-    refetchInterval: 5000,
-  });
+  // Polls every 5 seconds while this page is open: it moves on by itself once
+  // an admin decides. The API is what decides; this is a redirect.
+  const statusQuery = usePolling<RequestStatusResponse>(
+    () => api.get<RequestStatusResponse>("/me/request"),
+    [],
+    signedIn && Boolean(user),
+  );
   const status = statusQuery.data;
 
-  // `isLoading === false` with no data is a 401 (signed out or suspended):
-  // waiting on `isLoading` alone leaves a signed-out visitor on the spinner.
-  const signedOut = me.isFetched && !user;
+  // The provider has settled with no session (or it was rejected): waiting on
+  // the loading flag alone would leave a signed-out visitor on the spinner.
+  const signedOut = !meLoading && !signedIn;
   useEffect(() => {
     if (signedOut) router.replace("/sign-in");
   }, [signedOut, router]);

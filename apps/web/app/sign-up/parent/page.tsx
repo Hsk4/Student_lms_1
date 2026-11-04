@@ -7,7 +7,7 @@ import { Card, Notice, PageHeader } from "@/components/ui/nila";
 import { ArchNumber } from "@/components/brand/primitives";
 import { Button } from "@/components/ui/button";
 import { PanelShell } from "@/components/shell/shell";
-import { useMe } from "@/lib/queries";
+import { useAuth } from "@/lib/auth-context";
 import { RequestParentRoleButton } from "./parent-actions";
 
 const STEPS = [
@@ -26,18 +26,18 @@ const STEPS = [
 ];
 
 export default function ParentSignUpPage() {
-  const me = useMe();
+  const me = useAuth();
   const router = useRouter();
-  const user = me.data;
+  const user = me.user;
 
   useEffect(() => {
-    if (me.isLoading || !user) return;
+    if (me.loading || !user) return;
     if (user.status === "active") {
       router.replace(user.role === "parent" ? "/parent/link" : user.home);
     } else if (user.status === "suspended") {
       router.replace("/?error=account_suspended");
     }
-  }, [me.isLoading, user, router]);
+  }, [me.loading, user, router]);
 
   // Signed out: this page is the guardian entry point and explains the flow.
   if (!user) {

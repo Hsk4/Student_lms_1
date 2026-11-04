@@ -8,8 +8,9 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import { useQueries } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
 import { api } from "@/lib/api-client";
+import { useAsync } from "@/lib/use-async";
 import { PageHeader, Card, RoleChip, formatDate } from "@/components/ui/nila";
 import { ArchNumber } from "@/components/brand/primitives";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -34,16 +35,17 @@ type RequestRow = {
 
 
 
-const load = (state: string) => () => api.get<RequestRow[]>("/admin/requests", { state });
+const load = (state: string) => () =>
+  api.get<RequestRow[]>("/admin/requests", { state });
 
 export default function AdminRequestsPage() {
-  const [openQuery, approvedQuery, rejectedQuery] = useQueries({
-    queries: [
-      { queryKey: ["admin-requests", "open"], queryFn: load("open") },
-      { queryKey: ["admin-requests", "approved"], queryFn: load("approved") },
-      { queryKey: ["admin-requests", "rejected"], queryFn: load("rejected") },
-    ],
-  });
+  // All three lists refresh together after a decision.
+  const [reloadTick, setReloadTick] = useState(0);
+  const onDecided = useCallback(() => setReloadTick((t) => t + 1), []);
+
+  const openQuery = useAsync(load("open"), [reloadTick]);
+  const approvedQuery = useAsync(load("approved"), [reloadTick]);
+  const rejectedQuery = useAsync(load("rejected"), [reloadTick]);
 
   const open = openQuery.data ?? [];
   const decided = [...(approvedQuery.data ?? []), ...(rejectedQuery.data ?? [])]
@@ -114,6 +116,7 @@ export default function AdminRequestsPage() {
                 <RequestActions
                   requestId={request.id}
                   defaultRole={request.requestedRole ?? "student"}
+                  onDecided={onDecided}
                 />
               </div>
             </Card>

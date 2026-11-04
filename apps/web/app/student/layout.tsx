@@ -14,10 +14,15 @@ export default function StudentLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, allowed, denied, isLoading } = usePanelGuard(["student"]);
+  const { user, allowed, denied, isLoading, error } = usePanelGuard(["student"]);
 
   return (
-    <Guarded allowed={allowed} denied={denied} isLoading={isLoading}>
+    <Guarded
+      allowed={allowed}
+      denied={denied}
+      isLoading={isLoading}
+      error={error}
+    >
       <PanelShell
         panel="student"
         groups={STUDENT_NAV_GROUPS}

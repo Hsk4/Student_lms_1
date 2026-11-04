@@ -3,21 +3,21 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/nila";
-import { useMe } from "@/lib/queries";
+import { useAuth } from "@/lib/auth-context";
 
 /** Super-admin only. The API rejects every admin-only call from an admin. */
 export default function AdminsPage() {
-  const me = useMe();
+  const me = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (
-      me.data &&
-      (me.data.role !== "super_admin" || me.data.status !== "active")
+      me.user &&
+      (me.user.role !== "super_admin" || me.user.status !== "active")
     ) {
-      router.replace(me.data.home);
+      router.replace(me.user.home);
     }
-  }, [me.data, router]);
+  }, [me.user, router]);
 
   return (
     <PageHeader

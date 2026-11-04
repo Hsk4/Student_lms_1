@@ -7,18 +7,18 @@ import { Card, Notice, formatDate } from "@/components/ui/nila";
 import { Button } from "@/components/ui/button";
 import { PanelShell } from "@/components/shell/shell";
 import { PanelLoading } from "@/lib/guards";
-import { useMe } from "@/lib/queries";
+import { useAuth } from "@/lib/auth-context";
 
 export default function RejectedPage() {
-  const me = useMe();
+  const me = useAuth();
   const router = useRouter();
-  const user = me.data;
+  const user = me.user;
 
   useEffect(() => {
-    if (!me.isFetched) return;
+    if (!me.settled) return;
     if (!user) router.replace("/sign-in");
     else if (user.status !== "rejected") router.replace(user.status === "active" ? "/" : "/pending");
-  }, [me.isFetched, user, router]);
+  }, [me.settled, user, router]);
 
   // Render nothing until a signed-in, rejected account is loaded: otherwise
   // the "declined" card (and a "no role" header) is shown to a visitor that

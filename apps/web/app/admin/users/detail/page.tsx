@@ -2,9 +2,9 @@
 
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
-import { useMe } from "@/lib/queries";
+import { useAuth } from "@/lib/auth-context";
+import { useAsync } from "@/lib/use-async";
 import { UserDetailView } from "./user-detail-view";
 import { InlineLoading } from "@/components/shared/skeleton";
 
@@ -16,9 +16,8 @@ function DetailById() {
   const params = useSearchParams();
   const id = params.get("id") ?? "";
 
-  const userQuery = useQuery({
-    queryKey: ["admin-user", id],
-    queryFn: () =>
+  const userQuery = useAsync(
+    () =>
       api.get<{
         id: string;
         clerkId: string;
@@ -31,15 +30,16 @@ function DetailById() {
         rejectedAt: string | null;
         rejectionReason: string | null;
       }>(`/admin/users/${id}`),
-    enabled: Boolean(id),
-  });
-  const me = useMe();
+    [id],
+    { enabled: Boolean(id) },
+  );
+  const { user: me } = useAuth();
 
   if (!id)
     return (
       <p className="p-6 text-sm text-muted-foreground">No user selected.</p>
     );
-  if (userQuery.isLoading)
+  if (userQuery.loading)
     return <InlineLoading />;
   if (userQuery.error) {
     return (
@@ -49,7 +49,7 @@ function DetailById() {
   if (!userQuery.data) return null;
 
   const user = userQuery.data;
-  const actorRole = me.data?.role ?? null;
+  const actorRole = me?.role ?? null;
   const canManage =
     actorRole === "super_admin"
       ? user.role !== "super_admin"

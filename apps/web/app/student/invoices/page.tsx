@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
-import { useMe } from "@/lib/queries";
+import { useAuth } from "@/lib/auth-context";
 import {
   Card,
   Chip,
@@ -21,13 +21,13 @@ type InvoiceRow = {
 };
 
 export default function StudentInvoicesPage() {
-  const me = useMe();
+  const me = useAuth();
   // Scoped to the caller: the API only answers for the student's own id.
   const invoicesQuery = useQuery({
-    queryKey: ["student", "invoices", me.data?.id],
+    queryKey: ["student", "invoices", me.user?.id],
     queryFn: () =>
-      api.get<InvoiceRow[]>("/invoices", { studentId: me.data?.id ?? "" }),
-    enabled: Boolean(me.data?.id),
+      api.get<InvoiceRow[]>("/invoices", { studentId: me.user?.id ?? "" }),
+    enabled: Boolean(me.user?.id),
   });
   const invoices = invoicesQuery.data ?? [];
 

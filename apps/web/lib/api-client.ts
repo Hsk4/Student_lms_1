@@ -1,6 +1,7 @@
 "use client";
 
 import type { ApiEnvelope } from "@lms/shared";
+import { readToken } from "./session";
 
 /**
  * The typed fetch wrapper for the API.
@@ -28,31 +29,30 @@ if (process.env.NODE_ENV === "production" && BASE_URL === DEV_API_URL) {
 }
 
 /**
- * Session invalidation hook. The providers register a callback so a 401 from
- * anywhere (expired JWT, revoked session version, suspended account) can clear
- * the stale token and send the user to sign-in exactly once, instead of leaving
+ * Session invalidation hook. The auth provider registers a callback so a 401
+ * from anywhere (expired JWT, revoked session version, suspended account) can
+ * clear the stale token and send the user to sign-in once — instead of leaving
  * every panel stuck on a generic error.
  *
- * The callback receives nothing and does no navigation itself: it reports how
- * many times times the session went stale, and a client component watching that
- * count calls `router.replace` (App Router navigation, not a full page load).
+ * The callback does no navigation itself; the provider clears the session and
+ * the guards redirect on the next render.
  */
-type SessionExpiredHandler = () => void;
+type UnauthorizedHandler = () => void;
 
-let onSessionExpired: SessionExpiredHandler | null = null;
+let onUnauthorized: UnauthorizedHandler | null = null;
 let notifying = false;
 
-export function setSessionExpiredHandler(handler: SessionExpiredHandler | null) {
-  onSessionExpired = handler;
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
+  onUnauthorized = handler;
 }
 
-export function notifySessionExpired() {
+export function notifyUnauthorized() {
   if (notifying) return;
   notifying = true;
   try {
-    onSessionExpired?.();
+    onUnauthorized?.();
   } finally {
-    // Released on the next tick so a burst of parallel 401s redirects once.
+    // Released on the next tick so a burst of parallel 401s signs out once.
     setTimeout(() => {
       notifying = false;
     }, 0);
@@ -69,14 +69,7 @@ export class ApiError extends Error {
   }
 }
 
-type GetToken = () => Promise<string | null>;
 
-let getTokenRef: GetToken = async () => null;
-
-/** Called once by the providers, with the local auth `getToken` hook. */
-export function setTokenGetter(getToken: GetToken) {
-  getTokenRef = getToken;
-}
 
 type RequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
@@ -100,7 +93,9 @@ export async function apiFetch<T>(
   path: string,
   { method = "GET", body, query }: RequestOptions = {},
 ): Promise<T> {
-  const token = await getTokenRef();
+  // Read at call time, so a request made right after sign-in never depends on
+  // a stale closure from the signed-out render.
+  const token = readToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -143,7 +138,7 @@ export async function apiFetch<T>(
       payload && payload.ok === false ? payload.error : "Something went wrong";
     // A 401 means the stored token is no longer usable. A 403 is a policy
     // answer (wrong role, pending) and must not sign the user out.
-    if (response.status === 401) notifySessionExpired();
+    if (response.status === 401) notifyUnauthorized();
     throw new ApiError(response.status, message);
   }
 

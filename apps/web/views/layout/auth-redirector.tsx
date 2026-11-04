@@ -1,23 +1,21 @@
-﻿"use client";
+"use client";
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth";
-import { useMe } from "@/lib/queries";
+import { useAuth } from "@/lib/auth-context";
 
 /**
- * Keep authenticated visitors out of public entry pages. Login itself primes
- * the /me query and navigates directly to the API-provided role home, so this
- * also handles app relaunches with an existing local session.
+ * Keep authenticated visitors out of public entry pages. Sign-in loads the
+ * profile and navigates to the API-provided role home, so this also handles
+ * app relaunches with an existing local session.
  */
 export function AuthRedirector() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { ready, signedIn, user } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const me = useMe();
 
   useEffect(() => {
-    if (!isLoaded || !isSignedIn || !me.data) return;
+    if (!ready || !signedIn || !user) return;
 
     const isPublicEntryPage =
       pathname === "/" ||
@@ -26,9 +24,9 @@ export function AuthRedirector() {
       pathname.startsWith("/sign-up");
 
     if (isPublicEntryPage) {
-      router.replace(me.data.home || "/pending");
+      router.replace(user.home || "/pending");
     }
-  }, [isLoaded, isSignedIn, me.data, pathname, router]);
+  }, [ready, signedIn, user, pathname, router]);
 
   return null;
 }

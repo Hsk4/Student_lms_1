@@ -17,7 +17,7 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, allowed, denied, isLoading } = usePanelGuard(["super_admin", "admin"]);
+  const { user, allowed, denied, isLoading, error } = usePanelGuard(["super_admin", "admin"]);
 
   const groups: NavGroup[] =
     user?.role === "super_admin"
@@ -28,7 +28,12 @@ export default function AdminLayout({
       : ADMIN_NAV_GROUPS;
 
   return (
-    <Guarded allowed={allowed} denied={denied} isLoading={isLoading}>
+    <Guarded
+      allowed={allowed}
+      denied={denied}
+      isLoading={isLoading}
+      error={error}
+    >
       <PanelShell
         panel="admin"
         groups={groups}
