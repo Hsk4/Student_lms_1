@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import { Check, Monitor, MonitorCog, Moon, Sun } from "lucide-react";
-import { UserButton } from "@/lib/auth-compat";
+import { UserButton } from "@/lib/auth";
 
 import { UserMenu } from "@/components/shell/user-menu";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,7 @@ const readStoredTheme = (): ThemeChoice | null => {
     : null;
 };
 
-/** `true` once React has hydrated on the client — no state, no cascading render. */
+/** `true` once React has hydrated on the client â€” no state, no cascading render. */
 function useIsClient() {
   return React.useSyncExternalStore(
     () => () => {},
@@ -237,8 +237,8 @@ export interface PageActionsProps {
 }
 
 /**
- * The right-hand cluster of a panel header: theme, help, account and Clerk's
- * `<UserButton>` (which is the real sign-out). Client component only because
+ * The right-hand cluster of a panel header: theme, help, account and the local
+ * `UserButton` (which is the real sign-out). Client component only because
  * the theme control needs `localStorage`; the user data is passed in from the
  * server layout.
  */

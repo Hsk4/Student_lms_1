@@ -35,9 +35,20 @@ function Body() {
     if (user && user.status === "active") router.replace(user.home);
   }, [user, router]);
 
+  /*
+   * Any account that already has a role belongs in its own panel, whether or
+   * not it is `active`: a seeded super admin is pending-with-a-role, and the
+   * old `status === "active"` check left it stranded on this form. `home`
+   * already encodes the rule (see `homeFor`), so follow it rather than
+   * re-deriving it here.
+   */
+  useEffect(() => {
+    if (user?.role && user.home !== "/request") router.replace(user.home);
+  }, [user, router]);
+
   if (!user) return <InlineLoading />;
 
-  if (user.status === "active") {
+  if (user.role && user.home !== "/request") {
     return <InlineLoading />;
   }
 

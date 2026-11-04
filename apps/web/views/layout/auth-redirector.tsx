@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-compat";
+import { useAuth } from "@/lib/auth";
 import { useMe } from "@/lib/queries";
 
 /**

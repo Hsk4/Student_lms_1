@@ -1,17 +1,18 @@
-"use client";
+﻿"use client";
 
-import { SignIn } from "@/lib/auth-compat";
+import { SignIn } from "@/lib/auth";
 import { BrandMark } from "@/components/brand/primitives";
 import { ThemeToggle } from "@/components/shell/page-actions";
 import { SCHOOL_NAME } from "@/lib/school";
+import { SignInNotice } from "./sign-in-notice";
 
 /**
  * Sign-in.
  *
- * The Clerk widget is still Clerk's (it owns the email/password and OAuth
- * flows), but it sits inside the same two-band shell as every gate page: a navy
- * jaali strip with the mark, and a white 30px sheet. Centring a bare widget on
- * grey made sign-in look like a different product.
+ * Local email/password authentication against the API. It sits inside the same
+ * two-band shell as every gate page: a navy jaali strip with the mark, and a
+ * white 30px sheet. Centring a bare form on grey made sign-in look like a
+ * different product.
  */
 export default function SignInPage() {
   return (
@@ -35,7 +36,8 @@ export default function SignInPage() {
 
       <main className="relative -mt-7 flex flex-1 items-start justify-center px-4 pb-12">
         <div className="fastly-sheet self-start w-full max-w-md border-[1.5px] border-line bg-card px-4 py-6 sm:px-7">
-          <SignIn signUpUrl="/sign-up" fallbackRedirectUrl="/" />
+          <SignInNotice />
+          <SignIn signUpUrl="/sign-up" />
         </div>
       </main>
     </div>

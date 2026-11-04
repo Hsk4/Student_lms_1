@@ -239,16 +239,7 @@ export async function decideAccessRequest(req: Request) {
   return rejectUser(req);
 }
 
-/**
- * Local DB sync shim: the app's source of truth is the Postgres users table.
- * This endpoint keeps the admin API surface but no longer consults Clerk.
- */
-export async function syncUsers(req: Request) {
-  const actor = actorOf(req);
-  if (actor.role !== "super_admin") throw forbidden();
-  const total = await countUsers();
-  return { deleted: 0, synced: total, source: "database" };
-}
+
 
 /* Guardian repair + link codes */
 

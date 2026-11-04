@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Providers } from "@/lib/providers";
+import { ApiBaseUrlCheck } from "@/lib/api-base-check";
 import { AuthRedirector } from "./auth-redirector";
 
 /**
@@ -10,6 +11,7 @@ import { AuthRedirector } from "./auth-redirector";
 export function RootShell({ children }: { children: ReactNode }) {
   return (
     <Providers>
+      <ApiBaseUrlCheck />
       <AuthRedirector />
       {children}
     </Providers>

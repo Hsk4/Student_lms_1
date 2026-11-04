@@ -143,33 +143,51 @@ await seedTheme()
 let demoRole = null
 
 /**
- * Demo session for a seeded `demo_<role>` user. `proxy.ts` short-circuits a
- * request carrying this value before Clerk's middleware runs, and
- * `getCurrentUser()` resolves it to the seeded Postgres row, so no Clerk
- * session is needed to render a panel.
+ * Demo session for a seeded account, if one is configured. Kept for parity
+ * with older harnesses; the normal path is `setRole`, which signs in through
+ * the API and stores the bearer token.
  */
 const assertDemo = async () => {
   if (!demoRole) return
-  await S('Network.setCookie', {
-    name: '__session',
-    value: `demo_${demoRole}`,
-    domain: 'localhost',
-    path: '/',
+  const token = await S('Runtime.evaluate', {
+    expression: 'localStorage.getItem("lms-auth-token")',
+    returnByValue: true,
   })
+  if (!token.result.value) throw new Error(`No session for ${demoRole}`)
+}
+
+const signInAs = async (role) => {
+  const upper = role.toUpperCase()
+  const email = process.env[`SHOT_${upper}_EMAIL`] ?? process.env.SHOT_EMAIL
+  const password = process.env[`SHOT_${upper}_PASSWORD`] ?? process.env.SHOT_PASSWORD
+  if (!email || !password) {
+    throw new Error(`Set SHOT_${upper}_EMAIL / SHOT_${upper}_PASSWORD to capture ${role} pages`)
+  }
+
+  const res = await fetch(`${process.env.SHOT_API_URL ?? 'http://localhost:4000/api/v1'}/auth/sign-in`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+  const payload = await res.json().catch(() => null)
+  if (!res.ok || !payload?.ok || !payload.data?.token) {
+    throw new Error(`Sign-in failed for ${role}: ${payload?.error ?? res.status}`)
+  }
+  return payload.data
 }
 
 const setRole = async (role) => {
   demoRole = role
-  // A signed-in Clerk session wins over the demo cookie, so start from a clean jar.
-  // Clerk's client deletes `__session` when it is not a JWT, so the demo cookie
-  // has to be re-asserted until the panel's own data has loaded once.
+  // Tokens are per user; clear the previous run's session and cookies first.
   await S('Network.clearBrowserCookies')
+  await S('Page.navigate', { url: BASE + '/sign-in' })
+  await new Promise((r) => setTimeout(r, 500))
   if (!role) return
-  await S('Network.setCookie', {
-    name: '__session',
-    value: `demo_${role}`,
-    domain: 'localhost',
-    path: '/',
+  const { token, user } = await signInAs(role)
+  await S('Runtime.evaluate', {
+    expression: `localStorage.setItem('lms-auth-token', ${JSON.stringify(token)});
+      localStorage.setItem('lms-auth-user', ${JSON.stringify(JSON.stringify(user ?? null))})`,
+    returnByValue: true,
   })
 }
 
@@ -185,7 +203,7 @@ const navigate = async (url) => {
       return r.result.value
     })
     await new Promise((r) => setTimeout(r, 2500))
-    // Clerk's client can strip the demo cookie and redirect; put it back.
+    // The session can be dropped by navigation; put the token back.
     await assertDemo()
     const r = await S('Runtime.evaluate', {
       expression: 'location.pathname',

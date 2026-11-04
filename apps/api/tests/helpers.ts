@@ -41,7 +41,10 @@ export async function resetDb(): Promise<void> {
   await db.execute(sql.raw(`TRUNCATE TABLE ${TABLES.join(", ")} CASCADE`));
 }
 
-/** Tokens name a Clerk id; the verifier below maps them back. */
+/**
+ * Tokens name an account id; the verifier below maps them back. `clerkId` is the
+ * historical column name for that provider-neutral identity string.
+ */
 export const tokenFor = (clerkId: string) => `test-token-${clerkId}`;
 
 export const testVerifier: TokenVerifier = async (token) => {

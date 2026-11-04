@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { MeResponse, UserRole } from "@lms/shared";
-import { useAuth } from "@/lib/auth-compat";
+import { useAuth } from "@/lib/auth";
 import { PanelSkeleton } from "@/components/shared/skeleton";
 import { ApiError } from "./api-client";
 import { useMe } from "./queries";

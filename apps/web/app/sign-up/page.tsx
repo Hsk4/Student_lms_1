@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { SignUp } from "@/lib/auth-compat";
+import { SignUp } from "@/lib/auth";
 
 /** Local-only sign-up page for the production demo. */
 export default function SignUpPage() {

@@ -20,7 +20,6 @@ import {
   revokeParentInvite,
   setTeacherCourses,
   suspendUser,
-  syncUsers,
   unlinkGuardian,
   assignRole,
   decideAccessRequest,
@@ -41,12 +40,7 @@ adminRoutes.get(
   ...admin,
   asyncHandler(async (req, res) => ok(res, await getUserDetail(req))),
 );
-adminRoutes.post(
-  "/admin/users/sync",
-  auth(),
-  requireRole("super_admin"),
-  asyncHandler(async (req, res) => ok(res, await syncUsers(req))),
-);
+
 adminRoutes.post(
   "/admin/users/:id/role",
   ...admin,

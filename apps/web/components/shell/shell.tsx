@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { UserButton } from "@/lib/auth-compat";
+import { UserButton } from "@/lib/auth";
 import { BrandMark } from "@/components/brand/primitives";
 import { ThemeToggle } from "@/components/shell/page-actions";
 import { RoleChip, StatusChip } from "@/components/ui/nila";
@@ -32,7 +32,7 @@ type PanelUser = {
   status: string;
 };
 
-/** The signed-in panel: header with role and status chips plus Clerk's avatar. */
+/** The signed-in panel: header with role and status chips plus the account avatar. */
 export function Shell({
   user,
   children,

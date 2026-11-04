@@ -39,9 +39,9 @@ export interface UserMenuProps {
 }
 
 /**
- * Avatar dropdown from the reference kit. Sign-out is handled by Clerk's
- * `<UserButton>` where a real session exists, so this menu only surfaces the
- * account details and any panel-specific actions passed as children.
+ * Avatar dropdown from the reference kit. Sign-out is handled by the local
+ * `UserButton` in `lib/auth`, so this menu only surfaces the account details
+ * and any panel-specific actions passed as children.
  */
 export function UserMenu({
   name,

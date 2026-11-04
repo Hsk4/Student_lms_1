@@ -31,7 +31,7 @@ describe("authentication", () => {
     expect(res.body).toEqual({ ok: false, error: expect.any(String) });
   });
 
-  it("returns 401 for a token Clerk rejects", async () => {
+  it("returns 401 for a token the verifier rejects", async () => {
     const res = await request(app)
       .get("/api/v1/me")
       .set("Authorization", "Bearer not-a-test-token");
@@ -108,10 +108,10 @@ describe("authentication", () => {
 });
 
 describe("mirror adoption", () => {
-  it("treats a verified token with no mirror row as pending", async () => {
-    // The verifier accepts the token but Clerk cannot be reached (placeholder
-    // key), which is the "webhook has not landed" case. Missing metadata is
-    // pending: /me answers with the pending home, and no panel is reachable.
+  it("treats a verified token with no account row as pending", async () => {
+    // The verifier accepts the token but no `users` row exists for it. Missing
+    // metadata is pending: /me answers with the pending home, and no panel is
+    // reachable.
     const res = await request(app).get("/api/v1/me").set(authHeader("ghost_1"));
     expect(res.status).toBe(200);
     expect(res.body.data).toMatchObject({ status: "pending", role: null, home: "/pending" });

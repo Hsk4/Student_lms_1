@@ -44,6 +44,31 @@ async function preflight(app: ReturnType<typeof createApp>, origin: string) {
   return res.headers.get("access-control-allow-origin");
 }
 
+/**
+ * The headers a real browser needs to send a bearer-token request: the method
+ * list must include every verb the API exposes, and `Authorization` must be
+ * allowed or every authenticated call fails preflight.
+ */
+async function preflightHeaders(app: ReturnType<typeof createApp>, origin: string) {
+  const server = app.listen(0);
+  const address = server.address() as { port: number };
+  const res = await fetch(`http://127.0.0.1:${address.port}/api/v1/health`, {
+    method: "OPTIONS",
+    headers: {
+      Origin: origin,
+      "Access-Control-Request-Method": "PATCH",
+      "Access-Control-Request-Headers": "authorization,content-type",
+    },
+  });
+  server.close();
+  return {
+    status: res.status,
+    allowOrigin: res.headers.get("access-control-allow-origin"),
+    allowMethods: res.headers.get("access-control-allow-methods") ?? "",
+    allowHeaders: (res.headers.get("access-control-allow-headers") ?? "").toLowerCase(),
+  };
+}
+
 let failures = 0;
 for (const mode of ["development", "production"] as const) {
   process.env.NODE_ENV = mode;
@@ -69,7 +94,7 @@ for (const mode of ["development", "production"] as const) {
 
 if (failures > 0) {
   console.error(`${failures} CORS check(s) failed`);
-  process.exit(1);
+  process.exitCode = 1;
 }
 
 /* Every pasted form must resolve to the same allowed origin. */
@@ -117,6 +142,39 @@ for (const c of previewCases) {
 
 if (failures > 0) {
   console.error(`${failures} CORS/WEB_ORIGIN check(s) failed`);
-  process.exit(1);
+  process.exitCode = 1;
+} else {
+  console.log("CORS checks passed");
 }
-console.log("CORS checks passed");
+
+/*
+ * Preflight for the verbs and headers the API actually uses. The health route
+ * is answered by the router, so an OPTIONS must be handled by the CORS layer,
+ * not fall through to the 404 handler.
+ */
+process.env.NODE_ENV = "production";
+process.env.WEB_ORIGIN = "https://studentlms-sooty.vercel.app";
+const headerApp = createApp();
+for (const origin of ["https://studentlms-sooty.vercel.app", "https://localhost"]) {
+  const pre = await preflightHeaders(headerApp, origin);
+  const methods = pre.allowMethods.split(",").map((m) => m.trim());
+  const ok =
+    pre.status === 204 &&
+    pre.allowOrigin === origin &&
+    ["GET", "POST", "PATCH", "DELETE"].every((m) => methods.includes(m)) &&
+    pre.allowHeaders.includes("authorization") &&
+    pre.allowHeaders.includes("content-type");
+  if (!ok) failures++;
+  console.log(
+    `preflight ${origin}: status=${pre.status} methods=${JSON.stringify(pre.allowMethods)} headers=${JSON.stringify(pre.allowHeaders)} ${ok ? "ok" : "FAIL"}`,
+  );
+}
+
+const deniedPre = await preflightHeaders(headerApp, "https://evil.example.com");
+const deniedOk = deniedPre.allowOrigin === null;
+if (!deniedOk) failures++;
+console.log(
+  `preflight https://evil.example.com -> ${deniedPre.allowOrigin ?? "(denied)"} ${deniedOk ? "ok" : "FAIL"}`,
+);
+
+process.exitCode = failures > 0 ? 1 : 0;

@@ -25,7 +25,19 @@ function reapplyDateOf(rejectedAt: Date | null | undefined): Date | null {
   return reapplyAt;
 }
 
-function assertCanApply(status: string, rejectedAt: Date | null | undefined) {
+function assertCanApply(
+  status: string,
+  rejectedAt: Date | null | undefined,
+  role: string | null,
+) {
+  /*
+   * A role IS the approval: an account that already holds one (the seeded super
+   * admin, or anyone an admin assigned) has nothing to request. Without this a
+   * super admin could file a request and demote themselves into the approval
+   * queue. Checked before the status, because the seeded account may be
+   * `pending`-with-a-role.
+   */
+  if (role) throw conflict("Your account already has a role");
   if (status === "active") throw conflict("Your account is already active");
   const reapplyAt = reapplyDateOf(rejectedAt);
   if (status === "rejected" && reapplyAt && reapplyAt > new Date()) {
@@ -48,7 +60,7 @@ async function reopenRejectedAccount(user: GateUser) {
 /** `POST /api/v1/me/request` */
 export async function submitAccessRequest(req: Request) {
   const actor = actorOf(req);
-  assertCanApply(actor.status, actor.rejectedAt);
+  assertCanApply(actor.status, actor.rejectedAt, actor.role);
 
   const data = accessRequestSchema.parse(req.body);
   const dbUser = await findUserById(actor.id);
@@ -94,7 +106,7 @@ export async function submitAccessRequest(req: Request) {
 export async function requestParentAccess(req: Request) {
   const actor = actorOf(req);
   if (actor.status === "active") return;
-  assertCanApply(actor.status, actor.rejectedAt);
+  assertCanApply(actor.status, actor.rejectedAt, actor.role);
 
   const dbUser = await findUserById(actor.id);
   if (!dbUser) throw conflict("Account not found");

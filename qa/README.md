@@ -34,11 +34,10 @@ $env:SHOT_THEME = "dark"; node qa/screenshots.mjs 04-admin-dashboard
 
 ## How sign-in works
 
-The harness does not use a Clerk session. With `LMS_DEMO_ROLE` set, it writes a
-`demo_<role>` `__session` cookie; `proxy.ts` short-circuits that cookie before
-Clerk's middleware runs, and `lib/auth/demo.ts` resolves it to the seeded row in
-`users` (see `scripts/seed-demo-users.ts`). One browser is therefore never signed
-in as two roles at once, which is what makes four panels capturable in one run.
+The harness does not use a hosted identity provider. It signs in through the
+app's own `/auth/sign-in` route and keeps the returned bearer token for the
+run, so each role is captured with a real session and one browser is never
+signed in as two roles at once.
 
 ## Adding a route
 

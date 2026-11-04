@@ -21,7 +21,7 @@ import { Pagination } from "@/components/shared/pagination";
 import { StatStrip } from "@/components/shared/stat-strip";
 
 import { TeacherCoursesForm } from "./teacher-courses";
-import { SyncUsersButton } from "./sync-button";
+
 import { UsersAutoRefresh } from "./auto-refresh";
 import {
   PageHeader,
@@ -98,9 +98,7 @@ export default function AdminUsersPage() {
         <PageHeader
           title="Users"
           description="Suspend, reinstate or open an account."
-        >
-          <SyncUsersButton />
-        </PageHeader>
+        />
 
         <StatStrip
           items={[

@@ -7,7 +7,7 @@ admins.
 
 ```
 apps/
-  api/        Express 5 + TypeScript, Drizzle + PostgreSQL, Clerk backend
+  api/        Express 5 + TypeScript, Drizzle + PostgreSQL, local JWT auth
   web/        Next.js 16 static export (client only) + Capacitor (Android)
 packages/
   shared/     zod validators, roles/status enums, API types
@@ -15,8 +15,8 @@ qa/           QA screenshots
 ```
 
 There is one database and one API that owns it. The web app never touches the
-database: it renders client-side, signs in with Clerk, and calls the API with a
-bearer token.
+database: it renders client-side, signs in against our API, and calls it with
+a bearer token.
 
 ## Install
 
@@ -39,15 +39,30 @@ cp apps/web/.env.example apps/web/.env.local
 | ----------------------------------- | ----- | ----------------------------------------------------------------------------------------------------- |
 | `DATABASE_URL`                      | api   | Pooled Postgres connection string                                                                     |
 | `DATABASE_URL_UNPOOLED`             | api   | Used by `drizzle-kit migrate` only                                                                    |
-| `CLERK_SECRET_KEY`                  | api   | Clerk backend key                                                                                     |
-| `CLERK_WEBHOOK_SIGNING_SECRET`      | api   | Signing secret of the Clerk webhook endpoint                                                          |
-| `WEB_ORIGIN`                        | api   | Production web origin for CORS, comma-separated (`http://localhost:3000` and the Capacitor origins are always allowed) |
+| `AUTH_JWT_SECRET`                   | api   | Signs bearer tokens; 32+ characters, required in production                                           |
+| `WEB_ORIGIN`                        | api   | Production web origin(s) for CORS, comma-separated (`http://localhost:3000` and the Capacitor origins are always allowed) |
+| `WEB_APP_URL`                       | api   | Base URL used in password-reset links                                                                 |
+| `RESEND_API_KEY` / `AUTH_EMAIL_FROM`| api   | Password-recovery email; empty disables recovery with a clear error                                   |
 | `PORT`                              | api   | Default `4000`                                                                                        |
 | `NEXT_PUBLIC_API_URL`               | web   | `http://localhost:4000/api/v1` in development, `https://student-lms-1-g0xa.onrender.com/api/v1` in production |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | web   | Clerk publishable key                                                                                 |
+| `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` | seed | Read only by `bun run seed:super-admin`                                                     |
 
-Clerk setup: set the session token claim as `{"metadata": "{{user.public_metadata}}"}`
-and point the webhook at `<api host>/webhooks/clerk`.
+## First super admin
+
+The seed is idempotent: it creates the account, or reconciles the existing one
+in place. The password is hashed with the same scrypt helper as sign-up and is
+never printed. Which database it touches is decided only by `DATABASE_URL`.
+
+```powershell
+cd apps/api
+$env:SUPER_ADMIN_EMAIL="you@example.com"
+$env:SUPER_ADMIN_PASSWORD="<12-128 characters>"
+bun run seed:super-admin
+```
+
+Against a hosted database, load its environment first (for example from a local
+file you do not commit) so `DATABASE_URL` points there. The script prints only
+the database host, then creates or reconciles the row.
 
 ## Database
 
@@ -102,18 +117,18 @@ Environment variables (values for secrets are never in the repository):
 ```
 # Vercel -> Project Settings -> Environment Variables (Production)
 NEXT_PUBLIC_API_URL=https://student-lms-1-g0xa.onrender.com/api/v1
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=<same Clerk instance as the API>
 
 # Render -> Environment
 WEB_ORIGIN=https://studentlms-sooty.vercel.app
 DATABASE_URL=<pooled Postgres URL>
 DATABASE_URL_UNPOOLED=<direct Postgres URL, for migrations>
-CLERK_SECRET_KEY=<secret>
-CLERK_PUBLISHABLE_KEY=<public>
-CLERK_WEBHOOK_SIGNING_SECRET=<secret>
+AUTH_JWT_SECRET=<32+ random characters>
+WEB_APP_URL=https://studentlms-sooty.vercel.app
+RESEND_API_KEY=<secret>          # optional: enables password recovery
+AUTH_EMAIL_FROM=<verified sender> # optional
 ```
 
-`apps/web/.env.production` holds the two `NEXT_PUBLIC_*` values so a local
+`apps/web/.env.production` holds the `NEXT_PUBLIC_API_URL` value so a local
 production build (Vercel CLI or the APK) matches the deployment. Vercel's own
 variables win when they are set.
 
@@ -173,7 +188,7 @@ Notes:
 
 ## API
 
-- Base path `/api/v1`; webhooks at `/webhooks/clerk` (raw body, verified by svix).
+- Base path `/api/v1`. Authentication is a bearer JWT from `/auth/sign-in`.
 - Every response is `{ ok: true, data }` or `{ ok: false, error }` with a real
   HTTP status (400 validation, 401 unauthenticated, 403 forbidden, 404 missing,
   409 conflict).

@@ -27,6 +27,38 @@ if (process.env.NODE_ENV === "production" && BASE_URL === DEV_API_URL) {
   );
 }
 
+/**
+ * Session invalidation hook. The providers register a callback so a 401 from
+ * anywhere (expired JWT, revoked session version, suspended account) can clear
+ * the stale token and send the user to sign-in exactly once, instead of leaving
+ * every panel stuck on a generic error.
+ *
+ * The callback receives nothing and does no navigation itself: it reports how
+ * many times times the session went stale, and a client component watching that
+ * count calls `router.replace` (App Router navigation, not a full page load).
+ */
+type SessionExpiredHandler = () => void;
+
+let onSessionExpired: SessionExpiredHandler | null = null;
+let notifying = false;
+
+export function setSessionExpiredHandler(handler: SessionExpiredHandler | null) {
+  onSessionExpired = handler;
+}
+
+export function notifySessionExpired() {
+  if (notifying) return;
+  notifying = true;
+  try {
+    onSessionExpired?.();
+  } finally {
+    // Released on the next tick so a burst of parallel 401s redirects once.
+    setTimeout(() => {
+      notifying = false;
+    }, 0);
+  }
+}
+
 export class ApiError extends Error {
   readonly status: number;
 
@@ -83,10 +115,20 @@ export async function apiFetch<T>(
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
-    // A `TypeError` here is a network or CORS failure, not an HTTP status: the
-    // browser withholds the response entirely when the API does not allow this
-    // origin. Saying so beats "Failed to fetch" on every screen.
-    throw new ApiError(0, `Cannot reach the school server at ${BASE_URL}.`);
+    /*
+     * A `TypeError` here is a network or CORS failure, not an HTTP status: the
+     * browser withholds the response entirely when the API does not allow this
+     * origin. Tell the three cases apart — offline, cold start, blocked origin —
+     * because "Failed to fetch" helps nobody on a phone.
+     */
+    const offline =
+      typeof navigator !== "undefined" && navigator.onLine === false;
+    throw new ApiError(
+      0,
+      offline
+        ? "You are offline. Check your connection and try again."
+        : `Cannot reach the school server at ${BASE_URL}. It may be waking up — try again in a moment.`,
+    );
   }
 
   let payload: ApiEnvelope<T> | null = null;
@@ -99,6 +141,9 @@ export async function apiFetch<T>(
   if (!response.ok || !payload || payload.ok === false) {
     const message =
       payload && payload.ok === false ? payload.error : "Something went wrong";
+    // A 401 means the stored token is no longer usable. A 403 is a policy
+    // answer (wrong role, pending) and must not sign the user out.
+    if (response.status === 401) notifySessionExpired();
     throw new ApiError(response.status, message);
   }
 
