@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Launch window background. The brand artwork is drawn as a centred, non-
+  stretching bitmap over the brand navy so phones taller than 16:9 never see
+  white bars above or below the logo. Each drawable-port-*/-land-* splash.png
+  is a full-bleed render of brand-kit/capacitor-assets/splash.png.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/splash_background" />
+    <item>
+        <bitmap
+            android:gravity="fill"
+            android:src="@drawable/splash_image" />
+    </item>
+</layer-list>

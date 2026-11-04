@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint",
     "lint:colors": "node scripts/lint-colors.mjs",
+    "icons:android": "node scripts/generate-android-icons.mjs",
     "cap:sync": "cap sync",
     "cap:android": "cap open android",
     "cap:ios": "cap open ios"

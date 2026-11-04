@@ -1,8 +1,7 @@
 # Fastly LMS
 
 A single-school learning platform for students, parents and teachers, run by
-admins. The product rules live in [`docs/objective.md`](docs/objective.md); how
-the code is split lives in [`ARCHITECTURE-REFACTOR.md`](ARCHITECTURE-REFACTOR.md).
+admins.
 
 ## Repository map
 
@@ -13,7 +12,6 @@ apps/
 packages/
   shared/     zod validators, roles/status enums, API types
 qa/           QA screenshots
-docs/         objective.md, migration-plan.md
 ```
 
 There is one database and one API that owns it. The web app never touches the
@@ -170,8 +168,8 @@ Notes:
 - `NEXT_PUBLIC_API_URL` is baked in at build time, so the APK talks to the
   same Render API as the web build. For an emulator against a *local* API, use
   `http://10.0.2.2:4000/api/v1` — `localhost` on an emulator is the device itself.
-- Clerk sign-in runs inside the webview; see `ARCHITECTURE-REFACTOR.md` section 6
-  for what was tested.
+- Sign-in runs inside the webview against the API's `/auth/sign-in` route, which
+  issues the bearer token the export stores.
 
 ## API
 
