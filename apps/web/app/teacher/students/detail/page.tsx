@@ -21,6 +21,7 @@ import {
   formatDay,
 } from "@/components/ui/nila";
 import { api } from "@/lib/api-client";
+import { InlineLoading } from "@/components/shared/skeleton";
 
 type StudentDetail = {
   id: string;
@@ -52,7 +53,7 @@ function DetailById() {
       <p className="p-6 text-sm text-muted-foreground">No student selected.</p>
     );
   if (query.isLoading)
-    return <p className="p-6 text-sm text-muted-foreground">Loading...</p>;
+    return <InlineLoading />;
   if (query.error)
     return <p className="p-6 text-sm text-status-red">{query.error.message}</p>;
   const detail = query.data;
@@ -226,7 +227,7 @@ function DetailById() {
 export default function TeacherStudentDetailPage() {
   return (
     <Suspense
-      fallback={<p className="p-6 text-sm text-muted-foreground">Loading...</p>}
+      fallback={<InlineLoading />}
     >
       <DetailById />
     </Suspense>

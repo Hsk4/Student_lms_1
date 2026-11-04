@@ -42,9 +42,17 @@ export function PageHeader({
 }
 
 export function Empty({ children }: { children: ReactNode }) {
+  /*
+   * Every list page still renders `<Empty>`; restyling it here brings all 34 of
+   * them onto the brand (1.5px hairline card, pale-blue wash, underlined link)
+   * without touching each call site. Pages that want an illustration or a
+   * next action use `<EmptyState>` directly.
+   */
   return (
-    <div className="rounded-[var(--radius-card)] border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-      {children}
+    <div className="fastly-card flex flex-col items-center justify-center gap-1.5 bg-accent px-5 py-9 text-center">
+      <div className="mx-auto max-w-md text-sm leading-relaxed text-accent-foreground/85">
+        {children}
+      </div>
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { PageHeader, Card, Empty } from "@/components/ui/nila";
 import { api } from "@/lib/api-client";
+import { InlineLoading } from "@/components/shared/skeleton";
 
 type CourseDetail = {
   id: string;
@@ -40,7 +41,7 @@ function DetailById() {
       <p className="p-6 text-sm text-muted-foreground">No course selected.</p>
     );
   if (courseQuery.isLoading) {
-    return <p className="p-6 text-sm text-muted-foreground">Loading...</p>;
+    return <InlineLoading />;
   }
   if (courseQuery.error) {
     return (
@@ -170,7 +171,7 @@ function DetailById() {
 export default function CourseDetailPage() {
   return (
     <Suspense
-      fallback={<p className="p-6 text-sm text-muted-foreground">Loading...</p>}
+      fallback={<InlineLoading />}
     >
       <DetailById />
     </Suspense>

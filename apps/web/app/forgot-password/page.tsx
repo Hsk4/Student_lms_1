@@ -3,6 +3,9 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 
+import { BrandMark } from "@/components/brand/primitives";
+import { ThemeToggle } from "@/components/shell/page-actions";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
 export default function ForgotPasswordPage() {
@@ -33,23 +36,42 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-surface px-4 py-10">
-      <section className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Reset your password</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Enter the email address on your school account. If it exists, we&apos;ll send you a one-time reset link.</p>
-        <form className="mt-6 space-y-4" onSubmit={submit}>
-          <label className="block text-sm text-foreground">
-            <span className="mb-1.5 block">Email</span>
-            <input type="email" required autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm" placeholder="you@school.edu" />
-          </label>
-          {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-          {message ? <p role="status" className="rounded-lg bg-secondary p-3 text-sm text-foreground">{message}</p> : null}
-          <button disabled={busy} type="submit" className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60">
-            {busy ? "Sending..." : "Send reset link"}
-          </button>
-        </form>
-        <p className="mt-5 text-center text-sm text-muted-foreground"><Link href="/sign-in/" className="font-medium text-primary hover:underline">Back to sign in</Link></p>
-      </section>
-    </main>
+    <div className="flex min-h-screen flex-col bg-background">
+      <header className="fastly-gate-band relative overflow-hidden">
+        <span className="fastly-jaali absolute inset-0" aria-hidden="true" />
+        <div className="absolute right-4 top-4 z-10 sm:right-6 sm:top-5">
+          <ThemeToggle tone="onNavy" />
+        </div>
+        <div className="relative mx-auto flex w-full max-w-4xl flex-col items-center gap-2 px-4 py-10 text-center">
+          <BrandMark size={48} tone="light" />
+          <p className="fastly-display mt-2 text-[24px] text-white">Reset your password</p>
+        </div>
+      </header>
+
+      <main className="relative -mt-7 flex flex-1 items-start justify-center px-4 pb-12">
+        <section className="fastly-sheet self-start w-full max-w-md border-[1.5px] border-line bg-card p-6">
+          <p className="text-sm text-muted-foreground">
+            Enter the email address on your school account. If it exists, we
+            &apos;ll send you a one-time reset link.
+          </p>
+          <form className="mt-6 space-y-4" onSubmit={submit}>
+            <label className="block text-sm text-foreground">
+              <span className="mb-1.5 block font-medium">Email</span>
+              <input type="email" required autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="input" placeholder="you@school.edu" />
+            </label>
+            {error ? <p role="alert" className="text-sm text-status-red">{error}</p> : null}
+            {message ? <p role="status" className="rounded-lg bg-accent p-3 text-sm text-accent-foreground">{message}</p> : null}
+            <button disabled={busy} type="submit" className="fastly-primary w-full disabled:opacity-60">
+              {busy ? "Sending..." : "Send reset link"}
+            </button>
+          </form>
+          <p className="mt-5 text-center text-sm text-muted-foreground">
+            <Link href="/sign-in/" className="font-semibold text-cobalt hover:underline">
+              Back to sign in
+            </Link>
+          </p>
+        </section>
+      </main>
+    </div>
   );
 }

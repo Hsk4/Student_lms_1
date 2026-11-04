@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { useMe } from "@/lib/queries";
 import { UserDetailView } from "./user-detail-view";
+import { InlineLoading } from "@/components/shared/skeleton";
 
 /**
  * Static export cannot prerender an unknown id, so the id is a query param:
@@ -39,7 +40,7 @@ function DetailById() {
       <p className="p-6 text-sm text-muted-foreground">No user selected.</p>
     );
   if (userQuery.isLoading)
-    return <p className="p-6 text-sm text-muted-foreground">Loading...</p>;
+    return <InlineLoading />;
   if (userQuery.error) {
     return (
       <p className="p-6 text-sm text-status-red">{userQuery.error.message}</p>
@@ -60,7 +61,7 @@ function DetailById() {
 export default function AdminUserDetailPage() {
   return (
     <Suspense
-      fallback={<p className="p-6 text-sm text-muted-foreground">Loading...</p>}
+      fallback={<InlineLoading />}
     >
       <DetailById />
     </Suspense>

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/nila";
 import { api } from "@/lib/api-client";
 import { RescheduleMeetingForm } from "../../parent-forms";
+import { InlineLoading } from "@/components/shared/skeleton";
 
 type ChildOverview = {
   id: string;
@@ -47,7 +48,7 @@ function DetailById() {
       <p className="p-6 text-sm text-muted-foreground">No child selected.</p>
     );
   if (query.isLoading)
-    return <p className="p-6 text-sm text-muted-foreground">Loading...</p>;
+    return <InlineLoading />;
   if (query.error)
     return <p className="p-6 text-sm text-status-red">{query.error.message}</p>;
   const child = query.data;
@@ -177,7 +178,7 @@ function DetailById() {
 export default function ParentChildPage() {
   return (
     <Suspense
-      fallback={<p className="p-6 text-sm text-muted-foreground">Loading...</p>}
+      fallback={<InlineLoading />}
     >
       <DetailById />
     </Suspense>

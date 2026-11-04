@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { PageHeader, Card } from "@/components/ui/nila";
 import { api } from "@/lib/api-client";
 import { EditBookForm } from "../book-ui";
+import { InlineLoading } from "@/components/shared/skeleton";
 
 type BookDetail = {
   id: string;
@@ -32,7 +33,7 @@ function DetailById() {
       <p className="p-6 text-sm text-muted-foreground">No book selected.</p>
     );
   if (bookQuery.isLoading) {
-    return <p className="p-6 text-sm text-muted-foreground">Loading...</p>;
+    return <InlineLoading />;
   }
   if (bookQuery.error) {
     return (
@@ -98,7 +99,7 @@ function DetailById() {
 export default function BookDetailPage() {
   return (
     <Suspense
-      fallback={<p className="p-6 text-sm text-muted-foreground">Loading...</p>}
+      fallback={<InlineLoading />}
     >
       <DetailById />
     </Suspense>

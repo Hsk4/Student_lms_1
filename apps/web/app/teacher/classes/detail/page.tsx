@@ -15,6 +15,7 @@ import {
 import { Card, Chip, Empty, PageHeader, formatDay } from "@/components/ui/nila";
 import { api } from "@/lib/api-client";
 import { EndClassButton } from "../../teacher-forms";
+import { InlineLoading } from "@/components/shared/skeleton";
 
 type ClassDetail = {
   id: string;
@@ -47,7 +48,7 @@ function DetailById() {
       <p className="p-6 text-sm text-muted-foreground">No class selected.</p>
     );
   if (query.isLoading)
-    return <p className="p-6 text-sm text-muted-foreground">Loading...</p>;
+    return <InlineLoading />;
   if (query.error)
     return <p className="p-6 text-sm text-status-red">{query.error.message}</p>;
   const detail = query.data;
@@ -156,7 +157,7 @@ function DetailById() {
 export default function TeacherClassDetailPage() {
   return (
     <Suspense
-      fallback={<p className="p-6 text-sm text-muted-foreground">Loading...</p>}
+      fallback={<InlineLoading />}
     >
       <DetailById />
     </Suspense>

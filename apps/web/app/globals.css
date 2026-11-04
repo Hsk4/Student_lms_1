@@ -371,6 +371,18 @@ body {
     color: rgb(255 255 255 / 0.56);
   }
 
+  /*
+   * Brand rule: depth is a 1.5px border, never a drop shadow. Pages were
+   * written against Tailwind's `shadow-sm` on cards and secondary buttons
+   * (32 call sites), which is what made the signed-in app read as a generic
+   * admin template. Cancelling the shadow here fixes every one of them at
+   * once; the hairline border already on those elements supplies the edge.
+   */
+  .shadow-sm,
+  .shadow {
+    box-shadow: none !important;
+  }
+
   .fastly-nav-badge {
     display: inline-flex;
     min-height: 20px;

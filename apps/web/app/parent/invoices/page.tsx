@@ -22,6 +22,7 @@ import {
   formatDay,
 } from "@/components/ui/nila";
 import { ChildSwitcher } from "@/components/shell/shell";
+import { InlineLoading } from "@/components/shared/skeleton";
 
 type ChildOverview = { id: string; name: string; dueAmount: number };
 type InvoiceRow = { id: string; period: string; amount: number; dueDate: string; state: string };
@@ -157,7 +158,7 @@ function ParentInvoicesContent() {
 
 export default function ParentInvoicesPage() {
   return (
-    <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Loading...</p>}>
+    <Suspense fallback={<InlineLoading />}>
       <ParentInvoicesContent />
     </Suspense>
   );

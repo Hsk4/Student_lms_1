@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { MeResponse, UserRole } from "@lms/shared";
 import { useAuth } from "@/lib/auth-compat";
+import { PanelSkeleton } from "@/components/shared/skeleton";
 import { ApiError } from "./api-client";
 import { useMe } from "./queries";
 
@@ -56,7 +57,7 @@ export function usePanelGuard(roles: UserRole[]) {
 }
 
 export function PanelLoading() {
-  return <div className="p-10 text-sm text-muted-foreground">Loading...</div>;
+  return <PanelSkeleton />;
 }
 
 /**

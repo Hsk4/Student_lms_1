@@ -57,7 +57,7 @@ export function ListToolbar({
       action={action}
       method="get"
       role="search"
-      className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm md:flex-row md:items-center md:justify-between"
+      className="fastly-card flex flex-col gap-3 bg-card p-4 md:flex-row md:items-center md:justify-between"
     >
       <div className="relative w-full md:max-w-xs">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

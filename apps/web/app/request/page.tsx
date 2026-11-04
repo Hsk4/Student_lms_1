@@ -10,6 +10,7 @@ import { ArchNumber } from "@/components/brand/primitives";
 import { api } from "@/lib/api-client";
 import { useMe } from "@/lib/queries";
 import { RequestForm } from "./request-form";
+import { InlineLoading } from "@/components/shared/skeleton";
 
 function Body() {
   const me = useMe();
@@ -34,10 +35,10 @@ function Body() {
     if (user && user.status === "active") router.replace(user.home);
   }, [user, router]);
 
-  if (!user) return <div className="p-10 text-sm text-muted-foreground">Loading...</div>;
+  if (!user) return <InlineLoading />;
 
   if (user.status === "active") {
-    return <div className="p-10 text-sm text-muted-foreground">Loading...</div>;
+    return <InlineLoading />;
   }
 
   if (user.status === "rejected" && user.rejectedAt) {
@@ -45,7 +46,7 @@ function Body() {
     reapplyAt.setDate(reapplyAt.getDate() + 30);
     if (reapplyAt > new Date()) {
       router.replace("/rejected");
-      return <div className="p-10 text-sm text-muted-foreground">Loading...</div>;
+      return <InlineLoading />;
     }
   }
 

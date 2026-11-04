@@ -33,8 +33,8 @@ export default function SignInPage() {
         </div>
       </header>
 
-      <main className="relative -mt-7 flex flex-1 justify-center px-4 pb-12">
-        <div className="fastly-sheet w-full max-w-md border-[1.5px] border-line bg-card px-4 py-6 sm:px-7">
+      <main className="relative -mt-7 flex flex-1 items-start justify-center px-4 pb-12">
+        <div className="fastly-sheet self-start w-full max-w-md border-[1.5px] border-line bg-card px-4 py-6 sm:px-7">
           <SignIn signUpUrl="/sign-up" fallbackRedirectUrl="/" />
         </div>
       </main>

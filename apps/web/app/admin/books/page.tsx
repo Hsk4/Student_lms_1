@@ -15,6 +15,7 @@ import {
 import { PageHeader, Card, Empty } from "@/components/ui/nila";
 import { api } from "@/lib/api-client";
 import { BookForm } from "./book-ui";
+import { InlineLoading } from "@/components/shared/skeleton";
 
 type BookRow = {
   id: string;
@@ -124,7 +125,7 @@ function BooksContent() {
 export default function BooksPage() {
   return (
     <Suspense
-      fallback={<p className="p-6 text-sm text-muted-foreground">Loading...</p>}
+      fallback={<InlineLoading />}
     >
       <BooksContent />
     </Suspense>
