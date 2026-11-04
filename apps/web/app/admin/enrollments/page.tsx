@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { PageHeader, Card, Empty } from "@/components/ui/nila";
 import { api } from "@/lib/api-client";
 import { ReassignForm } from "./reassign-form";
@@ -18,10 +18,10 @@ type EnrollmentRow = {
 };
 
 export default function AdminEnrollmentsPage() {
-  const enrollmentsQuery = useQuery({
-    queryKey: ["admin-enrollments"],
-    queryFn: () => api.get<EnrollmentRow[]>("/admin/enrollments"),
-  });
+  const enrollmentsQuery = useAsync(
+    () => api.get<EnrollmentRow[]>("/admin/enrollments"),
+    [],
+  );
   const items = enrollmentsQuery.data ?? [];
 
   return (

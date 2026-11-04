@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import {
   Table,
   TableHeader,
@@ -23,10 +23,10 @@ type InvoiceRow = {
 };
 
 export default function AdminInvoicesPage() {
-  const invoicesQuery = useQuery({
-    queryKey: ["admin-invoices"],
-    queryFn: () => api.get<InvoiceRow[]>("/admin/invoices"),
-  });
+  const invoicesQuery = useAsync(
+    () => api.get<InvoiceRow[]>("/admin/invoices"),
+    [],
+  );
   const invoices = invoicesQuery.data ?? [];
 
   return (

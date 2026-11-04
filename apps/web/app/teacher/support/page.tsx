@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { api } from "@/lib/api-client";
 import {
   Card,
@@ -24,10 +24,10 @@ type TicketRow = {
 };
 
 export default function TeacherSupportPage() {
-  const ticketsQuery = useQuery({
-    queryKey: ["support-tickets"],
-    queryFn: () => api.get<TicketRow[]>("/support/tickets"),
-  });
+  const ticketsQuery = useAsync(
+    () => api.get<TicketRow[]>("/support/tickets"),
+    [],
+  );
   const tickets = ticketsQuery.data ?? [];
 
   return (

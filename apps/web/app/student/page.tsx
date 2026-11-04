@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { BookOpen, ClipboardCheck, GraduationCap } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { ArchTile } from "@/components/brand/primitives";
@@ -34,22 +34,22 @@ type AttendanceRow = { id: string; date: string; present: boolean; context: stri
 type GradeRow = { id: string; title: string; courseLabel: string; score: number; gradedAt: string | null };
 
 export default function StudentDashboardPage() {
-  const profileQuery = useQuery({
-    queryKey: ["student", "profile"],
-    queryFn: () => api.get<Profile>("/student/profile"),
-  });
-  const assignmentsQuery = useQuery({
-    queryKey: ["student", "assignments"],
-    queryFn: () => api.get<AssignmentRow[]>("/student/assignments"),
-  });
-  const attendanceQuery = useQuery({
-    queryKey: ["student", "attendance"],
-    queryFn: () => api.get<AttendanceRow[]>("/student/attendance"),
-  });
-  const gradesQuery = useQuery({
-    queryKey: ["student", "grades"],
-    queryFn: () => api.get<GradeRow[]>("/student/grades"),
-  });
+  const profileQuery = useAsync(
+    () => api.get<Profile>("/student/profile"),
+    [],
+  );
+  const assignmentsQuery = useAsync(
+    () => api.get<AssignmentRow[]>("/student/assignments"),
+    [],
+  );
+  const attendanceQuery = useAsync(
+    () => api.get<AttendanceRow[]>("/student/attendance"),
+    [],
+  );
+  const gradesQuery = useAsync(
+    () => api.get<GradeRow[]>("/student/grades"),
+    [],
+  );
 
   const profile = profileQuery.data ?? { activeCourseCount: 0, teachers: [] };
   const assignments = assignmentsQuery.data ?? [];

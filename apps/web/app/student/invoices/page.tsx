@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { api } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -23,12 +23,10 @@ type InvoiceRow = {
 export default function StudentInvoicesPage() {
   const me = useAuth();
   // Scoped to the caller: the API only answers for the student's own id.
-  const invoicesQuery = useQuery({
-    queryKey: ["student", "invoices", me.user?.id],
-    queryFn: () =>
-      api.get<InvoiceRow[]>("/invoices", { studentId: me.user?.id ?? "" }),
-    enabled: Boolean(me.user?.id),
-  });
+  const invoicesQuery = useAsync(
+    () => api.get<InvoiceRow[]>("/invoices", { studentId: me.user?.id ?? "" }),
+    [me.user?.id], { enabled: Boolean(me.user?.id) },
+  );
   const invoices = invoicesQuery.data ?? [];
 
   const unpaid = invoices.filter((invoice) => invoice.state === "unpaid");

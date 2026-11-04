@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { BookOpen, CalendarCheck, Inbox, Plus, Users } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -42,26 +42,26 @@ type MeetingRow = {
 };
 
 export default function TeacherDashboardPage() {
-  const dashboardQuery = useQuery({
-    queryKey: ["teacher", "dashboard"],
-    queryFn: () => api.get<Dashboard>("/teacher/dashboard"),
-  });
-  const requestsQuery = useQuery({
-    queryKey: ["teacher", "requests"],
-    queryFn: () => api.get<RequestRow[]>("/teacher/requests"),
-  });
-  const classesQuery = useQuery({
-    queryKey: ["teacher", "classes"],
-    queryFn: () => api.get<ClassRow[]>("/teacher/classes"),
-  });
-  const assignmentsQuery = useQuery({
-    queryKey: ["teacher", "assignments"],
-    queryFn: () => api.get<AssignmentRow[]>("/teacher/assignments"),
-  });
-  const meetingsQuery = useQuery({
-    queryKey: ["teacher", "meetings"],
-    queryFn: () => api.get<MeetingRow[]>("/teacher/meetings"),
-  });
+  const dashboardQuery = useAsync(
+    () => api.get<Dashboard>("/teacher/dashboard"),
+    [],
+  );
+  const requestsQuery = useAsync(
+    () => api.get<RequestRow[]>("/teacher/requests"),
+    [],
+  );
+  const classesQuery = useAsync(
+    () => api.get<ClassRow[]>("/teacher/classes"),
+    [],
+  );
+  const assignmentsQuery = useAsync(
+    () => api.get<AssignmentRow[]>("/teacher/assignments"),
+    [],
+  );
+  const meetingsQuery = useAsync(
+    () => api.get<MeetingRow[]>("/teacher/meetings"),
+    [],
+  );
 
   const dashboard =
     dashboardQuery.data ?? {

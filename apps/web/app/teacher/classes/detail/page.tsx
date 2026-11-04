@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import {
   Table,
   TableHeader,
@@ -37,17 +37,16 @@ type ClassDetail = {
 function DetailById() {
   const params = useSearchParams();
   const id = params.get("id") ?? "";
-  const query = useQuery({
-    queryKey: ["teacher", "class", id],
-    queryFn: () => api.get<ClassDetail>(`/teacher/classes/${id}`),
-    enabled: Boolean(id),
-  });
+  const query = useAsync(
+    () => api.get<ClassDetail>(`/teacher/classes/${id}`),
+    [id], { enabled: Boolean(id) },
+  );
 
   if (!id)
     return (
       <p className="p-6 text-sm text-muted-foreground">No class selected.</p>
     );
-  if (query.isLoading)
+  if (query.loading)
     return <InlineLoading />;
   if (query.error)
     return <p className="p-6 text-sm text-status-red">{query.error.message}</p>;

@@ -2,7 +2,8 @@
 
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
+import { useQueries } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import {
   Table,
@@ -31,10 +32,10 @@ function ParentInvoicesContent() {
   const params = useSearchParams();
   const selected = params.get("child") ?? undefined;
 
-  const childrenQuery = useQuery({
-    queryKey: ["parent", "children"],
-    queryFn: () => api.get<ChildOverview[]>("/parent/overview"),
-  });
+  const childrenQuery = useAsync(
+    () => api.get<ChildOverview[]>("/parent/overview"),
+    [],
+  );
   const children = childrenQuery.data ?? [];
   const visible = selected ? children.filter((item) => item.id === selected) : children;
 

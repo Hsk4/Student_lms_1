@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import {
   Card,
   Chip,
@@ -24,10 +24,10 @@ type QuizRow = {
  * the student's active courses; taking a quiz is added with that phase.
  */
 export default function StudentQuizzesPage() {
-  const quizzesQuery = useQuery({
-    queryKey: ["student", "quizzes"],
-    queryFn: () => api.get<QuizRow[]>("/student/quizzes"),
-  });
+  const quizzesQuery = useAsync(
+    () => api.get<QuizRow[]>("/student/quizzes"),
+    [],
+  );
   const quizzes = quizzesQuery.data ?? [];
 
   return (

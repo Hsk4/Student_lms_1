@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { api } from "@/lib/api-client";
 import {
   Table,
@@ -68,21 +68,20 @@ export default function AdminUsersPage() {
   const q = params.get("q") ?? "";
   const rawPage = params.get("page") ?? "1";
 
-  const usersQuery = useQuery({
-    queryKey: ["admin-users", status, role, q, rawPage],
-    queryFn: () =>
-      api.get<UsersResponse>("/admin/users", {
+  const usersQuery = useAsync(
+    () => api.get<UsersResponse>("/admin/users", {
         status,
         role,
         q,
         page: rawPage,
         pageSize: PAGE_SIZE,
       }),
-  });
-  const teacherCoursesQuery = useQuery({
-    queryKey: ["admin-teacher-courses"],
-    queryFn: () => api.get<TeacherCourseRow[]>("/admin/catalog/teacher-courses"),
-  });
+    [status, role, q, rawPage],
+  );
+  const teacherCoursesQuery = useAsync(
+    () => api.get<TeacherCourseRow[]>("/admin/catalog/teacher-courses"),
+    [],
+  );
 
   const counts = usersQuery.data?.counts ?? { all: 0, active: 0, pending: 0, teachers: 0 };
   const total = usersQuery.data?.total ?? 0;

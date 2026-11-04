@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { api } from "@/lib/api-client";
 import {
   Card,
@@ -36,18 +36,18 @@ type StudentRow = {
 type TeacherClass = { id: string; name: string; courseId: string; courseLabel: string; state: string };
 
 export default function TeacherAssignmentsPage() {
-  const assignmentsQuery = useQuery({
-    queryKey: ["teacher", "assignments"],
-    queryFn: () => api.get<AssignmentRow[]>("/teacher/assignments"),
-  });
-  const classesQuery = useQuery({
-    queryKey: ["teacher", "classes"],
-    queryFn: () => api.get<TeacherClass[]>("/teacher/classes"),
-  });
-  const studentsQuery = useQuery({
-    queryKey: ["teacher", "students"],
-    queryFn: () => api.get<StudentRow[]>("/teacher/students"),
-  });
+  const assignmentsQuery = useAsync(
+    () => api.get<AssignmentRow[]>("/teacher/assignments"),
+    [],
+  );
+  const classesQuery = useAsync(
+    () => api.get<TeacherClass[]>("/teacher/classes"),
+    [],
+  );
+  const studentsQuery = useAsync(
+    () => api.get<StudentRow[]>("/teacher/students"),
+    [],
+  );
 
   const assignments = assignmentsQuery.data ?? [];
   const classes = classesQuery.data ?? [];

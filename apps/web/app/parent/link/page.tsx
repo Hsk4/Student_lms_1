@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { Card, Empty, PageHeader } from "@/components/ui/nila";
 import { api } from "@/lib/api-client";
 import { RedeemLinkCodeForm } from "./link-form";
@@ -9,10 +9,10 @@ import { RedeemLinkCodeForm } from "./link-form";
 type ChildRow = { id: string; name: string; boardName: string | null; levelName: string | null };
 
 export default function ParentLinkPage() {
-  const childrenQuery = useQuery({
-    queryKey: ["parent", "children"],
-    queryFn: () => api.get<ChildRow[]>("/parent/overview"),
-  });
+  const childrenQuery = useAsync(
+    () => api.get<ChildRow[]>("/parent/overview"),
+    [],
+  );
   const children = childrenQuery.data ?? [];
 
   return (

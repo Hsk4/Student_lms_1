@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { PageHeader, Card } from "@/components/ui/nila";
 import { api } from "@/lib/api-client";
 import { EditBookForm } from "../book-ui";
@@ -22,17 +22,16 @@ type BookDetail = {
 function DetailById() {
   const params = useSearchParams();
   const id = params.get("id") ?? "";
-  const bookQuery = useQuery({
-    queryKey: ["admin-book", id],
-    queryFn: () => api.get<BookDetail>(`/admin/books/${id}`),
-    enabled: Boolean(id),
-  });
+  const bookQuery = useAsync(
+    () => api.get<BookDetail>(`/admin/books/${id}`),
+    [id], { enabled: Boolean(id) },
+  );
 
   if (!id)
     return (
       <p className="p-6 text-sm text-muted-foreground">No book selected.</p>
     );
-  if (bookQuery.isLoading) {
+  if (bookQuery.loading) {
     return <InlineLoading />;
   }
   if (bookQuery.error) {

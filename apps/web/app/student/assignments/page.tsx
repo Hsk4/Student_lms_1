@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { api } from "@/lib/api-client";
 import {
   Card,
@@ -23,10 +23,10 @@ type AssignmentRow = {
 };
 
 export default function StudentAssignmentsPage() {
-  const assignmentsQuery = useQuery({
-    queryKey: ["student", "assignments"],
-    queryFn: () => api.get<AssignmentRow[]>("/student/assignments"),
-  });
+  const assignmentsQuery = useAsync(
+    () => api.get<AssignmentRow[]>("/student/assignments"),
+    [],
+  );
   const assignments = assignmentsQuery.data ?? [];
 
   const toDo = assignments.filter((item) => !item.submissionId);

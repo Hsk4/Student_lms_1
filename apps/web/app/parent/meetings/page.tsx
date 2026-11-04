@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { api } from "@/lib/api-client";
 import {
   Table,
@@ -31,14 +31,14 @@ type MeetingRow = {
 type ChildRow = { id: string; name: string };
 
 export default function ParentMeetingsPage() {
-  const childrenQuery = useQuery({
-    queryKey: ["parent", "children"],
-    queryFn: () => api.get<ChildRow[]>("/parent/overview"),
-  });
-  const meetingsQuery = useQuery({
-    queryKey: ["parent", "meetings"],
-    queryFn: () => api.get<MeetingRow[]>("/parent/meetings"),
-  });
+  const childrenQuery = useAsync(
+    () => api.get<ChildRow[]>("/parent/overview"),
+    [],
+  );
+  const meetingsQuery = useAsync(
+    () => api.get<MeetingRow[]>("/parent/meetings"),
+    [],
+  );
 
   const children = childrenQuery.data ?? [];
   const meetings = meetingsQuery.data ?? [];

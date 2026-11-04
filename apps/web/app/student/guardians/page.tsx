@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { api } from "@/lib/api-client";
 import {
   Card,
@@ -23,10 +23,10 @@ type GuardianRow = {
 };
 
 export default function StudentGuardiansPage() {
-  const guardiansQuery = useQuery({
-    queryKey: ["student", "guardians"],
-    queryFn: () => api.get<GuardianRow[]>("/student/guardians"),
-  });
+  const guardiansQuery = useAsync(
+    () => api.get<GuardianRow[]>("/student/guardians"),
+    [],
+  );
   const guardians = guardiansQuery.data ?? [];
 
   return (

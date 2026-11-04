@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { api } from "@/lib/api-client";
 import {
   Table,
@@ -23,10 +23,10 @@ type StudentRow = {
 };
 
 export default function TeacherStudentsPage() {
-  const studentsQuery = useQuery({
-    queryKey: ["teacher", "students"],
-    queryFn: () => api.get<StudentRow[]>("/teacher/students"),
-  });
+  const studentsQuery = useAsync(
+    () => api.get<StudentRow[]>("/teacher/students"),
+    [],
+  );
   const students = studentsQuery.data ?? [];
 
   return (

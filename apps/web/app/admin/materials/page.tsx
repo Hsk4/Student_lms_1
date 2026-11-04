@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Table,
   TableHeader,
@@ -26,14 +27,14 @@ type CourseOption = { id: string; label: string };
 
 export default function AdminMaterialsPage() {
   const queryClient = useQueryClient();
-  const materialsQuery = useQuery({
-    queryKey: ["admin-materials"],
-    queryFn: () => api.get<MaterialRow[]>("/admin/materials"),
-  });
-  const coursesQuery = useQuery({
-    queryKey: ["admin-courses"],
-    queryFn: () => api.get<CourseOption[]>("/admin/courses"),
-  });
+  const materialsQuery = useAsync(
+    () => api.get<MaterialRow[]>("/admin/materials"),
+    [],
+  );
+  const coursesQuery = useAsync(
+    () => api.get<CourseOption[]>("/admin/courses"),
+    [],
+  );
   const materials = materialsQuery.data ?? [];
   const courses = coursesQuery.data ?? [];
 

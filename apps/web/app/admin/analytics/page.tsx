@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { StatStrip } from "@/components/shared/stat-strip";
 import { PageHeader, Card } from "@/components/ui/nila";
 import { api } from "@/lib/api-client";
@@ -27,10 +27,10 @@ export default function AdminAnalyticsPage() {
     }
   }, [me.user, router]);
 
-  const analyticsQuery = useQuery({
-    queryKey: ["admin-analytics"],
-    queryFn: () => api.get<Analytics>("/admin/analytics"),
-  });
+  const analyticsQuery = useAsync(
+    () => api.get<Analytics>("/admin/analytics"),
+    [],
+  );
   const data = analyticsQuery.data;
 
   const stats = [

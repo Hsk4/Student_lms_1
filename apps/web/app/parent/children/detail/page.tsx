@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import {
   Card,
   Chip,
@@ -37,17 +37,16 @@ type ChildOverview = {
 function DetailById() {
   const params = useSearchParams();
   const id = params.get("id") ?? "";
-  const query = useQuery({
-    queryKey: ["parent", "child", id],
-    queryFn: () => api.get<ChildOverview>(`/parent/children/${id}`),
-    enabled: Boolean(id),
-  });
+  const query = useAsync(
+    () => api.get<ChildOverview>(`/parent/children/${id}`),
+    [id], { enabled: Boolean(id) },
+  );
 
   if (!id)
     return (
       <p className="p-6 text-sm text-muted-foreground">No child selected.</p>
     );
-  if (query.isLoading)
+  if (query.loading)
     return <InlineLoading />;
   if (query.error)
     return <p className="p-6 text-sm text-status-red">{query.error.message}</p>;

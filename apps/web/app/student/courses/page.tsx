@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { api } from "@/lib/api-client";
 import {
   Table,
@@ -32,10 +32,10 @@ type CourseRow = {
 };
 
 export default function StudentCoursesPage() {
-  const coursesQuery = useQuery({
-    queryKey: ["student", "courses"],
-    queryFn: () => api.get<CourseRow[]>("/student/courses"),
-  });
+  const coursesQuery = useAsync(
+    () => api.get<CourseRow[]>("/student/courses"),
+    [],
+  );
   const courses = coursesQuery.data ?? [];
   const active = courses.filter((item) => item.state === "active");
   const history = courses.filter((item) => item.state !== "active");

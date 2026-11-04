@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { Card, Empty, PageHeader, formatDay } from "@/components/ui/nila";
 import { api } from "@/lib/api-client";
 
@@ -21,10 +21,10 @@ const TYPES = [
 ] as const;
 
 export default function StudentMaterialsPage() {
-  const materialsQuery = useQuery({
-    queryKey: ["student", "materials"],
-    queryFn: () => api.get<MaterialRow[]>("/student/materials"),
-  });
+  const materialsQuery = useAsync(
+    () => api.get<MaterialRow[]>("/student/materials"),
+    [],
+  );
   const materials = materialsQuery.data ?? [];
 
   return (

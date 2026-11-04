@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import {
   Table,
   TableHeader,
@@ -24,10 +24,10 @@ type AuditEntry = {
 };
 
 export default function AuditLogPage() {
-  const auditQuery = useQuery({
-    queryKey: ["admin-audit"],
-    queryFn: () => api.get<AuditEntry[]>("/admin/audit-log"),
-  });
+  const auditQuery = useAsync(
+    () => api.get<AuditEntry[]>("/admin/audit-log"),
+    [],
+  );
   const entries = auditQuery.data ?? [];
 
   return (

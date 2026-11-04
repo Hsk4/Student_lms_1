@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { Users } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -32,10 +32,10 @@ type ChildOverview = {
 };
 
 export default function ParentDashboardPage() {
-  const childrenQuery = useQuery({
-    queryKey: ["parent", "children"],
-    queryFn: () => api.get<ChildOverview[]>("/parent/overview"),
-  });
+  const childrenQuery = useAsync(
+    () => api.get<ChildOverview[]>("/parent/overview"),
+    [],
+  );
   const children = childrenQuery.data ?? [];
 
   const totalDue = children.reduce((sum, child) => sum + child.dueAmount, 0);

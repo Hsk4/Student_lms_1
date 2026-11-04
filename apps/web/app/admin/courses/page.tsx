@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { api } from "@/lib/api-client";
 import {
   Table,
@@ -49,14 +49,14 @@ export default function CoursesPage() {
   const level = params.get("level") ?? undefined;
   const activeTab = TABS.some((t) => t.key === tab) ? tab : "courses";
 
-  const catalogQuery = useQuery({
-    queryKey: ["admin-catalog"],
-    queryFn: () => api.get<CatalogLists>("/admin/catalog"),
-  });
-  const coursesQuery = useQuery({
-    queryKey: ["admin-courses"],
-    queryFn: () => api.get<CourseRowData[]>("/admin/courses"),
-  });
+  const catalogQuery = useAsync(
+    () => api.get<CatalogLists>("/admin/catalog"),
+    [],
+  );
+  const coursesQuery = useAsync(
+    () => api.get<CourseRowData[]>("/admin/courses"),
+    [],
+  );
 
   const { boards = [], levels = [], subjects = [] } = catalogQuery.data ?? {};
   const courses = coursesQuery.data ?? [];

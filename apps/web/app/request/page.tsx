@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import type { CatalogOption } from "@lms/shared";
 import { PageHeader } from "@/components/ui/nila";
 import { PanelShell } from "@/components/shell/shell";
@@ -17,14 +17,12 @@ function Body() {
   const router = useRouter();
   const user = me.user;
 
-  const optionsQuery = useQuery({
-    queryKey: ["form-options"],
-    queryFn: () =>
-      api.get<{ boards: CatalogOption[]; levels: CatalogOption[]; subjects: CatalogOption[] }>(
+  const optionsQuery = useAsync(
+    () => api.get<{ boards: CatalogOption[]; levels: CatalogOption[]; subjects: CatalogOption[] }>(
         "/catalog/form-options",
       ),
-    enabled: Boolean(user),
-  });
+    [], { enabled: Boolean(user) },
+  )
 
   // `isFetched && !user` is the 401 case (signed out or suspended).
   useEffect(() => {

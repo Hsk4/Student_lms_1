@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import {
   Table,
   TableHeader,
@@ -32,14 +32,14 @@ type Options = {
 };
 
 export default function AdminParentInvitesPage() {
-  const invitesQuery = useQuery({
-    queryKey: ["admin-parent-links"],
-    queryFn: () => api.get<InviteRow[]>("/admin/parent-links"),
-  });
-  const optionsQuery = useQuery({
-    queryKey: ["admin-parent-link-options"],
-    queryFn: () => api.get<Options>("/admin/parent-links/options"),
-  });
+  const invitesQuery = useAsync(
+    () => api.get<InviteRow[]>("/admin/parent-links"),
+    [],
+  );
+  const optionsQuery = useAsync(
+    () => api.get<Options>("/admin/parent-links/options"),
+    [],
+  );
 
   const invites = invitesQuery.data ?? [];
   const options = optionsQuery.data ?? { parents: [], students: [] };

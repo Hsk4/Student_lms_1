@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { Card, Empty, PageHeader, formatDay } from "@/components/ui/nila";
 import { api } from "@/lib/api-client";
 import { DecisionForm } from "../teacher-forms";
@@ -16,14 +16,14 @@ type EnrollmentView = {
 type TeacherClass = { id: string; name: string; courseId: string; courseLabel: string; state: string };
 
 export default function TeacherRequestsPage() {
-  const requestsQuery = useQuery({
-    queryKey: ["teacher", "requests"],
-    queryFn: () => api.get<EnrollmentView[]>("/teacher/requests"),
-  });
-  const classesQuery = useQuery({
-    queryKey: ["teacher", "classes"],
-    queryFn: () => api.get<TeacherClass[]>("/teacher/classes"),
-  });
+  const requestsQuery = useAsync(
+    () => api.get<EnrollmentView[]>("/teacher/requests"),
+    [],
+  );
+  const classesQuery = useAsync(
+    () => api.get<TeacherClass[]>("/teacher/classes"),
+    [],
+  );
 
   const requests = requestsQuery.data ?? [];
   const openClasses = (classesQuery.data ?? []).filter((klass) => klass.state === "current");

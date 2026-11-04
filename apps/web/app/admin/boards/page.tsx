@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { api } from "@/lib/api-client";
 import {
   Table,
@@ -17,14 +17,14 @@ import { BoardForm, BoardRow } from "./board-ui";
 type BoardRowData = { id: string; name: string; slug: string; active: boolean };
 
 export default function BoardsPage() {
-  const boardsQuery = useQuery({
-    queryKey: ["admin-boards"],
-    queryFn: () => api.get<{ boards: BoardRowData[] }>("/admin/catalog"),
-  });
-  const coursesQuery = useQuery({
-    queryKey: ["admin-courses"],
-    queryFn: () => api.get<{ id: string; boardId: string }[]>("/admin/courses"),
-  });
+  const boardsQuery = useAsync(
+    () => api.get<{ boards: BoardRowData[] }>("/admin/catalog"),
+    [],
+  );
+  const coursesQuery = useAsync(
+    () => api.get<{ id: string; boardId: string }[]>("/admin/courses"),
+    [],
+  );
 
   const boards = boardsQuery.data?.boards ?? [];
   const counts = new Map<string, number>();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { api } from "@/lib/api-client";
 import {
   Table,
@@ -31,10 +31,10 @@ type MeetingRow = {
 };
 
 export default function TeacherMeetingsPage() {
-  const meetingsQuery = useQuery({
-    queryKey: ["teacher", "meetings"],
-    queryFn: () => api.get<MeetingRow[]>("/teacher/meetings"),
-  });
+  const meetingsQuery = useAsync(
+    () => api.get<MeetingRow[]>("/teacher/meetings"),
+    [],
+  );
   const meetings = meetingsQuery.data ?? [];
   const open = meetings.filter(
     (meeting) => meeting.state !== "done" && meeting.state !== "cancelled",

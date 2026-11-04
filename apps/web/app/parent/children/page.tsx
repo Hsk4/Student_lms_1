@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import { api } from "@/lib/api-client";
 import {
   Table,
@@ -30,10 +30,10 @@ type ChildOverview = {
 };
 
 export default function ParentChildrenPage() {
-  const childrenQuery = useQuery({
-    queryKey: ["parent", "children"],
-    queryFn: () => api.get<ChildOverview[]>("/parent/overview"),
-  });
+  const childrenQuery = useAsync(
+    () => api.get<ChildOverview[]>("/parent/overview"),
+    [],
+  );
   const children = childrenQuery.data ?? [];
 
   return (

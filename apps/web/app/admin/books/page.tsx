@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useAsync } from "@/lib/use-async";
 import {
   Table,
   TableHeader,
@@ -32,14 +32,14 @@ function BooksContent() {
   const params = useSearchParams();
   const courseId = params.get("courseId") ?? undefined;
 
-  const booksQuery = useQuery({
-    queryKey: ["admin-books"],
-    queryFn: () => api.get<BookRow[]>("/admin/books"),
-  });
-  const coursesQuery = useQuery({
-    queryKey: ["admin-courses"],
-    queryFn: () => api.get<CourseRow[]>("/admin/courses"),
-  });
+  const booksQuery = useAsync(
+    () => api.get<BookRow[]>("/admin/books"),
+    [],
+  );
+  const coursesQuery = useAsync(
+    () => api.get<CourseRow[]>("/admin/courses"),
+    [],
+  );
 
   const books = booksQuery.data ?? [];
   const courseOptions = (coursesQuery.data ?? []).map((course) => ({
