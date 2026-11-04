@@ -76,6 +76,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const token = useSyncExternalStore(subscribeToSession, readToken, () => null);
   const signedIn = token !== null;
 
+  /*
+   * `useSyncExternalStore` renders the server snapshot (`null`) once before it
+   * reads `localStorage`. During that render the token is not yet known, so a
+   * guard that trusted it would redirect a signed-in user to /sign-in on every
+   * hard load. The same hook answers "has the client rendered yet": `false`
+   * on the server snapshot, `true` in the browser.
+   */
+  const hydrated = useSyncExternalStore(
+    subscribeToSession,
+    () => true,
+    () => false,
+  );
+
   const [user, setUser] = useState<MeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Bumped to force a re-read without changing the token.
@@ -197,7 +210,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthState>(
     () => ({
-      ready: typeof window !== "undefined",
+      // Only once the client has read the stored session, so a hard load never
+      // looks signed out for a tick.
+      ready: hydrated,
       signedIn,
       user: resolvedUser,
       loading,
@@ -210,7 +225,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       completeSignIn,
       signOut,
     }),
-    [signedIn, resolvedUser, loading, error, refresh, completeSignIn, signOut],
+    [
+      hydrated,
+      signedIn,
+      resolvedUser,
+      loading,
+      error,
+      refresh,
+      completeSignIn,
+      signOut,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
