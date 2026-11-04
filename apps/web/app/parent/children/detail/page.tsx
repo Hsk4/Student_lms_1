@@ -156,7 +156,10 @@ function DetailById() {
                     ? "Confirmed"
                     : "Requested"}
                 </Chip>
-                <RescheduleMeetingForm meetingId={child.nextMeeting.id} />
+                <RescheduleMeetingForm
+                  meetingId={child.nextMeeting.id}
+                  onDone={query.reload}
+                />
               </div>
             </Card>
           ) : (

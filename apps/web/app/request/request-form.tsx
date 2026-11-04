@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import type { CatalogOption } from "@lms/shared";
 import { Card } from "@/components/ui/nila";
 import { api } from "@/lib/api-client";
+import { useAuth } from "@/lib/auth-context";
 
 export function RequestForm({
   defaults,
@@ -19,7 +19,7 @@ export function RequestForm({
   subjects: CatalogOption[];
 }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const { refresh } = useAuth();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -50,7 +50,8 @@ export function RequestForm({
               subjectIds: selected,
               note: form.get("note") ?? "",
             });
-            await queryClient.invalidateQueries({ queryKey: ["me"] });
+            // The request changed the account; /pending reads the new state.
+            await refresh();
             router.push("/pending");
           } catch (error) {
             setMessage(

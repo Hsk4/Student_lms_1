@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 
 type Option = { id: string; label: string };
@@ -10,11 +9,12 @@ type Option = { id: string; label: string };
 export function LinkGuardianForm({
   parents,
   students,
+  onDone,
 }: {
   parents: Option[];
   students: Option[];
+  onDone?: () => void;
 }) {
-  const queryClient = useQueryClient();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,9 +36,7 @@ export function LinkGuardianForm({
         if (action === "link") await api.post("/admin/guardians", payload);
         else await api.delete("/admin/guardians", payload);
         setMessage(action === "link" ? "Linked." : "Link removed.");
-        await queryClient.invalidateQueries({
-          queryKey: ["admin-parent-links"],
-        });
+        onDone?.();
       } catch (submissionError) {
         setError(
           submissionError instanceof Error

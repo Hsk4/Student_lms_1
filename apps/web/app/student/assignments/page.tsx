@@ -125,7 +125,10 @@ export default function StudentAssignmentsPage() {
                   ) : null
                 ) : (
                   <div className="mt-3">
-                    <SubmitAssignmentForm assignmentId={assignment.id} />
+                    <SubmitAssignmentForm
+                      assignmentId={assignment.id}
+                      onDone={assignmentsQuery.reload}
+                    />
                   </div>
                 )}
               </Card>

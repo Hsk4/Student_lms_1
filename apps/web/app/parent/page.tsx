@@ -196,6 +196,7 @@ export default function ParentDashboardPage() {
             <SectionHeader title="Request a meeting with a teacher" />
             <div className="max-w-md">
               <RequestMeetingForm
+                onDone={childrenQuery.reload}
                 childRows={children.map(({ id, name }) => ({ id, name }))}
               />
             </div>

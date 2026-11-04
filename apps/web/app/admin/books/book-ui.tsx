@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { ActionForm } from "@/components/ui/action-form";
 import { api } from "@/lib/api-client";
 
@@ -55,11 +54,12 @@ function CoursePicker({
 export function BookForm({
   courses,
   preselect,
+  onDone,
 }: {
   courses: CourseOption[];
   preselect?: string;
+  onDone?: () => void;
 }) {
-  const queryClient = useQueryClient();
   return (
     <ActionForm
       className="mt-4 space-y-4"
@@ -71,7 +71,7 @@ export function BookForm({
           courseIds: form.getAll("courseIds"),
           note: form.get("note") ?? "",
         });
-        await queryClient.invalidateQueries({ queryKey: ["admin-books"] });
+        onDone?.();
         return null;
       }}
     >
@@ -110,11 +110,12 @@ export function BookForm({
 export function EditBookForm({
   book,
   courses,
+  onDone,
 }: {
   book: { id: string; title: string; author: string; note: string; courseIds: string[] };
   courses: CourseOption[];
+  onDone?: () => void;
 }) {
-  const queryClient = useQueryClient();
   return (
     <ActionForm
       className="space-y-3"
@@ -127,10 +128,7 @@ export function EditBookForm({
           courseIds: form.getAll("courseIds"),
           note: form.get("note") ?? "",
         });
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["admin-books"] }),
-          queryClient.invalidateQueries({ queryKey: ["admin-book", book.id] }),
-        ]);
+        onDone?.();
         return null;
       }}
     >

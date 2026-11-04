@@ -1,12 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 
 /** Opens a support ticket for the signed-in student. */
-export function NewTicketForm() {
-  const queryClient = useQueryClient();
+export function NewTicketForm({ onDone }: { onDone?: () => void }) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +24,7 @@ export function NewTicketForm() {
               text: String(form.get("text") ?? "").trim(),
             });
             setMessage("Ticket opened. The office will reply here.");
-            await queryClient.invalidateQueries({ queryKey: ["support-tickets"] });
+            onDone?.();
           } catch (submissionError) {
             setError(
               submissionError instanceof Error
@@ -71,8 +69,13 @@ export function NewTicketForm() {
 }
 
 /** Adds a follow-up message to one of the caller's tickets. */
-export function TicketReplyForm({ ticketId }: { ticketId: string }) {
-  const queryClient = useQueryClient();
+export function TicketReplyForm({
+  ticketId,
+  onDone,
+}: {
+  ticketId: string;
+  onDone?: () => void;
+}) {
   const [pending, startTransition] = useTransition();
   const [value, setValue] = useState("");
 
@@ -87,7 +90,7 @@ export function TicketReplyForm({ ticketId }: { ticketId: string }) {
             text: value.trim(),
           });
           setValue("");
-          await queryClient.invalidateQueries({ queryKey: ["support-tickets"] });
+          onDone?.();
         });
       }}
     >
@@ -110,8 +113,13 @@ export function TicketReplyForm({ ticketId }: { ticketId: string }) {
 }
 
 /** Admin passes a ticket to the super admin. */
-export function EscalateTicketButton({ ticketId }: { ticketId: string }) {
-  const queryClient = useQueryClient();
+export function EscalateTicketButton({
+  ticketId,
+  onDone,
+}: {
+  ticketId: string;
+  onDone?: () => void;
+}) {
   const [pending, startTransition] = useTransition();
 
   return (
@@ -122,7 +130,7 @@ export function EscalateTicketButton({ ticketId }: { ticketId: string }) {
       onClick={() => {
         startTransition(async () => {
           await api.post(`/admin/tickets/${ticketId}/escalate`);
-          await queryClient.invalidateQueries({ queryKey: ["support-tickets"] });
+          onDone?.();
         });
       }}
     >

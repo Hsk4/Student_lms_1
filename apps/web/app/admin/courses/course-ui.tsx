@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQueryClient } from "@tanstack/react-query";
 import { ActionButton, ActionForm } from "@/components/ui/action-form";
 import { api } from "@/lib/api-client";
 
@@ -21,26 +20,21 @@ export type CourseRowData = {
   books: number;
 };
 
-function useCatalogRefresh() {
-  const queryClient = useQueryClient();
-  return () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["admin-courses"] }),
-      queryClient.invalidateQueries({ queryKey: ["admin-boards"] }),
-      queryClient.invalidateQueries({ queryKey: ["admin-catalog"] }),
-    ]);
-}
+/** The page passes its own `reload`; a form on its own has nothing to refresh. */
+const noop = () => {};
 
 export function CourseForm({
   boards,
   levels,
   subjects,
+  onDone,
 }: {
   boards: Option[];
   levels: Option[];
   subjects: Option[];
+  onDone?: () => void;
 }) {
-  const refresh = useCatalogRefresh();
+  const refresh = onDone ?? noop;
   const active = (list: Option[]) => list.filter((item) => item.active);
 
   return (
@@ -118,9 +112,15 @@ export function CourseForm({
   );
 }
 
-export function CourseRow({ course }: { course: CourseRowData }) {
+export function CourseRow({
+  course,
+  onDone,
+}: {
+  course: CourseRowData;
+  onDone?: () => void;
+}) {
   const [editing, setEditing] = useState(false);
-  const refresh = useCatalogRefresh();
+  const refresh = onDone ?? noop;
 
   if (editing) {
     return (

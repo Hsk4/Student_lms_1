@@ -57,6 +57,13 @@ export type AuthState = {
 
 const AuthContext = createContext<AuthState | null>(null);
 
+/**
+ * The last profile the API returned, held for the lifetime of the tab. A
+ * remount (navigating after sign-in) adopts it instead of asking `/me` again.
+ * It is keyed by token, so a different account can never inherit it.
+ */
+let lastProfile: { token: string; me: MeResponse } | null = null;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
@@ -78,11 +85,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * The profile belongs to one token. Keying the stored user by the token it
    * came from means signing out (or switching account) never shows stale state,
    * and nothing has to be cleared from an effect body.
+   *
+   * It starts from the profile this tab already fetched, so navigating after
+   * sign-in does not ask `/me` a second time.
    */
   const [fetchedFor, setFetchedFor] = useState<{
     token: string;
     me: MeResponse;
-  } | null>(null);
+  } | null>(() => lastProfile);
   const current =
     signedIn && token && fetchedFor?.token === token ? fetchedFor.me : null;
   const resolvedUser = current ?? user;
@@ -104,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setUnauthorizedHandler(() => {
       clearSession();
+      lastProfile = null;
       setUser(null);
       setFetchedFor(null);
     });
@@ -118,12 +129,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!signedIn || !token) return;
 
+    /*
+     * `fetchedFor` was seeded from the profile sign-in already loaded, so the
+     * next mount returns here instead of asking again — one `/me` per session,
+     * not one per page.
+     */
+
+    if (fetchedFor?.token === token) return;
+
     let cancelled = false;
 
     api
       .get<MeResponse>("/me")
       .then((me) => {
         if (cancelled) return;
+        lastProfile = { token, me };
         setFetchedFor({ token, me });
         setUser(me);
         setError(null);
@@ -151,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [signedIn, token, refreshTick]);
+  }, [signedIn, token, fetchedFor, refreshTick]);
 
   const completeSignIn = useCallback(
     async (nextToken: string, nextUser: StoredUser) => {
@@ -159,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Read the profile before navigating: `home` decides the destination and
       // the guards need it on the very next render.
       const me = await api.get<MeResponse>("/me");
+      lastProfile = { token: nextToken, me };
       setFetchedFor({ token: nextToken, me });
       setUser(me);
       writeSession(nextToken, {

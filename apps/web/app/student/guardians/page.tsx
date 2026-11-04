@@ -77,7 +77,10 @@ export default function StudentGuardiansPage() {
                         : guardian.state}
                     </Chip>
                     {guardian.state === "sent" ? (
-                      <RevokeParentLinkButton inviteId={guardian.id} />
+                      <RevokeParentLinkButton
+                        inviteId={guardian.id}
+                        onDone={guardiansQuery.reload}
+                      />
                     ) : null}
                   </div>
                 </Card>
@@ -106,7 +109,7 @@ export default function StudentGuardiansPage() {
             Valid for 14 days and works once.
           </p>
           <div className="mt-4">
-            <CreateParentLinkForm />
+            <CreateParentLinkForm onDone={guardiansQuery.reload} />
           </div>
         </Card>
       </div>

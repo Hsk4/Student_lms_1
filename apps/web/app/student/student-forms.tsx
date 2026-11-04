@@ -1,14 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 
-/** Every student mutation refreshes the student panel's queries. */
-function useStudentRefresh() {
-  const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: ["student"] });
-}
+/**
+ * Mutation forms take `onDone` from their page, which calls its own `reload`.
+ * A form rendered without one simply has nothing to refresh.
+ */
+const noop = () => {};
 
 /** One button per (teacher, course) pair in the teacher picker. */
 export function RequestTeacherForm({
@@ -16,13 +15,16 @@ export function RequestTeacherForm({
   courseId,
   disabled,
   disabledReason,
+  onDone,
 }: {
   teacherId: string;
   courseId: string;
   disabled?: boolean;
   disabledReason?: string;
+  /** Called after a successful request so the page can reload its data. */
+  onDone?: () => void;
 }) {
-  const refresh = useStudentRefresh();
+  const refresh = onDone ?? noop;
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
 
@@ -57,10 +59,12 @@ export function RequestTeacherForm({
 
 export function SubmitAssignmentForm({
   assignmentId,
+  onDone,
 }: {
   assignmentId: string;
+  onDone?: () => void;
 }) {
-  const refresh = useStudentRefresh();
+  const refresh = onDone ?? noop;
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -136,8 +140,8 @@ export function SubmitAssignmentForm({
  * Generates a link code for a guardian. No email is sent: the student shares
  * the code themselves and the parent types it into their own panel.
  */
-export function CreateParentLinkForm() {
-  const refresh = useStudentRefresh();
+export function CreateParentLinkForm({ onDone }: { onDone?: () => void }) {
+  const refresh = onDone ?? noop;
   const [pending, startTransition] = useTransition();
   const [issued, setIssued] = useState<{
     code: string;
@@ -261,8 +265,14 @@ export function CreateParentLinkForm() {
 }
 
 /** Cancel an unused code so it can no longer be redeemed. */
-export function RevokeParentLinkButton({ inviteId }: { inviteId: string }) {
-  const refresh = useStudentRefresh();
+export function RevokeParentLinkButton({
+  inviteId,
+  onDone,
+}: {
+  inviteId: string;
+  onDone?: () => void;
+}) {
+  const refresh = onDone ?? noop;
   const [pending, startTransition] = useTransition();
 
   return (

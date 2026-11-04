@@ -62,6 +62,7 @@ export default function AdminParentInvitesPage() {
           <LinkGuardianForm
             parents={options.parents}
             students={options.students}
+            onDone={invitesQuery.reload}
           />
         </div>
       </Card>
@@ -123,7 +124,10 @@ export default function AdminParentInvitesPage() {
                   </TableCell>
                   <TableCell className="text-end">
                     {invite.state === "sent" && (
-                      <InviteActions inviteId={invite.id} />
+                      <InviteActions
+                    inviteId={invite.id}
+                    onDone={invitesQuery.reload}
+                  />
                     )}
                   </TableCell>
                 </TableRow>

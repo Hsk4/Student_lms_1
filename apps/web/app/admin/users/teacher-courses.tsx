@@ -3,21 +3,21 @@
 import { useState } from "react";
 import { ActionForm } from "@/components/ui/action-form";
 import { api } from "@/lib/api-client";
-import { useQueryClient } from "@tanstack/react-query";
 
 export type TeacherCourse = { id: string; label: string; selected: boolean };
 
 export function TeacherCoursesForm({
   teacherId,
   courses,
+  onDone,
 }: {
   teacherId: string;
   courses: TeacherCourse[];
+  onDone?: () => void;
 }) {
   const [selected, setSelected] = useState(
     courses.filter((course) => course.selected).map((course) => course.id),
   );
-  const queryClient = useQueryClient();
 
   return (
     <ActionForm
@@ -28,10 +28,7 @@ export function TeacherCoursesForm({
         await api.patch(`/admin/users/${teacherId}/courses`, {
           courseIds: selected,
         });
-        await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
-        await queryClient.invalidateQueries({
-          queryKey: ["admin-teacher-courses"],
-        });
+        onDone?.();
         return null;
       }}
     >

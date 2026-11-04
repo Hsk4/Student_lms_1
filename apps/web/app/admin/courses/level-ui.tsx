@@ -1,24 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { ActionButton, ActionForm } from "@/components/ui/action-form";
 import { api } from "@/lib/api-client";
 
 type Level = { id: string; name: string; order: number; active: boolean };
 
-function useLevelRefresh() {
-  const queryClient = useQueryClient();
-  return () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["admin-catalog"] }),
-      queryClient.invalidateQueries({ queryKey: ["admin-courses"] }),
-      queryClient.invalidateQueries({ queryKey: ["form-options"] }),
-    ]);
-}
+/** The page passes its own `reload`; a form on its own has nothing to refresh. */
+const noop = () => {};
 
-export function LevelForm() {
-  const refresh = useLevelRefresh();
+export function LevelForm({ onDone }: { onDone?: () => void }) {
+  const refresh = onDone ?? noop;
   return (
     <ActionForm
       className="mt-4 space-y-4"
@@ -68,9 +60,15 @@ export function LevelForm() {
   );
 }
 
-export function LevelRow({ level }: { level: Level }) {
+export function LevelRow({
+  level,
+  onDone,
+}: {
+  level: Level;
+  onDone?: () => void;
+}) {
   const [editing, setEditing] = useState(false);
-  const refresh = useLevelRefresh();
+  const refresh = onDone ?? noop;
 
   if (editing) {
     return (

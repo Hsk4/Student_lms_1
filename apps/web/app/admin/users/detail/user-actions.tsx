@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { ActionButton } from "@/components/ui/action-form";
 import { Card } from "@/components/ui/nila";
 import { api } from "@/lib/api-client";
@@ -12,18 +11,19 @@ export function UserActions({
   userId,
   status,
   role,
+  onDone,
 }: {
   userId: string;
   status: string;
   role: string | null;
+  /** The detail page reloads itself after a change. */
+  onDone?: () => void;
 }) {
   const [nextRole, setNextRole] = useState<string>(role ?? "student");
   const [reason, setReason] = useState("");
-  const queryClient = useQueryClient();
 
   const done = async () => {
-    await queryClient.invalidateQueries({ queryKey: ["admin-user", userId] });
-    await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    onDone?.();
     return null;
   };
 

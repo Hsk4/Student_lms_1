@@ -1,25 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { ActionButton, ActionForm } from "@/components/ui/action-form";
 import { api } from "@/lib/api-client";
 
 type Board = { id: string; name: string; slug: string; active: boolean };
 
-/** Every board mutation refreshes the board list and the course table. */
-function useBoardRefresh() {
-  const queryClient = useQueryClient();
-  return () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["admin-boards"] }),
-      queryClient.invalidateQueries({ queryKey: ["admin-courses"] }),
-      queryClient.invalidateQueries({ queryKey: ["form-options"] }),
-    ]);
-}
+/** The page passes its own `reload`; a form on its own has nothing to refresh. */
+const noop = () => {};
 
-export function BoardForm() {
-  const refresh = useBoardRefresh();
+export function BoardForm({ onDone }: { onDone?: () => void }) {
+  const refresh = onDone ?? noop;
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
@@ -91,12 +82,14 @@ export function BoardForm() {
 export function BoardRow({
   board,
   courseCount,
+  onDone,
 }: {
   board: Board;
   courseCount: number;
+  onDone?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const refresh = useBoardRefresh();
+  const refresh = onDone ?? noop;
 
   if (editing) {
     return (

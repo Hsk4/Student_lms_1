@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 
 type ClassOption = {
@@ -38,21 +37,22 @@ export function toStudentOptions(
   }));
 }
 
-/** Refreshes every teacher-panel query after a mutation. */
-function useTeacherRefresh() {
-  const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: ["teacher"] });
-}
+/**
+ * The page passes its own `reload`; a form on its own has nothing to refresh.
+ */
+const noop = () => {};
 
 /** Accept into a class of the same course, or as one-on-one, or decline. */
 export function DecisionForm({
   enrollmentId,
   classes,
+  onDone,
 }: {
   enrollmentId: string;
   classes: ClassOption[];
+  onDone?: () => void;
 }) {
-  const refresh = useTeacherRefresh();
+  const refresh = onDone ?? noop;
   const [classId, setClassId] = useState("");
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -125,10 +125,12 @@ export function DecisionForm({
 
 export function ClassForm({
   courses,
+  onDone,
 }: {
   courses: { id: string; label: string }[];
+  onDone?: () => void;
 }) {
-  const refresh = useTeacherRefresh();
+  const refresh = onDone ?? noop;
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
 
@@ -238,8 +240,14 @@ export function ClassForm({
   );
 }
 
-export function EndClassButton({ classId }: { classId: string }) {
-  const refresh = useTeacherRefresh();
+export function EndClassButton({
+  classId,
+  onDone,
+}: {
+ classId: string 
+  onDone?: () => void;
+}) {
+  const refresh = onDone ?? noop;
   const [pending, startTransition] = useTransition();
 
   return (
@@ -269,11 +277,13 @@ export function EndClassButton({ classId }: { classId: string }) {
 export function AssignmentForm({
   classes,
   students,
+  onDone,
 }: {
   classes: ClassOption[];
   students: StudentOption[];
+  onDone?: () => void;
 }) {
-  const refresh = useTeacherRefresh();
+  const refresh = onDone ?? noop;
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [target, setTarget] = useState("");
@@ -394,12 +404,14 @@ export function GradeForm({
   submissionId,
   score,
   feedback,
+  onDone,
 }: {
   submissionId: string;
   score: number | null;
   feedback: string;
+  onDone?: () => void;
 }) {
-  const refresh = useTeacherRefresh();
+  const refresh = onDone ?? noop;
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
 
@@ -470,11 +482,13 @@ export function GradeForm({
 export function AttendanceForm({
   classes,
   students,
+  onDone,
 }: {
   classes: ClassOption[];
   students: StudentOption[];
+  onDone?: () => void;
 }) {
-  const refresh = useTeacherRefresh();
+  const refresh = onDone ?? noop;
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [target, setTarget] = useState("");
@@ -610,11 +624,13 @@ export function AttendanceForm({
 export function ConfirmMeetingForm({
   meetingId,
   confirmedAt,
+  onDone,
 }: {
   meetingId: string;
   confirmedAt: string | null;
+  onDone?: () => void;
 }) {
-  const refresh = useTeacherRefresh();
+  const refresh = onDone ?? noop;
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
 
@@ -671,8 +687,14 @@ export function ConfirmMeetingForm({
   );
 }
 
-export function RequestNewSlotButton({ meetingId }: { meetingId: string }) {
-  const refresh = useTeacherRefresh();
+export function RequestNewSlotButton({
+  meetingId,
+  onDone,
+}: {
+ meetingId: string 
+  onDone?: () => void;
+}) {
+  const refresh = onDone ?? noop;
   const [pending, startTransition] = useTransition();
 
   return (

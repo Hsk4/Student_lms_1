@@ -3,7 +3,6 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAsync } from "@/lib/use-async";
-import { useQueries } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import {
   Table,
@@ -39,16 +38,29 @@ function ParentInvoicesContent() {
   const children = childrenQuery.data ?? [];
   const visible = selected ? children.filter((item) => item.id === selected) : children;
 
-  // The API only answers for a child linked to this parent.
-  const invoiceQueries = useQueries({
-    queries: visible.map((child) => ({
-      queryKey: ["parent", "invoices", child.id],
-      queryFn: () => api.get<InvoiceRow[]>("/invoices", { studentId: child.id }),
-    })),
-  });
-  const perChild = visible.map((child, index) => ({
+  /*
+   * The API only answers for a child linked to this parent, so this is one
+   * request per visible child. A parent has a handful of children, so they run
+   * together in a single load instead of a cache entry each.
+   */
+  const invoiceIds = visible.map((child) => child.id).join(",");
+  const invoicesQuery = useAsync(async () => {
+    const lists = await Promise.all(
+      visible.map(async (child) => ({
+        childId: child.id,
+        invoices: await api.get<InvoiceRow[]>("/invoices", {
+          studentId: child.id,
+        }),
+      })),
+    );
+    return lists;
+  }, [invoiceIds]);
+  const invoicesByChild = new Map(
+    (invoicesQuery.data ?? []).map((entry) => [entry.childId, entry.invoices]),
+  );
+  const perChild = visible.map((child) => ({
     child,
-    invoices: invoiceQueries[index]?.data ?? [],
+    invoices: invoicesByChild.get(child.id) ?? [],
   }));
 
   const totalDue = visible.reduce((sum, child) => sum + child.dueAmount, 0);

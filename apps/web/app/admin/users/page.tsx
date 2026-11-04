@@ -92,7 +92,7 @@ export default function AdminUsersPage() {
 
   return (
     <>
-      <UsersAutoRefresh />
+      <UsersAutoRefresh onRefresh={usersQuery.reload} />
       <div className="flex flex-col gap-6">
         <PageHeader
           title="Users"

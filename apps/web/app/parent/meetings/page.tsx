@@ -87,7 +87,10 @@ export default function ParentMeetingsPage() {
                         <p className="text-sm">
                           Scheduled for {formatDate(meeting.confirmedAt)}
                         </p>
-                        <RescheduleMeetingForm meetingId={meeting.id} />
+                        <RescheduleMeetingForm
+                          meetingId={meeting.id}
+                          onDone={meetingsQuery.reload}
+                        />
                       </div>
                     ) : (
                       <p className="mt-3 text-sm text-muted-foreground">
@@ -143,7 +146,10 @@ export default function ParentMeetingsPage() {
             The teacher of the child&apos;s active course receives the request.
           </p>
           <div className="mt-3">
-            <RequestMeetingForm childRows={children.map(({ id, name }) => ({ id, name }))} />
+            <RequestMeetingForm
+              onDone={meetingsQuery.reload}
+              childRows={children.map(({ id, name }) => ({ id, name }))}
+            />
           </div>
         </Card>
       </div>

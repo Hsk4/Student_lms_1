@@ -2,13 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 
 /** The parent types the code their child gave them. */
 export function RedeemLinkCodeForm() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [linked, setLinked] = useState<{ id: string; name: string } | null>(
@@ -25,7 +23,7 @@ export function RedeemLinkCodeForm() {
           type="button"
           className="btn btn-primary"
           onClick={() => {
-            void queryClient.invalidateQueries({ queryKey: ["parent"] });
+            // The detail page fetches the child itself on mount.
             router.push(`/parent/children/detail?id=${linked.id}`);
           }}
         >
@@ -49,7 +47,6 @@ export function RedeemLinkCodeForm() {
               { code: form.get("code") },
             );
             setLinked(result);
-            await queryClient.invalidateQueries({ queryKey: ["parent"] });
           } catch (redeemError) {
             setError(
               redeemError instanceof Error ? redeemError.message : "That code did not work",

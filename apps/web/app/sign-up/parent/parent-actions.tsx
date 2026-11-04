@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
+import { useAuth } from "@/lib/auth-context";
 
 /**
  * The single action a guardian needs: ask for the parent role.
@@ -18,7 +18,7 @@ export function RequestParentRoleButton({
   reapplyAt?: string | null;
 }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const { refresh } = useAuth();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -41,7 +41,7 @@ export function RequestParentRoleButton({
           startTransition(async () => {
             try {
               await api.post("/me/request/parent");
-              await queryClient.invalidateQueries({ queryKey: ["me"] });
+              await refresh();
               router.push("/pending");
             } catch (requestError) {
               setError(

@@ -1,23 +1,26 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 
 /**
  * Admin controls for one link code: cancel it, or issue a fresh code when the
  * student lost it. No email is involved in either.
  */
-export function InviteActions({ inviteId }: { inviteId: string }) {
-  const queryClient = useQueryClient();
+export function InviteActions({
+  inviteId,
+  onDone,
+}: {
+  inviteId: string;
+  onDone?: () => void;
+}) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
 
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: ["admin-parent-links"] });
+  const refresh = async () => onDone?.();
 
   const handleRevoke = () => {
     setMessage(null);

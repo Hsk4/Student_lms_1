@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
+import { useAuth } from "@/lib/auth-context";
 
 /**
  * First-login step: record a guardian and issue a link code.
@@ -14,7 +14,7 @@ import { api } from "@/lib/api-client";
  */
 export function ParentOnboardingForm() {
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const { refresh } = useAuth();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [issued, setIssued] = useState<{
@@ -49,7 +49,8 @@ export function ParentOnboardingForm() {
           type="button"
           className="btn btn-primary"
           onClick={async () => {
-            await queryClient.invalidateQueries({ queryKey: ["me"] });
+            // Onboarding is now part of the account; re-read it before leaving.
+            await refresh();
             router.push("/student");
           }}
         >

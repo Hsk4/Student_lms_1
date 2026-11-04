@@ -1,24 +1,25 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 
-/** Every parent mutation refreshes the parent panel's queries. */
-function useParentRefresh() {
-  const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: ["parent"] });
-}
+/**
+ * Mutation forms take `onDone` from their page, which calls its own `reload`.
+ */
+const noop = () => {};
 
 /** A parent asks the child's teacher for a meeting. */
 export function RequestMeetingForm({
   childRows,
   defaultStudentId,
+  onDone,
 }: {
   childRows: { id: string; name: string }[];
   defaultStudentId?: string;
+  /** Called after a successful request so the page can reload its data. */
+  onDone?: () => void;
 }) {
-  const refresh = useParentRefresh();
+  const refresh = onDone ?? noop;
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -113,8 +114,14 @@ export function RequestMeetingForm({
 }
 
 /** A parent asks for a new time on a meeting already confirmed. */
-export function RescheduleMeetingForm({ meetingId }: { meetingId: string }) {
-  const refresh = useParentRefresh();
+export function RescheduleMeetingForm({
+  meetingId,
+  onDone,
+}: {
+  meetingId: string;
+  onDone?: () => void;
+}) {
+  const refresh = onDone ?? noop;
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
 

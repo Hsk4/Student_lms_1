@@ -1,24 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { ActionButton, ActionForm } from "@/components/ui/action-form";
 import { api } from "@/lib/api-client";
 
 type Subject = { id: string; name: string; slug: string; active: boolean };
 
-function useSubjectRefresh() {
-  const queryClient = useQueryClient();
-  return () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["admin-catalog"] }),
-      queryClient.invalidateQueries({ queryKey: ["admin-courses"] }),
-      queryClient.invalidateQueries({ queryKey: ["form-options"] }),
-    ]);
-}
+/** The page passes its own `reload`; a form on its own has nothing to refresh. */
+const noop = () => {};
 
-export function SubjectForm() {
-  const refresh = useSubjectRefresh();
+export function SubjectForm({ onDone }: { onDone?: () => void }) {
+  const refresh = onDone ?? noop;
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
@@ -87,9 +79,15 @@ export function SubjectForm() {
   );
 }
 
-export function SubjectRow({ subject }: { subject: Subject }) {
+export function SubjectRow({
+  subject,
+  onDone,
+}: {
+  subject: Subject;
+  onDone?: () => void;
+}) {
   const [editing, setEditing] = useState(false);
-  const refresh = useSubjectRefresh();
+  const refresh = onDone ?? noop;
 
   if (editing) {
     return (

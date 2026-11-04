@@ -82,6 +82,7 @@ export default function StudentTeachersPage() {
                         courseId={course.id}
                         disabled={hasOpenRequest}
                         disabledReason="Finish your open request first"
+                        onDone={profileQuery.reload}
                       />
                     )}
                   </div>

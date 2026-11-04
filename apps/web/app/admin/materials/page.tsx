@@ -1,7 +1,6 @@
 "use client";
 
 import { useAsync } from "@/lib/use-async";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   Table,
   TableHeader,
@@ -26,7 +25,6 @@ type MaterialRow = {
 type CourseOption = { id: string; label: string };
 
 export default function AdminMaterialsPage() {
-  const queryClient = useQueryClient();
   const materialsQuery = useAsync(
     () => api.get<MaterialRow[]>("/admin/materials"),
     [],
@@ -97,7 +95,7 @@ export default function AdminMaterialsPage() {
                   type: form.get("type"),
                   fileUrl: form.get("fileUrl"),
                 });
-                await queryClient.invalidateQueries({ queryKey: ["admin-materials"] });
+                materialsQuery.reload();
                 return null;
               }}
             >
