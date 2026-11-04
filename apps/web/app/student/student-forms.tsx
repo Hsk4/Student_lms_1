@@ -30,7 +30,7 @@ export function RequestTeacherForm({
     <span className="inline-flex flex-wrap items-center gap-2">
       <button
         type="button"
-        className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover h-9"
+        className="btn btn-primary h-9"
         disabled={pending || disabled}
         title={disabled ? disabledReason : undefined}
         onClick={() => {
@@ -69,7 +69,7 @@ export function SubmitAssignmentForm({
     return (
       <button
         type="button"
-        className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover h-9"
+        className="btn btn-primary h-9"
         onClick={() => setOpen(true)}
       >
         Submit work
@@ -113,7 +113,7 @@ export function SubmitAssignmentForm({
         aria-label="File URL"
       />
       <div className="flex flex-wrap items-center gap-2">
-        <button type="submit" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover h-9" disabled={pending}>
+        <button type="submit" className="btn btn-primary h-9" disabled={pending}>
           {pending ? "Submitting..." : "Submit"}
         </button>
         <button
@@ -249,7 +249,7 @@ export function CreateParentLinkForm() {
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover" disabled={pending}>
+        <button type="submit" className="btn btn-primary" disabled={pending}>
           {pending ? "Creating..." : "Create link code"}
         </button>
         {error ? (

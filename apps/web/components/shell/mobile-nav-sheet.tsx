@@ -17,7 +17,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
-/** Hamburger + slide-over sidebar, shared by all four panels. */
+/** Hamburger + slide-over sidebar, used by the panels with grouped nav. */
 export function MobileNavSheet(props: Omit<SidebarNavProps, "onNavigate">) {
   const [open, setOpen] = React.useState(false);
 
@@ -25,9 +25,9 @@ export function MobileNavSheet(props: Omit<SidebarNavProps, "onNavigate">) {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button
-          variant="outline"
+          variant="ghost"
           size="icon"
-          className="lg:hidden"
+          className="h-11 w-11 border-[1.5px] border-on-navy-line text-white hover:bg-white/10 hover:text-white lg:hidden"
           aria-label="Open navigation menu"
         >
           <Menu className="h-5 w-5" />

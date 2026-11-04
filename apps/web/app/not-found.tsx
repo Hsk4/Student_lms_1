@@ -10,7 +10,7 @@ export default function NotFound() {
       <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">404</p>
       <h1 className="text-2xl font-semibold tracking-tight">This page does not exist</h1>
       <p className="text-sm text-muted-foreground">Check the address, or go back to the home page.</p>
-      <Link href="/" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover mt-2">Home</Link>
+      <Link href="/" className="btn btn-primary mt-2">Home</Link>
     </main>
   );
 }

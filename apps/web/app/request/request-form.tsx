@@ -163,7 +163,7 @@ export function RequestForm({
         </div>
 
         <div className="flex items-center gap-3">
-          <button type="submit" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover" disabled={pending}>
+          <button type="submit" className="btn btn-primary" disabled={pending}>
             {pending ? "Submitting..." : "Submit request"}
           </button>
           {message ? (

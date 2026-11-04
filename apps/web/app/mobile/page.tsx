@@ -545,20 +545,33 @@ function WaitingScreen() {
 
 /* ------------------------------------------------------------- assembly */
 
-/** 390 x 844 drawn at 1:1, then shrunk. The wrapper reserves the scaled size so layout does not jump. */
+/**
+ * 390 x 844 drawn at 1:1, then shrunk.
+ *
+ * The frame is a fixed 242 px box at `SCALE`, which is wider than the content
+ * column on a 360 px phone once padding and `main`'s gutters are subtracted.
+ * `max-w-full` lets the *outer* box shrink; the inner 390 px canvas keeps its
+ * size and is scaled uniformly by the same factor, so the screen is never
+ * squeezed out of proportion — only shown a little smaller.
+ */
 const SCALE = 0.62;
+const PHONE_W = 390;
+const PHONE_H = 844;
 
 function ScaledPhone({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="relative mx-auto shrink-0"
-      style={{ width: 390 * SCALE, height: 844 * SCALE }}
+      className="relative mx-auto shrink-0 [--phone-scale:0.54] sm:[--phone-scale:0.62]"
+      style={{
+        width: `min(${PHONE_W * SCALE}px, 100%)`,
+        height: `calc(${PHONE_H}px * var(--phone-scale))`,
+      }}
     >
       <div
         style={{
-          width: 390,
-          height: 844,
-          transform: `scale(${SCALE})`,
+          width: PHONE_W,
+          height: PHONE_H,
+          transform: "scale(var(--phone-scale))",
           transformOrigin: "top left",
         }}
       >
@@ -624,42 +637,65 @@ const SCREENS = [
 export default function MobileScreensPage() {
   return (
     <div className="min-h-screen bg-[#eaf1ff] font-sans">
+      {/*
+       * Header: two rows below `sm`. At 390px, brand + "App screens" + an
+       * outlined button on one line left every item squeezed against the
+       * next; the label is dropped to a second row and the button shrinks.
+       */}
       <header className="relative bg-[#0a2540] text-white">
         <div className="fastly-jaali absolute inset-0" aria-hidden="true" />
-        <div className="relative mx-auto flex w-full max-w-300 flex-wrap items-center justify-between gap-4 px-6 py-5">
-          <Link href="/" className="flex items-center gap-2.5">
-            <BrandMark size={30} tone="light" />
-            <span className="fastly-display text-[20px]">fastly</span>
-          </Link>
-          <p className="text-[13px] text-on-navy-soft">App screens</p>
+        <div className="relative mx-auto flex w-full max-w-300 flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-4 sm:px-6 sm:py-5">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="flex min-h-11 items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
+            >
+              <BrandMark size={28} tone="light" />
+              <span className="fastly-display text-[19px]">fastly</span>
+            </Link>
+            <span
+              className="h-5 w-px bg-on-navy-line"
+              aria-hidden="true"
+            />
+            <p className="text-[13px] text-on-navy-soft">App screens</p>
+          </div>
           <Link
             href="/"
-            className="fastly-outline min-h-11 border-[1.5px] border-on-navy-line px-4 text-[13px] text-white hover:border-white/60 hover:bg-white/6"
+            className="fastly-outline min-h-11 border-[1.5px] border-on-navy-line px-3 text-[13px] text-white hover:border-white/60 hover:bg-white/6 sm:px-4"
           >
-            Back to the site
+            <span className="sm:hidden">Back</span>
+            <span className="hidden sm:inline">Back to the site</span>
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-300 px-6 py-12 lg:py-16">
-        <h1 className="fastly-display max-w-[24ch] text-[32px] text-[#0a2540] sm:text-[40px]">
+      <main className="mx-auto w-full max-w-300 px-4 py-10 sm:px-6 sm:py-12 lg:py-16">
+        <p className="fastly-eyebrow text-[#1e4db7]">App screens</p>
+        <h1 className="fastly-display mt-2 max-w-[24ch] text-[30px] leading-[1.08] text-[#0a2540] sm:text-[40px]">
           Four screens, one calm school day.
         </h1>
         <p className="mt-3 max-w-[60ch] text-[15px] leading-relaxed text-ink-soft">
-          Thumb-reachable actions, 48 px minimum touch height, safe-area
-          padding at the bottom. Each screen is shown at 62% of its real
-          390 &times; 844 size.
+          The whole app in four frames: the splash, the welcome where a student,
+          parent or teacher picks a door, the student home with the next class,
+          due work and fees, and the waiting screen while the school office
+          approves a request.
+        </p>
+        <p className="mt-2 max-w-[60ch] text-[13px] leading-relaxed text-ink-faint">
+          Every action is thumb-reachable, at least 48&nbsp;px tall, and clear of
+          the bottom safe area. Each screen is drawn at 62% of its real
+          390&nbsp;&times;&nbsp;844 size, so it fits a phone without scrolling
+          sideways.
         </p>
 
-        <ol className="mt-12 space-y-14 lg:mt-16 lg:space-y-20">
+        <ol className="mt-10 space-y-12 sm:mt-12 sm:space-y-14 lg:mt-16 lg:space-y-20">
           {SCREENS.map((s) => (
             <li
               key={s.n}
-              className="grid items-center gap-8 md:grid-cols-[auto_minmax(0,1fr)] md:gap-14"
+              className="grid grid-cols-1 items-center justify-items-center gap-6 sm:gap-8 md:grid-cols-[auto_minmax(0,1fr)] md:justify-items-start md:gap-14"
             >
               <ScaledPhone>{s.screen}</ScaledPhone>
 
-              <div className="max-w-[52ch]">
+              <div className="w-full max-w-[52ch] min-w-0 text-center md:text-left">
                 <p className="flex items-baseline gap-2.5">
                   <span className="fastly-display text-[15px] tabular-nums text-[#1e4db7]">
                     {s.n}

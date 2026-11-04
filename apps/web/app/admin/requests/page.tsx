@@ -10,7 +10,10 @@ import {
 } from "@/components/ui/table";
 import { useQueries } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
-import { PageHeader, Card, Empty, RoleChip, formatDate } from "@/components/ui/nila";
+import { PageHeader, Card, RoleChip, formatDate } from "@/components/ui/nila";
+import { ArchNumber } from "@/components/brand/primitives";
+import { EmptyState } from "@/components/shared/empty-state";
+import { Inbox } from "lucide-react";
 import { RequestActions } from "./request-actions";
 
 type RequestRow = {
@@ -54,12 +57,17 @@ export default function AdminRequestsPage() {
         description="Approving assigns the role and activates the account. Every decision is audited."
       />
 
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="mb-3 flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-cobalt">
+        <ArchNumber n="1" size={26} tone="cobalt" />
         Open ({open.length})
       </h2>
 
       {open.length === 0 ? (
-        <Empty>No open requests.</Empty>
+        <EmptyState
+          icon={Inbox}
+          title="No open requests"
+          description="New sign-ups wait here until the office approves them. You are all caught up."
+        />
       ) : (
         <div className="space-y-3">
           {open.map((request) => (
@@ -118,7 +126,12 @@ export default function AdminRequestsPage() {
       </h2>
 
       {decided.length === 0 ? (
-        <Empty>Nothing decided yet.</Empty>
+        <EmptyState
+          size="inline"
+          icon={Inbox}
+          title="Nothing decided yet"
+          description="Approved and declined requests are listed here for the record."
+        />
       ) : (
         <Card className="overflow-hidden">
           <Table>

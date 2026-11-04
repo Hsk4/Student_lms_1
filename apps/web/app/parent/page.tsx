@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { Users } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { EmptyState } from "@/components/shared/empty-state";
+import { SectionHeader } from "@/components/shared/section-header";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   Chip,
-  Empty,
   PageHeader,
   Notice,
   Score,
@@ -47,19 +50,24 @@ export default function ParentDashboardPage() {
     <div>
       <PageHeader
         title="My children"
-        description="Read-only view of each child's teacher, progress, attendance and fees."
+        description="A read-only view of each child's teacher, progress, attendance and fees."
       >
-        <Link href="/parent/meetings" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover">
-          Request a meeting
-        </Link>
+        <Button asChild size="xl">
+          <Link href="/parent/meetings">Request a meeting</Link>
+        </Button>
       </PageHeader>
 
       {children.length === 0 ? (
-        <Empty>
-          No child is linked to your account yet. Ask your child to invite you
-          from their &quot;Parent access&quot; page, or contact the school
-          office.
-        </Empty>
+        <EmptyState
+          icon={Users}
+          title="No child linked yet"
+          description="Ask your child to open “Parent access” in their panel and give you the eight-character code, then link it here."
+          action={
+            <Button asChild size="xl">
+              <Link href="/parent/link">Link a child</Link>
+            </Button>
+          }
+        />
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-3">
@@ -76,10 +84,10 @@ export default function ParentDashboardPage() {
 
           <div className="mt-8 grid gap-4 lg:grid-cols-2">
             {children.map((child) => (
-              <Card key={child.id} className="p-5">
+              <Card key={child.id} className="flex h-full flex-col p-5">
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <h2 className="text-lg font-semibold tracking-tight">
+                  <div className="min-w-0">
+                    <h2 className="fastly-display text-[22px] text-ink">
                       {child.name}
                     </h2>
                     <p className="text-sm text-muted-foreground">
@@ -88,12 +96,11 @@ export default function ParentDashboardPage() {
                         .join(" / ") || "Board not set"}
                     </p>
                   </div>
-                  <Link
-                    href={`/parent/children/detail?id=${child.id}`}
-                    className="border border-border bg-card text-foreground shadow-sm hover:bg-secondary h-9"
-                  >
-                    Open
-                  </Link>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/parent/children/detail?id=${child.id}`}>
+                      Open
+                    </Link>
+                  </Button>
                 </div>
 
                 <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -138,9 +145,7 @@ export default function ParentDashboardPage() {
                 </dl>
 
                 <div className="mt-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Latest grades
-                  </p>
+                  <p className="fastly-eyebrow text-cobalt">Latest grades</p>
                   {child.latestGrades.length === 0 ? (
                     <p className="mt-1 text-sm text-muted-foreground">
                       No graded work yet.
@@ -188,10 +193,8 @@ export default function ParentDashboardPage() {
           </div>
 
           <Card className="mt-8 p-5">
-            <h2 className="text-sm font-semibold">
-              Request a meeting with a teacher
-            </h2>
-            <div className="mt-3 max-w-md">
+            <SectionHeader title="Request a meeting with a teacher" />
+            <div className="max-w-md">
               <RequestMeetingForm
                 childRows={children.map(({ id, name }) => ({ id, name }))}
               />

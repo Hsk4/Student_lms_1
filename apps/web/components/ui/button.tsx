@@ -29,6 +29,8 @@ const buttonVariants = cva(
         default: "h-10 px-4 py-2",
         sm: "h-9 rounded-md px-3 text-xs",
         lg: "h-11 rounded-xl px-6",
+        /* 48px: the brand kit's minimum touch height for a primary action. */
+        xl: "h-12 rounded-xl px-6",
         icon: "h-10 w-10",
       },
     },

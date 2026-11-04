@@ -4,7 +4,11 @@ import { PanelShell } from "@/components/shell/panel-shell";
 import { STUDENT_NAV_GROUPS } from "@/components/shell/nav-config";
 import { Guarded, usePanelGuard } from "@/lib/guards";
 
-/** Coarse guard for the student area; a student who has not onboarded is sent away. */
+/**
+ * Coarse guard for the student area; a student who has not onboarded is sent away.
+ * On phones the student gets the brand kit's five-item bottom tab bar
+ * (Dashboard, Courses, Teachers, Assignments, Attendance), matching parents.
+ */
 export default function StudentLayout({
   children,
 }: {
@@ -17,6 +21,7 @@ export default function StudentLayout({
       <PanelShell
         panel="student"
         groups={STUDENT_NAV_GROUPS}
+        mobile="bottom-tabs"
         user={{
           name: user?.name ?? "",
           email: user?.email ?? "",

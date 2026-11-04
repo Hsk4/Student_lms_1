@@ -36,13 +36,20 @@ function corsOrigins(): string[] {
   const configured = (process.env.WEB_ORIGIN ?? "")
     .split(",")
     .map((origin) => {
-      // A trailing slash survives a copy-paste from the browser; browsers never
-      // send it in `Origin`, so it would silently disable the whole entry.
-      const trimmed = origin.trim().replace(/\/+$/, "");
+      /*
+       * A browser sends `Origin` as a bare scheme://host[:port] — never with a
+       * trailing slash, a path or a query. A value copied out of the address
+       * bar arrives with all three, and `cors` matches the header as a plain
+       * string, so any extra character silently disables the whole entry.
+       * Parsing through `URL` and taking `.origin` strips them all; the
+       * regex is only a fallback for a value `URL` rejects.
+       */
+      const trimmed = origin.trim();
+      if (!trimmed) return "";
       try {
         return new URL(trimmed).origin;
       } catch {
-        return trimmed;
+        return trimmed.replace(/[/?#].*$/, "");
       }
     })
     .filter(Boolean);

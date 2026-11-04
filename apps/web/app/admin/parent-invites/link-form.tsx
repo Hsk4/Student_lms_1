@@ -110,7 +110,7 @@ export function LinkGuardianForm({
       <div className="flex flex-wrap gap-2">
         <button
           type="submit"
-          className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
+          className="btn btn-primary"
           disabled={pending}
         >
           {pending ? "Saving..." : "Link"}

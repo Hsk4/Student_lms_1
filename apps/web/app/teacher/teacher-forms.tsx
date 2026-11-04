@@ -102,7 +102,7 @@ export function DecisionForm({
       </div>
       <button
         type="button"
-        className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
+        className="btn btn-primary"
         disabled={pending}
         onClick={() => decide("accept")}
       >
@@ -226,7 +226,7 @@ export function ClassForm({
       </div>
       <button
         type="submit"
-        className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
+        className="btn btn-primary"
         disabled={pending}
       >
         {pending ? "Creating..." : "Create class"}
@@ -378,7 +378,7 @@ export function AssignmentForm({
       </div>
       <button
         type="submit"
-        className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
+        className="btn btn-primary"
         disabled={pending}
       >
         {pending ? "Publishing..." : "Publish assignment"}
@@ -595,7 +595,7 @@ export function AttendanceForm({
 
       <button
         type="submit"
-        className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
+        className="btn btn-primary"
         disabled={pending || studentIds.length === 0}
       >
         {pending ? "Saving..." : "Save attendance"}
@@ -659,7 +659,7 @@ export function ConfirmMeetingForm({
       </div>
       <button
         type="submit"
-        className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
+        className="btn btn-primary"
         disabled={pending}
       >
         {pending ? "Saving..." : confirmedAt ? "Reschedule" : "Confirm"}

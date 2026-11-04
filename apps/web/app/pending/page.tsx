@@ -5,7 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { RequestStatusResponse } from "@lms/shared";
-import { PageHeader, Card, Notice } from "@/components/ui/nila";
+import {
+  Card,
+  Notice,
+} from "@/components/ui/nila";
+import { ArchNumber } from "@/components/brand/primitives";
+import { HourglassIllustration } from "@/components/brand/illustrations";
+import { Button } from "@/components/ui/button";
 import { PanelShell } from "@/components/shell/shell";
 import { PanelLoading } from "@/lib/guards";
 import { api } from "@/lib/api-client";
@@ -57,16 +63,22 @@ export default function PendingPage() {
       title="Waiting for approval"
       user={{ name: user.name, role: user.role }}
     >
-      <PageHeader
-        title="Your account is pending"
-        description={
-          isParentRequest
-            ? "The school office reviews parent accounts before activation. This page updates on its own."
-            : "An admin has to approve you before you can use the school. This page updates on its own."
-        }
-      />
+      <section className="mb-6 flex flex-col items-center text-center sm:flex-row sm:items-center sm:text-left">
+        <HourglassIllustration size={120} className="shrink-0" />
+        <div className="mt-3 sm:mt-0 sm:ml-6">
+          <p className="fastly-eyebrow text-cobalt">Request received</p>
+          <h1 className="fastly-display mt-2 text-[26px] text-ink sm:text-[30px]">
+            Your account is pending
+          </h1>
+          <p className="mt-2 max-w-[46ch] text-sm leading-relaxed text-muted-foreground">
+            {isParentRequest
+              ? "The school office reviews parent accounts before activation. This page updates on its own."
+              : "An admin has to approve you before you can use the school. This page updates on its own."}
+          </p>
+        </div>
+      </section>
 
-      <Card className="p-6">
+      <Card className="p-5 sm:p-6">
         <ol className="space-y-4">
           {steps.map((step, index) => {
             const done =
@@ -75,20 +87,25 @@ export default function PendingPage() {
                 : index === 1
                   ? Boolean(status?.hasOpenRequest)
                   : false;
+            const current = !done && index === 1;
             return (
               <li key={step} className="flex items-start gap-3">
-                <span
-                  className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold ${
-                    done
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border text-muted-foreground"
-                  }`}
-                >
-                  {index + 1}
-                </span>
-                <div>
-                  <p className="text-sm font-medium text-foreground">{step}</p>
-                  <p className="text-xs text-muted-foreground">
+                <ArchNumber
+                  n={index + 1}
+                  size={32}
+                  tone={done ? "navy" : current ? "cobalt" : "outline"}
+                />
+                <div className="min-w-0">
+                  <p
+                    className={
+                      done || current
+                        ? "text-sm font-semibold text-ink"
+                        : "text-sm font-medium text-ink-faint"
+                    }
+                  >
+                    {step}
+                  </p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                     {index === 0
                       ? "Signed in with Clerk."
                       : index === 1
@@ -113,18 +130,12 @@ export default function PendingPage() {
               You have not sent an access request yet.
             </Notice>
             <div className="flex flex-wrap gap-2">
-              <Link
-                href="/request"
-                className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
-              >
-                Fill in the request form
-              </Link>
-              <Link
-                href="/sign-up/parent"
-                className="border border-border bg-card text-foreground shadow-sm hover:bg-secondary"
-              >
-                I am a parent
-              </Link>
+              <Button asChild size="xl">
+                <Link href="/request">Fill in the request form</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <Link href="/sign-up/parent">I am a parent</Link>
+              </Button>
             </div>
           </div>
         ) : null}

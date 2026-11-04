@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { BookOpen, CalendarCheck, Inbox, Plus, Users } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/shared/empty-state";
+import { SectionHeader } from "@/components/shared/section-header";
 import {
   Card,
   Chip,
-  Empty,
   PageHeader,
   Stat,
   formatDate,
@@ -89,9 +92,12 @@ export default function TeacherDashboardPage() {
         title="Teaching"
         description="Accept requests, run classes and give feedback."
       >
-        <Link href="/teacher/assignments" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover">
-          New assignment
-        </Link>
+        <Button asChild size="xl">
+          <Link href="/teacher/assignments">
+            <Plus />
+            New assignment
+          </Link>
+        </Button>
       </PageHeader>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -127,19 +133,17 @@ export default function TeacherDashboardPage() {
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <section>
-          <div className="mb-3 flex items-end justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Student requests
-            </h2>
-            <Link
-              href="/teacher/requests"
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Review all
-            </Link>
-          </div>
+          <SectionHeader
+            title="Student requests"
+            action={{ href: "/teacher/requests", label: "Review all" }}
+          />
           {requests.length === 0 ? (
-            <Empty>No pending requests.</Empty>
+            <EmptyState
+              size="inline"
+              icon={Inbox}
+              title="No requests waiting"
+              description="When a student asks to join your class, it arrives here for you to accept."
+            />
           ) : (
             <Card className="divide-y divide-border">
               {requests.slice(0, 4).map((request) => (
@@ -163,19 +167,17 @@ export default function TeacherDashboardPage() {
         </section>
 
         <section>
-          <div className="mb-3 flex items-end justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Meetings
-            </h2>
-            <Link
-              href="/teacher/meetings"
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Open
-            </Link>
-          </div>
+          <SectionHeader
+            title="Meetings"
+            action={{ href: "/teacher/meetings", label: "Open" }}
+          />
           {upcoming.length === 0 ? (
-            <Empty>No meeting requests.</Empty>
+            <EmptyState
+              size="inline"
+              icon={CalendarCheck}
+              title="No meeting requests"
+              description="Parents can ask to meet you; requests and confirmed slots appear here."
+            />
           ) : (
             <Card className="divide-y divide-border">
               {upcoming.map((meeting) => (
@@ -207,21 +209,21 @@ export default function TeacherDashboardPage() {
       </div>
 
       <section className="mt-8">
-        <div className="mb-3 flex items-end justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Current classes
-          </h2>
-          <Link
-            href="/teacher/classes"
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            Manage classes
-          </Link>
-        </div>
+        <SectionHeader
+          title="Current classes"
+          action={{ href: "/teacher/classes", label: "Manage classes" }}
+        />
         {current.length === 0 ? (
-          <Empty>
-            No class yet. Create one from Classes, then accept students into it.
-          </Empty>
+          <EmptyState
+            icon={BookOpen}
+            title="No class yet"
+            description="Create a class from Classes, then accept students into it."
+            action={
+              <Button asChild size="xl">
+                <Link href="/teacher/classes">Create a class</Link>
+              </Button>
+            }
+          />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {current.map((klass) => (
@@ -230,12 +232,15 @@ export default function TeacherDashboardPage() {
                 href={`/teacher/classes/detail?id=${klass.id}`}
                 className="block"
               >
-                <Card className="p-4 transition-colors duration-150 hover:bg-tint">
-                  <p className="font-medium">{klass.name}</p>
+                <Card className="h-full p-4 transition-colors duration-150 hover:bg-tint">
+                  <p className="fastly-display text-[17px] text-ink">
+                    {klass.name}
+                  </p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {klass.courseLabel}
                   </p>
-                  <p className="mt-2 text-xs text-muted-foreground">
+                  <p className="mt-2 flex items-center gap-1.5 text-xs text-ink-faint">
+                    <Users className="h-3.5 w-3.5" aria-hidden="true" />
                     {klass.schedule || "Schedule not set"} /{" "}
                     {klass.studentCount} students
                   </p>
@@ -247,19 +252,21 @@ export default function TeacherDashboardPage() {
       </section>
 
       <section className="mt-8">
-        <div className="mb-3 flex items-end justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Recent assignments
-          </h2>
-          <Link
-            href="/teacher/assignments"
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            All assignments
-          </Link>
-        </div>
+        <SectionHeader
+          title="Recent assignments"
+          action={{ href: "/teacher/assignments", label: "All assignments" }}
+        />
         {assignments.length === 0 ? (
-          <Empty>Nothing published yet.</Empty>
+          <EmptyState
+            icon={Plus}
+            title="Nothing published yet"
+            description="Set your first piece of work and it will appear here with its grading status."
+            action={
+              <Button asChild size="xl">
+                <Link href="/teacher/assignments">Set an assignment</Link>
+              </Button>
+            }
+          />
         ) : (
           <Card className="divide-y divide-border">
             {assignments.slice(0, 5).map((assignment) => (

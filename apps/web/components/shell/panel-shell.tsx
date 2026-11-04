@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { BrandMark } from "@/components/brand/primitives";
 import { navIcon } from "@/components/shell/nav-icons";
 import {
   findNavItem,
@@ -17,6 +18,7 @@ import { PageActions } from "@/components/shell/page-actions";
 import { SidebarNav } from "@/components/shell/sidebar-nav";
 import { UserMenu } from "@/components/shell/user-menu";
 import { NotificationsDrawer } from "@/components/shared/notifications-drawer";
+import { cn } from "@/lib/utils";
 
 export interface PanelShellProps {
   panel: "admin" | "student" | "teacher" | "parent";
@@ -26,18 +28,20 @@ export interface PanelShellProps {
   /** Optional secondary badge under the avatar name (level, class …). */
   hint?: string;
   /**
-   * Below `lg` the parent panel shows a compact topbar and a bottom tab bar
-   * instead of a sheet, matching the reference kit's mobile layout.
+   * Below `lg` students and parents get the five-item bottom tab bar from the
+   * brand kit's App-Home screen. Admin and teacher keep the slide-over sheet
+   * (their nav is long and grouped, which a five-tab bar would flatten).
    */
   mobile?: "sheet" | "bottom-tabs";
   children: React.ReactNode;
 }
 
 /**
- * One responsive frame for every panel: sticky sidebar from `lg`, a sticky
- * header whose title follows the current route, and a mobile nav (sheet, or
- * bottom tabs for parents). The reference kit had four separate layouts; they
- * differed only in nav data and header extras, so they are one component here.
+ * One responsive frame for every panel: navy sidebar from `lg`, a navy topbar
+ * whose subtitle follows the panel, and a mobile nav.
+ *
+ * The topbar and sidebar are the fixed brand navy, so their contents use the
+ * `on-navy` tokens rather than `--foreground` and stay readable in dark mode.
  */
 export function PanelShell({
   panel,
@@ -52,7 +56,6 @@ export function PanelShell({
   const current = findNavItem(pathname, groups);
   const label = PANEL_LABEL[panel];
   const title = current?.label ?? label.subtitle;
-  const description = current?.description ?? "";
 
   const pendingBadge = badges?.pending ?? 0;
   const notifications =
@@ -68,7 +71,9 @@ export function PanelShell({
       : [];
 
   const flatItems = groups.flatMap((group) => group.items);
+  // Five is what fits a thumb-width tab without truncating labels.
   const bottomItems = flatItems.slice(0, 5);
+  const hasBottomTabs = mobile === "bottom-tabs";
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -79,102 +84,117 @@ export function PanelShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 border-b border-border bg-background">
-          <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
-            {mobile === "sheet" ? (
-              <MobileNavSheet panel={panel} groups={groups} badges={badges} />
-            ) : (
-              <Link
-                href={`/${panel}`}
-                className="text-base font-semibold tracking-tight text-primary lg:hidden"
-              >
-                {label.name}
-              </Link>
-            )}
+        <header className="fastly-topbar sticky top-0 z-30">
+          <div className="relative">
+            <span
+              className="fastly-jaali pointer-events-none absolute inset-0 opacity-70"
+              aria-hidden="true"
+            />
+            <div className="relative flex h-16 items-center gap-3 px-4 sm:px-6">
+              {hasBottomTabs ? (
+                <Link
+                  href={`/${panel}`}
+                  className="flex items-center gap-2 lg:hidden"
+                  aria-label={`${label.name} home`}
+                >
+                  <BrandMark size={28} tone="light" />
+                </Link>
+              ) : (
+                <MobileNavSheet panel={panel} groups={groups} badges={badges} />
+              )}
 
-            {/*
-             * The page body owns the <h1> (its PageHeader); this bar is a way
-             * back and a breadcrumb. Rendering the route name here too printed
-             * "Users / Users" on every page.
-             */}
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-foreground">
-                {label.subtitle}
-              </p>
-              {description ? (
-                <p className="hidden truncate text-xs text-muted-foreground sm:block">
-                  {title}
+              {/*
+               * The page body owns the <h1> (its PageHeader); this bar is a way
+               * back and a breadcrumb. Rendering the route name here too printed
+               * "Users / Users" on every page.
+               */}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-white">
+                  {label.subtitle}
                 </p>
+                {current ? (
+                  <p className="truncate text-xs text-on-navy-soft">{title}</p>
+                ) : null}
+              </div>
+
+              {notifications.length ? (
+                <NotificationsDrawer items={notifications} />
               ) : null}
+
+              <span className="hidden lg:block">
+                <PageActions user={user} />
+              </span>
+              <span className="lg:hidden">
+                <UserMenu name={user.name} email={user.email} hint={hint} />
+              </span>
             </div>
 
-            {notifications.length ? (
-              <NotificationsDrawer items={notifications} />
+            {!hasBottomTabs ? (
+              <nav
+                aria-label="Sections"
+                className="quiet-scroll relative flex gap-1 overflow-x-auto border-t-[1.5px] border-on-navy-line px-3 py-2 lg:hidden"
+              >
+                {flatItems.map((item) => {
+                  const active = isNavItemActive(pathname, item);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                        active
+                          ? "bg-tint text-cobalt"
+                          : "text-on-navy-soft hover:bg-white/8 hover:text-white",
+                      )}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </nav>
             ) : null}
-
-            <span className="hidden lg:block">
-              <PageActions user={user} />
-            </span>
-            <span className="lg:hidden">
-              <UserMenu name={user.name} email={user.email} hint={hint} />
-            </span>
           </div>
-
-          {mobile === "sheet" ? (
-            <nav
-              aria-label="Sections"
-              className="quiet-scroll flex gap-1 overflow-x-auto border-t border-border px-3 py-2 lg:hidden"
-            >
-              {flatItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={
-                    isNavItemActive(pathname, item) ? "page" : undefined
-                  }
-                  className={`tab shrink-0 ${
-                    isNavItemActive(pathname, item) ? "tab-active" : ""
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-          ) : null}
         </header>
 
         <main
-          className={`flex-1 px-4 py-6 sm:px-6 lg:px-8 ${
-            mobile === "bottom-tabs" ? "pb-24 lg:pb-10" : ""
-          }`}
+          className={cn(
+            "flex-1 px-4 py-6 sm:px-6 lg:px-8",
+            hasBottomTabs ? "pb-28 lg:pb-10" : "",
+          )}
         >
           <div className="mx-auto w-full max-w-7xl">{children}</div>
         </main>
       </div>
 
-      {mobile === "bottom-tabs" ? (
+      {hasBottomTabs ? (
         <nav
           aria-label="Sections"
-          className="fixed inset-x-0 bottom-0 z-30 grid border-t border-border bg-card lg:hidden"
-          style={{ gridTemplateColumns: `repeat(${bottomItems.length}, 1fr)` }}
+          className="fixed inset-x-0 bottom-0 z-30 border-t-[1.5px] border-line bg-card pb-[env(safe-area-inset-bottom)] lg:hidden"
         >
-          {bottomItems.map((item) => {
-            const Icon = navIcon(item.icon);
-            const active = isNavItemActive(pathname, item);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className={`flex flex-col items-center gap-1 px-1 py-2.5 text-[11px] font-medium ${
-                  active ? "text-primary" : "text-muted-foreground"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span className="max-w-full truncate">{item.label}</span>
-              </Link>
-            );
-          })}
+          <ul className="flex items-stretch px-2 pt-2">
+            {bottomItems.map((item) => {
+              const Icon = navIcon(item.icon);
+              const active = isNavItemActive(pathname, item);
+              return (
+                <li key={item.href} className="flex flex-1">
+                  <Link
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    className={cn("fastly-tab", active && "fastly-tab-active")}
+                  >
+                    <Icon
+                      size={19}
+                      strokeWidth={active ? 2.1 : 1.7}
+                      aria-hidden="true"
+                    />
+                    <span className="max-w-full truncate">{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="fastly-safe-gap" aria-hidden="true" />
         </nav>
       ) : null}
     </div>

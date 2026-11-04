@@ -13,12 +13,20 @@ type Case = { origin: string; expect: "allow" | "deny" };
 
 const cases: Case[] = [
   { origin: "https://studentlms-sooty.vercel.app", expect: "allow" },
-  // A browser never sends a trailing slash in `Origin`; this only proves a
-  // pasted `WEB_ORIGIN` with one still matches after normalisation.
+  // A browser never sends a trailing slash in `Origin`; these prove a pasted
+  // `WEB_ORIGIN` (slash, or a copied API URL) still matches after normalising.
   { origin: "https://studentlms-sooty.vercel.app/", expect: "deny" },
   { origin: "https://localhost", expect: "allow" },
   { origin: "capacitor://localhost", expect: "allow" },
   { origin: "https://evil.example.com", expect: "deny" },
+];
+
+/** Values a real deployment has been seen to hold, and the origin each means. */
+const pastedForms = [
+  "https://studentlms-sooty.vercel.app/",
+  "https://studentlms-sooty.vercel.app/api/v1",
+  " https://studentlms-sooty.vercel.app/ ",
+  "https://studentlms-sooty.vercel.app",
 ];
 
 async function preflight(app: ReturnType<typeof createApp>, origin: string) {
@@ -61,6 +69,24 @@ for (const mode of ["development", "production"] as const) {
 
 if (failures > 0) {
   console.error(`${failures} CORS check(s) failed`);
+  process.exit(1);
+}
+
+/* Every pasted form must resolve to the same allowed origin. */
+process.env.NODE_ENV = "production";
+for (const form of pastedForms) {
+  process.env.WEB_ORIGIN = form;
+  const app = createApp();
+  const got = await preflight(app, "https://studentlms-sooty.vercel.app");
+  const ok = got === "https://studentlms-sooty.vercel.app";
+  if (!ok) failures++;
+  console.log(
+    `WEB_ORIGIN=${JSON.stringify(form)} -> ${got ?? "(denied)"} ${ok ? "ok" : "FAIL"}`,
+  );
+}
+
+if (failures > 0) {
+  console.error(`${failures} CORS/WEB_ORIGIN check(s) failed`);
   process.exit(1);
 }
 console.log("CORS checks passed");

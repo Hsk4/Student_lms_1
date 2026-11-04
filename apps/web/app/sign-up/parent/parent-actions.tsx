@@ -34,7 +34,7 @@ export function RequestParentRoleButton({
     <div className="space-y-3">
       <button
         type="button"
-        className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
+        className="btn btn-primary"
         disabled={pending}
         onClick={() => {
           setError(null);
@@ -63,7 +63,7 @@ export function RequestParentRoleButton({
 /** Used on the pending page once the request is in. */
 export function ParentNextStep() {
   return (
-    <Link href="/parent/link" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover">
+    <Link href="/parent/link" className="btn btn-primary">
       Enter my child&apos;s code
     </Link>
   );

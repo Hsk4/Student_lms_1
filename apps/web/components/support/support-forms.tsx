@@ -61,7 +61,7 @@ export function NewTicketForm() {
           maxLength={4000}
         />
       </div>
-      <button type="submit" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover" disabled={pending}>
+      <button type="submit" className="btn btn-primary" disabled={pending}>
         {pending ? "Sending..." : "Open ticket"}
       </button>
       {message ? <p className="text-sm text-status-green">{message}</p> : null}

@@ -3,7 +3,8 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PageHeader, Card, Notice, formatDate } from "@/components/ui/nila";
+import { Card, Notice, formatDate } from "@/components/ui/nila";
+import { Button } from "@/components/ui/button";
 import { PanelShell } from "@/components/shell/shell";
 import { PanelLoading } from "@/lib/guards";
 import { useMe } from "@/lib/queries";
@@ -33,7 +34,12 @@ export default function RejectedPage() {
 
   return (
     <PanelShell title="Request rejected" user={{ name: user?.name ?? "", role: user?.role ?? null }}>
-      <PageHeader title="Your request was declined" />
+      <header className="mb-6">
+        <p className="fastly-eyebrow text-cobalt">Decision</p>
+        <h1 className="fastly-display mt-2 text-[26px] text-ink">
+          Your request was declined
+        </h1>
+      </header>
 
       <Card className="space-y-4 p-6">
         {user?.rejectionReason ? (
@@ -50,12 +56,9 @@ export default function RejectedPage() {
         </p>
 
         {canReapply ? (
-          <Link
-            href="/request"
-            className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
-          >
-            Apply again
-          </Link>
+          <Button asChild size="xl">
+            <Link href="/request">Apply again</Link>
+          </Button>
         ) : null}
       </Card>
     </PanelShell>

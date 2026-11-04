@@ -64,7 +64,7 @@ function DetailById() {
         </Link>
         <Link
           href={`/admin/books?courseId=${course.id}`}
-          className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
+          className="btn btn-primary"
         >
           Add a recommended book
         </Link>

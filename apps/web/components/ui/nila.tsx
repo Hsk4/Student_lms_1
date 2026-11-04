@@ -7,7 +7,11 @@ export function Card({
   children: ReactNode;
   className?: string;
 }) {
-  return <section className={`card ${className}`}>{children}</section>;
+  return (
+    <section className={`fastly-card bg-card text-card-foreground ${className}`}>
+      {children}
+    </section>
+  );
 }
 
 export function PageHeader({
@@ -22,14 +26,12 @@ export function PageHeader({
   return (
     <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div>
-        {/* `text-xl` is the reference kit's page-title size (52 of its headings
-            use it). The topbar already carries the route name at `text-lg`, so
-            `text-2xl` here made every page shout twice. */}
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          {title}
-        </h1>
+        {/* Fraunces for the page title, Inter for everything else. The topbar
+            already carries the route name at `text-sm`, so this is one step up,
+            not a second shout. */}
+        <h1 className="fastly-display text-xl text-ink">{title}</h1>
         {description ? (
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          <p className="mt-1.5 text-sm text-muted-foreground">{description}</p>
         ) : null}
       </div>
       {children ? (
@@ -195,13 +197,13 @@ export function Stat({
 }) {
   return (
     <Card className="p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-foreground">
+      <p className="fastly-eyebrow text-cobalt">{label}</p>
+      <p className="fastly-display mt-1.5 text-2xl tabular-nums text-ink">
         {value}
       </p>
-      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+      {hint ? (
+        <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+      ) : null}
     </Card>
   );
 }

@@ -26,7 +26,7 @@ export default function LegacyInvitePage() {
           </li>
         </ol>
         <div className="flex flex-wrap gap-2 pt-2">
-          <Link href="/sign-in" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover">
+          <Link href="/sign-in" className="btn btn-primary">
             Sign in
           </Link>
           <Link href="/request" className="border border-border bg-card text-foreground shadow-sm hover:bg-secondary">

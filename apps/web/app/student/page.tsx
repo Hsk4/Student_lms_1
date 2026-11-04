@@ -2,11 +2,15 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { BookOpen, ClipboardCheck, GraduationCap } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { ArchTile } from "@/components/brand/primitives";
+import { EmptyState } from "@/components/shared/empty-state";
+import { SectionHeader } from "@/components/shared/section-header";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   Chip,
-  Empty,
   PageHeader,
   Score,
   Stat,
@@ -67,11 +71,13 @@ export default function StudentDashboardPage() {
     <div>
       <PageHeader
         title="My learning"
-        description="Your teacher, work in progress and latest results."
+        description="Your teachers, work in progress and latest results."
       >
-        <Link href="/student/teachers" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover">
-          Find a teacher
-        </Link>
+        {/* The one primary action on this page. `Button` owns the height and
+            padding; a bare class list gave this link no padding at all. */}
+        <Button asChild size="xl">
+          <Link href="/student/teachers">Find a teacher</Link>
+        </Button>
       </PageHeader>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -96,31 +102,36 @@ export default function StudentDashboardPage() {
       </div>
 
       <section className="mt-8">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          My teachers
-        </h2>
+        <SectionHeader title="My teachers" />
         {profile.teachers.length === 0 ? (
-          <Empty>
-            You have no teacher yet.{" "}
-            <Link
-              href="/student/teachers"
-              className="font-medium text-primary hover:underline"
-            >
-              Pick a teacher
-            </Link>{" "}
-            to start learning.
-          </Empty>
+          <EmptyState
+            icon={GraduationCap}
+            title="No teacher yet"
+            description="Choose the teacher you want to study with. They confirm you before your courses open."
+            action={
+              <Button asChild size="xl">
+                <Link href="/student/teachers">Pick a teacher</Link>
+              </Button>
+            }
+          />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {profile.teachers.map((teacher, index) => (
-              <Card key={`${teacher.name}-${index}`} className="p-4">
-                <p className="font-medium text-foreground">{teacher.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {teacher.courseLabel}
-                </p>
-                <p className="mt-1 text-sm">
-                  {teacher.className ?? "One-on-one"}
-                </p>
+              <Card key={`${teacher.name}-${index}`} className="flex items-center gap-3 p-4">
+                <ArchTile size={44} tone="tint">
+                  <GraduationCap size={20} strokeWidth={1.7} />
+                </ArchTile>
+                <div className="min-w-0">
+                  <p className="fastly-display truncate text-[17px] text-ink">
+                    {teacher.name}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {teacher.courseLabel}
+                  </p>
+                  <p className="text-xs text-ink-faint">
+                    {teacher.className ?? "One-on-one"}
+                  </p>
+                </div>
               </Card>
             ))}
           </div>
@@ -128,19 +139,16 @@ export default function StudentDashboardPage() {
       </section>
 
       <section className="mt-8">
-        <div className="mb-3 flex items-end justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Assignments
-          </h2>
-          <Link
-            href="/student/assignments"
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            View all
-          </Link>
-        </div>
+        <SectionHeader
+          title="Assignments"
+          action={{ href: "/student/assignments", label: "View all" }}
+        />
         {assignments.length === 0 ? (
-          <Empty>No assignments yet.</Empty>
+          <EmptyState
+            icon={ClipboardCheck}
+            title="No assignments yet"
+            description="When a teacher sets work it appears here with its due date and your mark."
+          />
         ) : (
           <div className="space-y-3">
             {assignments.slice(0, 5).map((assignment) => (
@@ -185,11 +193,13 @@ export default function StudentDashboardPage() {
 
       <section className="mt-8 grid gap-6 lg:grid-cols-2">
         <div>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Recent grades
-          </h2>
+          <SectionHeader title="Recent grades" />
           {grades.length === 0 ? (
-            <Empty>No grades yet.</Empty>
+            <EmptyState
+              icon={BookOpen}
+              title="No grades yet"
+              description="Marks appear here once a teacher grades your submitted work."
+            />
           ) : (
             <Card className="divide-y divide-border">
               {grades.slice(0, 5).map((grade) => (
@@ -212,11 +222,13 @@ export default function StudentDashboardPage() {
           )}
         </div>
         <div>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Recent attendance
-          </h2>
+          <SectionHeader title="Recent attendance" />
           {attendance.length === 0 ? (
-            <Empty>No attendance recorded yet.</Empty>
+            <EmptyState
+              icon={ClipboardCheck}
+              title="No attendance recorded"
+              description="Your attendance for each class shows up here after the teacher marks the register."
+            />
           ) : (
             <Card className="divide-y divide-border">
               {attendance.slice(0, 5).map((entry) => (

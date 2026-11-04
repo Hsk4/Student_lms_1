@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { CatalogOption } from "@lms/shared";
 import { PageHeader } from "@/components/ui/nila";
 import { PanelShell } from "@/components/shell/shell";
+import { ArchNumber } from "@/components/brand/primitives";
 import { api } from "@/lib/api-client";
 import { useMe } from "@/lib/queries";
 import { RequestForm } from "./request-form";
@@ -59,6 +60,10 @@ function Body() {
         title="Request access"
         description="An admin reviews every request. You will get a role only after they approve it."
       />
+      <p className="mb-4 flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-cobalt">
+        <ArchNumber n={1} size={24} tone="cobalt" />
+        Your details
+      </p>
       <RequestForm
         defaults={{ name: user.name, email: user.email }}
         boards={options.boards}

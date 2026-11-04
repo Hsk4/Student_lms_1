@@ -103,7 +103,7 @@ export function RequestMeetingForm({
           maxLength={500}
         />
       </div>
-      <button type="submit" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover" disabled={pending}>
+      <button type="submit" className="btn btn-primary" disabled={pending}>
         {pending ? "Sending..." : "Request meeting"}
       </button>
       {message ? <p className="text-sm text-status-green">{message}</p> : null}
@@ -157,7 +157,7 @@ export function RescheduleMeetingForm({ meetingId }: { meetingId: string }) {
           maxLength={60}
         />
       </div>
-      <button type="submit" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover h-10" disabled={pending}>
+      <button type="submit" className="btn btn-primary h-10" disabled={pending}>
         {pending ? "Sending..." : "Send"}
       </button>
     </form>

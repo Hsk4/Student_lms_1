@@ -23,7 +23,7 @@ export function RedeemLinkCodeForm() {
         </p>
         <button
           type="button"
-          className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
+          className="btn btn-primary"
           onClick={() => {
             void queryClient.invalidateQueries({ queryKey: ["parent"] });
             router.push(`/parent/children/detail?id=${linked.id}`);
@@ -74,7 +74,7 @@ export function RedeemLinkCodeForm() {
           maxLength={24}
         />
       </div>
-      <button type="submit" className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover" disabled={pending}>
+      <button type="submit" className="btn btn-primary" disabled={pending}>
         {pending ? "Checking..." : "Link child"}
       </button>
       {error ? <p className="text-sm text-status-red">{error}</p> : null}

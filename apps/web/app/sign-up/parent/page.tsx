@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, Notice, PageHeader } from "@/components/ui/nila";
+import { ArchNumber } from "@/components/brand/primitives";
+import { Button } from "@/components/ui/button";
 import { PanelShell } from "@/components/shell/shell";
 import { useMe } from "@/lib/queries";
 import { RequestParentRoleButton } from "./parent-actions";
@@ -49,31 +51,25 @@ export default function ParentSignUpPage() {
           <ol className="space-y-4">
             {STEPS.map((step, index) => (
               <li key={step.title} className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-primary bg-primary text-xs font-semibold text-primary-foreground">
-                  {index + 1}
-                </span>
+                <ArchNumber n={index + 1} size={30} tone="cobalt" />
                 <div>
-                  <p className="text-sm font-medium text-foreground">
+                  <p className="text-sm font-semibold text-ink">
                     {step.title}
                   </p>
-                  <p className="text-xs text-muted-foreground">{step.detail}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {step.detail}
+                  </p>
                 </div>
               </li>
             ))}
           </ol>
           <div className="mt-6 flex flex-wrap gap-2">
-            <Link
-              href="/sign-up"
-              className="bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:bg-primary-hover"
-            >
-              Create my account
-            </Link>
-            <Link
-              href="/sign-in"
-              className="border border-border bg-card text-foreground shadow-sm hover:bg-secondary"
-            >
-              I already have one
-            </Link>
+            <Button asChild size="xl">
+              <Link href="/sign-up">Create my account</Link>
+            </Button>
+            <Button asChild size="lg" variant="outline">
+              <Link href="/sign-in">I already have one</Link>
+            </Button>
           </div>
         </Card>
       </PanelShell>
