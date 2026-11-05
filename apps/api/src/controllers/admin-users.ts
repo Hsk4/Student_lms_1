@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import {
   assignRoleSchema,
   recordIdSchema,
+  type AdminRequestView,
   rejectUserSchema,
   requestDecisionSchema,
   userActionSchema,
@@ -450,10 +451,14 @@ export async function setTeacherCourses(req: Request) {
 /* Admin reads */
 
 export async function listRequests(req: Request) {
-  const state = z
-    .enum(["open", "approved", "rejected"])
-    .parse(req.query.state ?? "open");
-  const requests = await listAccessRequests(state);
+  const query = z
+    .object({
+      state: z.enum(["open", "approved", "rejected"]).default("open"),
+      /** Optional narrowing, applied here because the list is capped at 200. */
+      role: z.enum(["teacher", "parent", "student", "none"]).optional(),
+    })
+    .parse(req.query);
+  const requests = await listAccessRequests(query.state);
   if (requests.length === 0) return [];
 
   const [users, boards, levels, subjects] = await Promise.all([
@@ -466,30 +471,126 @@ export async function listRequests(req: Request) {
   const boardName = new Map(boards.map((b) => [b.id, b.name]));
   const levelName = new Map(levels.map((l) => [l.id, l.name]));
   const subjectName = new Map(subjects.map((s) => [s.id, s.name]));
+  const decidedById = new Map(
+    (
+      await listUsersByIds([
+        ...new Set(
+          requests
+            .map((r) => r.decidedBy)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ])
+    ).map((u) => [u.id, u.name]),
+  );
 
-  return requests.map((request) => {
+  const rows = requests.map((request): AdminRequestView => {
     const user = userById.get(request.userId);
+    const teacher = request.application?.teacher ?? null;
+    const parent = request.application?.parent ?? null;
+    /*
+     * The structured half already carries the ids it was filed with; legacy
+     * rows fall back to the subject and level link tables.
+     */
+    const subjectIds = teacher ? teacher.subjects : request.subjectIds;
+    const gradeLevelIds = teacher
+      ? teacher.gradeLevels
+      : request.levelId
+        ? [request.levelId]
+        : [];
     return {
       id: request.id,
       userId: request.userId,
       name: request.name,
       email: request.email,
+      phone: request.phone ?? null,
       note: request.note ?? undefined,
       state: request.state,
       createdAt: request.createdAt.toISOString(),
       board: request.boardId ? boardName.get(request.boardId) : undefined,
       level: request.levelId ? levelName.get(request.levelId) : undefined,
-      subjects: request.subjectIds
+      subjects: subjectIds
         .map((id) => subjectName.get(id) ?? "-")
         .join(", "),
+      subjectLabels: subjectIds.map((id) => subjectName.get(id) ?? "-"),
+      levelLabels: gradeLevelIds.map((id) => levelName.get(id) ?? "-"),
       // The ids behind `subjects`, so the approval screen can pre-tick the
       // matching courses instead of matching on display names.
-      subjectIds: request.subjectIds,
+      subjectIds,
       userStatus: user?.status ?? "unknown",
       userRole: user?.role ?? null,
       requestedRole: request.requestedRole,
+      application: {
+        teacher,
+        parent,
+      },
+      decidedAt: request.decidedAt?.toISOString() ?? null,
+      decidedBy: request.decidedBy
+        ? (decidedById.get(request.decidedBy) ?? "another admin")
+        : null,
+      decisionReason: request.reason,
     };
   });
+
+  if (!query.role) return rows;
+  /*
+   * "none" is the legacy queue: requests filed before the role was recorded.
+   * They are shown, never hidden — an old application still needs a decision.
+   */
+  return rows.filter((row) =>
+    query.role === "none" ? !row.requestedRole : row.requestedRole === query.role,
+  );
+}
+
+/** `GET /api/v1/admin/requests/:id` — one application, in full. */
+export async function getRequest(req: Request) {
+  actorAdmin(req);
+  const id = recordIdSchema.parse(req.params.id);
+  const request = await findRequestById(id);
+  if (!request) throw notFound("Request not found");
+
+  const [user, boards, levels, subjects, decidedBy] = await Promise.all([
+    findUserById(request.userId),
+    listBoards(),
+    listLevels(),
+    listSubjects(),
+    request.decidedBy ? findUserById(request.decidedBy) : Promise.resolve(null),
+  ]);
+  const boardName = new Map(boards.map((b) => [b.id, b.name]));
+  const levelName = new Map(levels.map((l) => [l.id, l.name]));
+  const subjectName = new Map(subjects.map((s) => [s.id, s.name]));
+  const teacher = request.application?.teacher ?? null;
+  const parent = request.application?.parent ?? null;
+  const subjectIds = teacher ? teacher.subjects : request.subjectIds;
+  const gradeLevelIds = teacher
+    ? teacher.gradeLevels
+    : request.levelId
+      ? [request.levelId]
+      : [];
+
+  const view: AdminRequestView = {
+    id: request.id,
+    userId: request.userId,
+    name: request.name,
+    email: request.email,
+    phone: request.phone,
+    note: request.note ?? undefined,
+    state: request.state,
+    createdAt: request.createdAt.toISOString(),
+    board: request.boardId ? boardName.get(request.boardId) : undefined,
+    level: request.levelId ? levelName.get(request.levelId) : undefined,
+    subjects: subjectIds.map((id) => subjectName.get(id) ?? "-").join(", "),
+    subjectLabels: subjectIds.map((id) => subjectName.get(id) ?? "-"),
+    levelLabels: gradeLevelIds.map((id) => levelName.get(id) ?? "-"),
+    subjectIds,
+    userStatus: user?.status ?? "unknown",
+    userRole: user?.role ?? null,
+    requestedRole: request.requestedRole,
+    application: { teacher, parent },
+    decidedAt: request.decidedAt?.toISOString() ?? null,
+    decidedBy: decidedBy?.name ?? null,
+    decisionReason: request.reason,
+  };
+  return view;
 }
 
 export async function pendingCount() {

@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db, type Tx } from "@/db";
 import { accessRequestSubjects, accessRequests } from "@/db/schema";
+import type { AccessRequestApplication } from "@lms/shared";
 import type { AccessRequest, AccessRequestState, Id } from "@/db/types";
 
 /**
@@ -20,11 +21,14 @@ function toAccessRequest(row: RequestRow, subjectIds: Id[]): AccessRequest {
     userId: row.userId,
     name: row.name,
     email: row.email,
+    phone: row.phone,
     boardId: row.boardId,
     levelId: row.levelId,
     subjectIds,
     note: row.note,
     requestedRole: row.requestedRole,
+    application: row.applicationData ?? null,
+    gradeLevelIds: row.teacherGradeLevelIds ?? [],
     state: row.state,
     decidedBy: row.decidedBy,
     decidedAt: row.decidedAt,
@@ -113,29 +117,56 @@ export async function countOpenRequests(
   return rows.length;
 }
 
+export type AccessRequestWrite = {
+  userId: Id;
+  name: string;
+  email: string;
+  phone: string | null;
+  boardId: Id | null;
+  levelId: Id | null;
+  subjectIds: Id[];
+  note: string | null;
+  requestedRole: "teacher" | "student" | "parent" | null;
+  application: AccessRequestApplication | null;
+  gradeLevelIds: Id[];
+};
+
+/** The columns both create and update write, so the two can never drift. */
+function columnsOf(input: AccessRequestWrite) {
+  return {
+    name: input.name,
+    email: input.email.trim().toLowerCase(),
+    phone: input.phone,
+    boardId: input.boardId,
+    levelId: input.levelId,
+    note: input.note,
+    requestedRole: input.requestedRole,
+    applicationData: input.application,
+    teacherGradeLevelIds: input.gradeLevelIds,
+  };
+}
+
+export async function updateAccessRequest(
+  id: Id,
+  input: AccessRequestWrite,
+  conn: Tx | typeof db = db,
+): Promise<void> {
+  await conn
+    .update(accessRequests)
+    .set(columnsOf(input))
+    .where(eq(accessRequests.id, id));
+  await setRequestSubjects(id, input.subjectIds, conn);
+}
+
 export async function createAccessRequest(
-  input: {
-    userId: Id;
-    name: string;
-    email: string;
-    boardId: Id | null;
-    levelId: Id | null;
-    subjectIds: Id[];
-    note: string | null;
-    requestedRole: "teacher" | "student" | "parent" | null;
-  },
+  input: AccessRequestWrite,
   conn: Tx | typeof db = db,
 ): Promise<AccessRequest> {
   const [row] = await conn
     .insert(accessRequests)
     .values({
       userId: input.userId,
-      name: input.name,
-      email: input.email.trim().toLowerCase(),
-      boardId: input.boardId,
-      levelId: input.levelId,
-      note: input.note,
-      requestedRole: input.requestedRole,
+      ...columnsOf(input),
       state: "open",
     })
     .returning();

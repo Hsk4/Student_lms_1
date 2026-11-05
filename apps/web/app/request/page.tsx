@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAsync } from "@/lib/use-async";
 import type { CatalogOption } from "@lms/shared";
 import { PageHeader } from "@/components/ui/nila";
@@ -16,14 +16,23 @@ import { InlineLoading } from "@/components/shared/skeleton";
 function Body() {
   const me = useAuth();
   const router = useRouter();
+  const search = useSearchParams();
   const user = me.user;
 
+  // `/request?role=parent` opens straight onto the parent application; the
+  // parent sign-up page links here. Anything else starts on teacher.
+  const initialRole = search.get("role") === "parent" ? "parent" : "teacher";
+
   const optionsQuery = useAsync(
-    () => api.get<{ boards: CatalogOption[]; levels: CatalogOption[]; subjects: CatalogOption[] }>(
-        "/catalog/form-options",
-      ),
-    [], { enabled: Boolean(user) },
-  )
+    () =>
+      api.get<{
+        boards: CatalogOption[];
+        levels: CatalogOption[];
+        subjects: CatalogOption[];
+      }>("/catalog/form-options"),
+    [],
+    { enabled: Boolean(user) },
+  );
 
   // `isFetched && !user` is the 401 case (signed out or suspended).
   useEffect(() => {
@@ -77,15 +86,19 @@ function Body() {
       <div className="mx-auto w-full max-w-2xl">
         <PageHeader
           title="Request access"
-          description="An admin reviews every request. You will get a role only after they approve it."
+          description="Choose the role you are applying for. An admin reviews every application before a role is granted."
         />
         <p className="mb-4 flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-cobalt">
           <ArchNumber n={1} size={24} tone="cobalt" />
-          Your details
+          Application
         </p>
         <RequestForm
-          defaults={{ name: user.name, email: user.email }}
-          boards={options.boards}
+          key={initialRole}
+          defaults={{
+            name: user.name,
+            email: user.email,
+            requestedRole: initialRole,
+          }}
           levels={options.levels}
           subjects={options.subjects}
         />
@@ -95,5 +108,10 @@ function Body() {
 }
 
 export default function RequestPage() {
-  return <Body />;
+  // `useSearchParams` needs a Suspense boundary in the static (mobile) export.
+  return (
+    <Suspense fallback={<InlineLoading />}>
+      <Body />
+    </Suspense>
+  );
 }

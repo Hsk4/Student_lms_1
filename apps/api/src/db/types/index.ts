@@ -18,6 +18,8 @@
  *    AttendanceRecord, TicketMessage).
  */
 
+import type { AccessRequestApplication } from "@lms/shared";
+
 export type Id = string;
 
 export type CreatedUpdated = {
@@ -90,12 +92,18 @@ export type AccessRequest = CreatedUpdated & {
   userId: Id;
   name: string;
   email: string;
+  phone: string | null;
   boardId: Id | null;
   levelId: Id | null;
   subjectIds: Id[];
+  /** The free-text note. On a legacy request this is the whole application. */
   note: string | null;
   /** Advisory only: an admin still decides. */
   requestedRole: "teacher" | "student" | "parent" | null;
+  /** Null on legacy rows; otherwise one half is filled in. */
+  application: AccessRequestApplication | null;
+  /** A teacher's grade-level ids (subjects live in `subjectIds`). */
+  gradeLevelIds: Id[];
   state: AccessRequestState;
   decidedBy: Id | null;
   decidedAt: Date | null;
