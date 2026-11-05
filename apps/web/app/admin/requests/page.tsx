@@ -28,6 +28,8 @@ type RequestRow = {
   board?: string;
   level?: string;
   subjects: string;
+  /** The ids behind `subjects`, used to pre-tick courses on approval. */
+  subjectIds?: string[];
   userStatus: string;
   userRole: string | null;
   requestedRole: string | null;
@@ -76,7 +78,17 @@ export default function AdminRequestsPage() {
             <Card key={request.id} className="p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="font-medium text-foreground">{request.name}</p>
+                  <p className="flex flex-wrap items-center gap-2 font-medium text-foreground">
+                    {request.name}
+                    {/*
+                     * What they asked to be is the first thing the office
+                     * needs: it decides whether this is a student or a teacher
+                     * request, and therefore whether courses matter.
+                     */}
+                    {request.requestedRole ? (
+                      <RoleChip role={request.requestedRole} />
+                    ) : null}
+                  </p>
                   <p className="text-sm text-muted-foreground">{request.email}</p>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -116,6 +128,7 @@ export default function AdminRequestsPage() {
                 <RequestActions
                   requestId={request.id}
                   defaultRole={request.requestedRole ?? "student"}
+                  requestedSubjectIds={request.subjectIds ?? []}
                   onDecided={onDecided}
                 />
               </div>

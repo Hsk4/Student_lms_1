@@ -7,6 +7,27 @@ import { Card } from "@/components/ui/nila";
 import { api } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 
+/**
+ * What the applicant is asking to be. The API treats this as advisory — an
+ * admin still picks the role they approve — but it is what tells the office
+ * whether this is a student or a teacher, and it pre-selects the approval
+ * dropdown so the common case is one click.
+ */
+const REQUESTED_ROLES = [
+  {
+    value: "student",
+    label: "Student",
+    hint: "I am enrolled, or about to enrol, in a class.",
+  },
+  {
+    value: "teacher",
+    label: "Teacher",
+    hint: "I teach one or more subjects at this school.",
+  },
+] as const;
+
+type RequestedRole = (typeof REQUESTED_ROLES)[number]["value"];
+
 export function RequestForm({
   defaults,
   boards,
@@ -23,6 +44,8 @@ export function RequestForm({
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
+  const [requestedRole, setRequestedRole] = useState<RequestedRole>("student");
+  const isTeacher = requestedRole === "teacher";
 
   function toggleSubject(id: string) {
     setSelected((current) =>
@@ -49,6 +72,8 @@ export function RequestForm({
               levelId: form.get("levelId") ?? "",
               subjectIds: selected,
               note: form.get("note") ?? "",
+              // Advisory: the admin still chooses the role they approve.
+              requestedRole,
             });
             // The request changed the account; /pending reads the new state.
             await refresh();
@@ -62,6 +87,48 @@ export function RequestForm({
           }
         }}
       >
+        {/*
+         * The role comes first: it decides what the rest of the form means. A
+         * teacher picks the subjects they teach; a student picks the subjects
+         * they are enrolled in. Without this the office had to guess from the
+         * note, and every request arrived looking like a student.
+         */}
+        <fieldset>
+          <legend className="label">I am asking to join as</legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {REQUESTED_ROLES.map((option) => {
+              const active = requestedRole === option.value;
+              return (
+                <label
+                  key={option.value}
+                  className={`flex cursor-pointer items-start gap-3 rounded-[var(--radius-card)] border px-3 py-2.5 transition-colors duration-150 ${
+                    active
+                      ? "border-primary bg-tint"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="requestedRole"
+                    value={option.value}
+                    checked={active}
+                    onChange={() => setRequestedRole(option.value)}
+                    className="mt-1"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-foreground">
+                      {option.label}
+                    </span>
+                    <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                      {option.hint}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="label" htmlFor="name">
@@ -127,7 +194,16 @@ export function RequestForm({
         </div>
 
         <fieldset>
-          <legend className="label">Subjects</legend>
+          <legend className="label">
+            {isTeacher ? "Subjects you teach" : "Subjects you are enrolled in"}
+          </legend>
+          {isTeacher ? (
+            <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
+              Pick every subject you can teach. The office uses this to match
+              you to courses; an admin confirms the exact classes when they
+              approve you.
+            </p>
+          ) : null}
           {subjects.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               The catalog is empty. An admin can add subjects under Courses.

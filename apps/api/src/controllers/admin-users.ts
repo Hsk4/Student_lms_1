@@ -56,11 +56,12 @@ import { listCoursesView } from "@/controllers/catalog";
 
 /**
  * Admin user management: assign a role, reject, suspend, reinstate, decide a
- * request, sync with Clerk, and the guardian/link-code repair tools.
+ * request, and the guardian/link-code repair tools.
  *
- * These are two-phase: Postgres commits, then Clerk is updated, and if Clerk
- * fails the Postgres half is undone. A Clerk failure must not leave a role
- * granted in the database that the session claims do not reflect.
+ * Postgres is the only authority. A role change is one transaction: the user
+ * row, the access request and the audit entry commit together or not at all,
+ * and `sessionVersion` is bumped so tokens minted before the change stop
+ * working.
  */
 
 function canManage(
@@ -83,6 +84,14 @@ function actorAdmin(
 export async function assignRole(req: Request) {
   const actor = actorAdmin(req);
   const input = assignRoleSchema.parse({ ...req.body, userId: req.params.id });
+  /*
+   * Courses are only meaningful for a teacher. They arrive from the request
+   * decision ("approve as teacher, and these are their classes") so the office
+   * can do the whole job in one click instead of approving and then hunting for
+   * the user again to assign courses.
+   */
+  const courseIds =
+    input.role === "teacher" ? await validatedCourseIds(req.body?.courseIds) : [];
 
   const before: Record<string, unknown> = {};
   await db.transaction(async (tx) => {
@@ -112,6 +121,13 @@ export async function assignRole(req: Request) {
       .update(accessRequests)
       .set({ state: "approved", decidedBy: actor.id, decidedAt: new Date() })
       .where(eq(accessRequests.userId, user.id));
+
+    // Same transaction as the role: a teacher is never activated without the
+    // classes the admin picked, and a failed course write rolls the role back.
+    if (courseIds.length) {
+      await replaceTeacherCourses(user.id, courseIds, tx);
+    }
+
     await writeAudit(
       {
         actorId: actor.id,
@@ -119,11 +135,34 @@ export async function assignRole(req: Request) {
         targetType: "User",
         targetId: user.id,
         before,
-        after: { role: input.role, status: "active" },
+        after: {
+          role: input.role,
+          status: "active",
+          ...(courseIds.length ? { courseIds } : {}),
+        },
       },
       { tx },
     );
   });
+}
+
+/**
+ * Normalise and check the course ids an approval carries.
+ *
+ * Absent means "no courses yet", which is allowed. Present but wrong (unknown
+ * or inactive) is a conflict, so the admin sees why instead of silently getting
+ * a teacher with no classes.
+ */
+async function validatedCourseIds(raw: unknown): Promise<string[]> {
+  const parsed = z.array(recordIdSchema).max(100).safeParse(raw ?? []);
+  if (!parsed.success) throw conflict("One or more courses are not valid");
+  const unique = [...new Set(parsed.data)];
+  if (unique.length === 0) return [];
+  const active = await findActiveCourseIds(unique);
+  if (active.length !== unique.length) {
+    throw conflict("One or more courses are missing or inactive");
+  }
+  return unique;
 }
 
 export async function rejectUser(req: Request) {
@@ -229,7 +268,7 @@ export async function decideAccessRequest(req: Request) {
     throw notFound("Open request not found");
   if (input.decision === "approve") {
     if (!input.role) throw conflict("Pick a role to approve this request");
-    req.body = { role: input.role };
+    req.body = { role: input.role, courseIds: input.courseIds };
     req.params = { ...req.params, id: request.userId };
     return assignRole(req);
   }
@@ -443,6 +482,9 @@ export async function listRequests(req: Request) {
       subjects: request.subjectIds
         .map((id) => subjectName.get(id) ?? "-")
         .join(", "),
+      // The ids behind `subjects`, so the approval screen can pre-tick the
+      // matching courses instead of matching on display names.
+      subjectIds: request.subjectIds,
       userStatus: user?.status ?? "unknown",
       userRole: user?.role ?? null,
       requestedRole: request.requestedRole,
@@ -613,7 +655,7 @@ export async function bookCounts() {
   return countBooksByCourse();
 }
 
-/** Analytics: counts straight from Postgres, never from the Clerk API. */
+/** Analytics: counts straight from Postgres. */
 export async function analytics() {
   const [users, courses, books] = await Promise.all([
     listUsersAdminInnerCounts(),

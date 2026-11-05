@@ -46,5 +46,11 @@ export const requestDecisionSchema = z.object({
   requestId: recordIdSchema,
   decision: z.enum(["approve", "reject"]),
   role: z.enum(["admin", "teacher", "student", "parent"]).optional(),
+  /**
+   * Courses to assign when approving a teacher. Optional: an admin may approve
+   * first and pick the classes later from the user's page. Ignored for any
+   * other role, because only teachers hold course assignments.
+   */
+  courseIds: z.array(recordIdSchema).max(100).optional(),
   reason: z.string().trim().max(500).optional(),
 });
