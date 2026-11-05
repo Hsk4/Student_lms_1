@@ -35,6 +35,29 @@ afterAll(async () => {
   await closeDb();
 });
 
+describe("catalog form options", () => {
+  /*
+   * The request form is filled in by accounts that are NOT active yet, so this
+   * endpoint must pass the gate that holds them back. It used plain `auth()`,
+   * which answered 403 "Account is pending" to the only people who need it.
+   */
+  it("is readable by a pending, role-less account", async () => {
+    await seedUser({ clerkId: "applicant_1", status: "pending", role: null });
+
+    const res = await request(app)
+      .get("/api/v1/catalog/form-options")
+      .set(authHeader("applicant_1"));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ boards: [], levels: [], subjects: [] });
+  });
+
+  it("still requires a token", async () => {
+    const res = await request(app).get("/api/v1/catalog/form-options");
+    expect(res.status).toBe(401);
+  });
+});
+
 describe("super admin", () => {
   it("reaches /me with the admin dashboard as its home", async () => {
     // The seeded shape: a role is the approval, so `pending` + role still lands.

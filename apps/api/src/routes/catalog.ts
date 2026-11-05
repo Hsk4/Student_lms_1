@@ -32,10 +32,15 @@ const admin = [auth(), requireRole("admin", "super_admin")];
 
 export const catalogRoutes = Router();
 
-// Any active account may read the form options.
+/*
+ * The request form's dropdowns. This must pass `allowRestricted`: the form is
+ * filled in by accounts that are NOT active yet (pending, role-less), so the
+ * default gate refused the very people who need it with 403 "Account is
+ * pending". The data is a public curriculum list — no account data is exposed.
+ */
 catalogRoutes.get(
   "/catalog/form-options",
-  auth(),
+  auth({ allowRestricted: true }),
   asyncHandler(async (_req, res) => ok(res, await formOptions())),
 );
 
