@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "npx serve out",
+    "build:mobile": "node scripts/build-mobile.mjs",
+    "start": "next start",
+    "serve:out": "npx serve out",
     "typecheck": "tsc --noEmit",
     "lint": "eslint",
     "lint:colors": "node scripts/lint-colors.mjs",

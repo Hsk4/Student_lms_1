@@ -9,6 +9,7 @@ import { PanelShell } from "@/components/shell/shell";
 import { ArchNumber } from "@/components/brand/primitives";
 import { api } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
+import { webHomeFor } from "@/lib/role-home";
 import { RequestForm } from "./request-form";
 import { InlineLoading } from "@/components/shared/skeleton";
 
@@ -30,7 +31,7 @@ function Body() {
   }, [me.settled, user, router]);
 
   useEffect(() => {
-    if (user && user.status === "active") router.replace(user.home);
+    if (user && user.status === "active") router.replace(webHomeFor(user.home));
   }, [user, router]);
 
   /*
@@ -41,7 +42,9 @@ function Body() {
    * re-deriving it here.
    */
   useEffect(() => {
-    if (user?.role && user.home !== "/request") router.replace(user.home);
+    if (user?.role && user.home !== "/request") {
+      router.replace(webHomeFor(user.home));
+    }
   }, [user, router]);
 
   if (!user) return <InlineLoading />;

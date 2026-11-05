@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PanelShell } from "@/components/shell/shell";
 import { PageHeader, Card } from "@/components/ui/nila";
 import { useAuth } from "@/lib/auth-context";
+import { webHomeFor } from "@/lib/role-home";
 import { ArchNumber } from "@/components/brand/primitives";
 import { ParentOnboardingForm } from "./parent-form";
 
@@ -17,7 +18,7 @@ export default function ParentOnboardingPage() {
     if (!me.settled) return;
     if (!user) router.replace("/sign-in");
     else if (user.status !== "active" || user.role !== "student")
-      router.replace(user.home);
+      router.replace(webHomeFor(user.home));
     else if (user.onboarded) router.replace("/student");
   }, [me.settled, user, router]);
 

@@ -15,6 +15,7 @@ import { PanelShell } from "@/components/shell/shell";
 import { PanelLoading } from "@/lib/guards";
 import { api } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
+import { webHomeFor } from "@/lib/role-home";
 import { usePolling } from "@/lib/queries";
 
 const STEPS = ["Account created", "Request under review", "Access granted"];
@@ -43,7 +44,7 @@ export default function PendingPage() {
     // A role is the approval: a pending account that already has one (the
     // seeded super admin) belongs in its panel, not on this page.
     if (user && (user.status !== "pending" || user.role))
-      router.replace(user.home);
+      router.replace(webHomeFor(user.home));
   }, [user, router]);
 
   const isParentRequest = status?.requestedRole === "parent";

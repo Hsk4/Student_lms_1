@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "./auth-context";
+import { webHomeFor } from "./role-home";
 import { readStoredUser, type StoredUser } from "./session";
 
 /**
@@ -134,7 +135,9 @@ function AuthForm({
         payload.data.token,
         payload.data.user ?? null,
       );
-      router.replace(me.home || "/pending");
+      // `webHomeFor` sends a parent to the link page instead of the empty
+      // children dashboard; every other role keeps the API's `home`.
+      router.replace(webHomeFor(me.home));
     } catch (caught) {
       setError(
         caught instanceof Error

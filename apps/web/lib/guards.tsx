@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { UserRole } from "@lms/shared";
 import { useAuth } from "./auth-context";
+import { webHomeFor } from "./role-home";
 import { PanelSkeleton } from "@/components/shared/skeleton";
 
 /**
@@ -30,7 +31,7 @@ export function usePanelGuard(roles: UserRole[]) {
      * lands in its own panel. `user.home` already encodes this.
      */
     if (!user.role || !roles.includes(user.role)) {
-      redirectTo = user.home;
+      redirectTo = webHomeFor(user.home);
     } else if (user.role === "student" && !user.onboarded) {
       redirectTo = "/onboarding/parent";
     }

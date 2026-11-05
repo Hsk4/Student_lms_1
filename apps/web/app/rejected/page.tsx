@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { PanelShell } from "@/components/shell/shell";
 import { PanelLoading } from "@/lib/guards";
 import { useAuth } from "@/lib/auth-context";
+import { webHomeFor } from "@/lib/role-home";
 
 export default function RejectedPage() {
   const me = useAuth();
@@ -17,7 +18,8 @@ export default function RejectedPage() {
   useEffect(() => {
     if (!me.settled) return;
     if (!user) router.replace("/sign-in");
-    else if (user.status !== "rejected") router.replace(user.status === "active" ? "/" : "/pending");
+    else if (user.status !== "rejected")
+      router.replace(user.status === "active" ? webHomeFor(user.home) : "/pending");
   }, [me.settled, user, router]);
 
   // Render nothing until a signed-in, rejected account is loaded: otherwise

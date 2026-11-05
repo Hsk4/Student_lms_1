@@ -42,7 +42,13 @@ export function RequestParentRoleButton({
             try {
               await api.post("/me/request/parent");
               await refresh();
-              router.push("/pending");
+              /*
+               * `/pending` is the tracker for an account that is waiting. A
+               * parent who is already approved (the API returns early for an
+               * active account) has nothing to wait for, so send them to the
+               * one step they still need: entering their child's code.
+               */
+              router.push("/parent/link");
             } catch (requestError) {
               setError(
                 requestError instanceof Error
