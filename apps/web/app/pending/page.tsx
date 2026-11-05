@@ -21,6 +21,24 @@ import { usePolling } from "@/lib/queries";
 const STEPS = ["Account created", "Request under review", "Access granted"];
 
 export default function PendingPage() {
+  return <PendingBody />;
+}
+
+/**
+ * The role picked on a sign-up door, forwarded as `?next=`. Only the three
+ * application routes are honoured: this is a convenience, never a redirect to
+ * anywhere a URL could name.
+ */
+function nextStepTarget(raw: string | null): string | null {
+  if (!raw) return null;
+  return raw === "/request?role=teacher" ||
+    raw === "/request?role=parent" ||
+    raw === "/request?role=student"
+    ? raw
+    : null;
+}
+
+function PendingBody() {
   const { user, signedIn, loading: meLoading } = useAuth();
   const router = useRouter();
 
@@ -35,7 +53,14 @@ export default function PendingPage() {
 
   // The provider has settled with no session (or it was rejected): waiting on
   // the loading flag alone would leave a signed-out visitor on the spinner.
-  const signedOut = !meLoading && !signedIn;
+  /*
+   * `signedIn` is a hint from `localStorage`; `user` is the account the API
+   * confirmed. Until one of them proves there *is* a session, the page must not
+   * jump to sign-in — arriving with a token that is still being verified used
+   * to bounce straight back out.
+   */
+  const decided = !meLoading && (Boolean(user) || !signedIn);
+  const signedOut = decided && !user;
   useEffect(() => {
     if (signedOut) router.replace("/sign-in");
   }, [signedOut, router]);
@@ -48,6 +73,21 @@ export default function PendingPage() {
   }, [user, router]);
 
   const isParentRequest = status?.requestedRole === "parent";
+  const isTeacherRequest = status?.requestedRole === "teacher";
+  /*
+   * The door the applicant chose before signing up, forwarded as `?next=`.
+   *
+   * Read from `window.location` rather than `useSearchParams`: `/pending` is
+   * the page the app was already on before it moved here, so Next re-renders
+   * that instance and its search params would still be the first render's.
+   */
+  const nextStep = nextStepTarget(
+    typeof window === "undefined"
+      ? null
+      : new URLSearchParams(window.location.search).get("next"),
+  );
+  // A door chosen at sign-up wins over a stale one from an earlier request.
+  const isParentFlow = nextStep === "/request?role=parent" || isParentRequest;
   /*
    * An account that already carries a role was seeded or assigned by an admin,
    * not created through a request form — so `hasOpenRequest` is legitimately
@@ -57,17 +97,31 @@ export default function PendingPage() {
    */
   const assignedRole = Boolean(user?.role);
   const needsRequest = !assignedRole && !status?.hasOpenRequest;
-  const steps = isParentRequest
-    ? [
-        "Account created",
-        "Parent access under review",
-        "Enter your child's code",
-      ]
-    : STEPS;
+  /*
+   * No automatic forward from here.
+   *
+   * The chosen door (`?next=`) is used for the wording and to preselect the
+   * right button below; the applicant clicks it. An automatic replace raced the
+   * status poll and could bounce an account between two pages, which is exactly
+   * how "I chose parent" turned into "nothing happened".
+   */
+  /*
+   * The tracker names the role the applicant asked for. Everyone used to see
+   * "Request under review", which read like the same generic form for a parent
+   * and a teacher even though the applications are now different.
+   */
+  const steps = isParentFlow
+    ? ["Account created", "Parent access under review", "Enter your child's code"]
+    : isTeacherRequest
+      ? ["Account created", "Teacher application under review", "Classes open"]
+      : nextStep === "/request?role=teacher"
+        ? ["Account created", "Teacher application under review", "Classes open"]
+        : STEPS;
 
   // Nothing until a pending account is loaded; the effect redirects anyone
   // else, and showing the tracker first would be wrong for them.
-  if (!user || user.status !== "pending" || user.role) return <PanelLoading />;
+  if (!decided || !user || user.status !== "pending" || user.role)
+    return <PanelLoading />;
 
   return (
     <PanelShell
@@ -82,7 +136,7 @@ export default function PendingPage() {
             Your account is pending
           </h1>
           <p className="mt-2 max-w-[46ch] text-sm leading-relaxed text-muted-foreground">
-            {isParentRequest
+            {isParentFlow
               ? "The school office reviews parent accounts before activation. This page updates on its own."
               : "An admin has to approve you before you can use the school. This page updates on its own."}
           </p>
@@ -124,12 +178,16 @@ export default function PendingPage() {
                           ? `Your ${user.role?.replace("_", " ")} role is assigned. Waiting for activation.`
                           : status?.hasOpenRequest
                             ? "Submitted. Nothing else to do here."
-                            : isParentRequest
+                            : isParentFlow
                               ? "Send it from the parent page."
-                              : "Submit the access request first."
-                        : isParentRequest
+                              : isTeacherRequest || nextStep === "/request?role=teacher"
+                                ? "Submit your teaching application first."
+                                : "Submit the access request first."
+                        : isParentFlow
                           ? "After approval, enter the code your child gave you."
-                          : "You will be sent to your panel."}
+                          : isTeacherRequest || nextStep === "/request?role=teacher"
+                            ? "Your subjects and classes open once approved."
+                            : "You will be sent to your panel."}
                   </p>
                 </div>
               </li>
@@ -140,18 +198,37 @@ export default function PendingPage() {
         {needsRequest ? (
           <div className="mt-6 space-y-3">
             <Notice tone="info">
-              You have not sent an access request yet.
+              {nextStep
+                ? "One step left: your application."
+                : "You have not sent an access request yet."}
             </Notice>
             <div className="flex flex-wrap gap-2">
+              {/* The door chosen at sign-up is the primary action. */}
               <Button asChild size="xl">
-                <Link href="/request">Fill in the request form</Link>
+                <Link href={nextStep ?? "/request?role=teacher"}>
+                  {nextStep === "/request?role=parent"
+                    ? "Request parent access"
+                    : nextStep === "/request?role=student"
+                      ? "Request student access"
+                      : "Apply as a teacher"}
+                </Link>
               </Button>
+              {nextStep !== "/request?role=teacher" ? (
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/request?role=teacher">Apply as a teacher</Link>
+                </Button>
+              ) : null}
+              {nextStep !== "/request?role=parent" ? (
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/request?role=parent">Request parent access</Link>
+                </Button>
+              ) : null}
               <Button asChild size="lg" variant="outline">
-                <Link href="/request?role=parent">I am a parent</Link>
+                <Link href="/request?role=student">I am a student</Link>
               </Button>
             </div>
           </div>
-        ) : assignedRole && !isParentRequest ? (
+        ) : assignedRole && !isParentFlow ? (
           <div className="mt-6">
             <Notice tone="info">
               An administrator has to activate this account. Nothing else is
@@ -160,7 +237,7 @@ export default function PendingPage() {
           </div>
         ) : null}
 
-        {status?.hasOpenRequest && isParentRequest ? (
+        {status?.hasOpenRequest && isParentFlow ? (
           <p className="mt-6 text-xs text-muted-foreground">
             Once approved you come back here and open{" "}
             <strong>Link a child</strong> to enter the code. Approval alone does

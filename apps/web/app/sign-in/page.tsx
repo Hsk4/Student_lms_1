@@ -1,8 +1,12 @@
-﻿"use client";
+"use client";
 
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { SignIn } from "@/lib/auth";
 import { BrandMark } from "@/components/brand/primitives";
 import { ThemeToggle } from "@/components/shell/page-actions";
+import { Button } from "@/components/ui/button";
 import { SCHOOL_NAME } from "@/lib/school";
 import { SignInNotice } from "./sign-in-notice";
 
@@ -13,8 +17,37 @@ import { SignInNotice } from "./sign-in-notice";
  * two-band shell as every gate page: a navy jaali strip with the mark, and a
  * white 30px sheet. Centring a bare form on grey made sign-in look like a
  * different product.
+ *
+ * The form is deliberately one form for every role — the API decides where the
+ * account lands — but the page also carries the three doors, so a parent
+ * arriving from the landing page can see "parent" named here and, if they have
+ * no account yet, goes straight to the parent application instead of guessing
+ * which generic sign-up to use.
  */
-export default function SignInPage() {
+
+const DOORS = [
+  {
+    role: "Student",
+    href: "/sign-up?role=student",
+    hint: "Classes and homework",
+  },
+  { role: "Parent", href: "/sign-up/parent", hint: "Your child's progress" },
+  {
+    role: "Teacher",
+    href: "/sign-up?role=teacher",
+    hint: "Teaching application",
+  },
+] as const;
+
+function Body() {
+  const search = useSearchParams();
+  /*
+   * `?role=parent` highlights the parent door. It is a hint for the person
+   * arriving, never an authorization: whichever form is used, `/me` decides
+   * what the account may see.
+   */
+  const role = search.get("role");
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="fastly-gate-band relative overflow-hidden">
@@ -38,8 +71,51 @@ export default function SignInPage() {
         <div className="fastly-sheet self-start w-full max-w-md border-[1.5px] border-line bg-card px-4 py-6 sm:px-7">
           <SignInNotice />
           <SignIn signUpUrl="/sign-up" />
+
+          <div className="mt-6 border-t border-border pt-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              New here?
+            </p>
+            <div className="mt-3 grid gap-2">
+              {DOORS.map((door) => {
+                const active = role === door.role.toLowerCase();
+                return (
+                  <Button
+                    key={door.role}
+                    asChild
+                    variant="outline"
+                    className={`h-auto justify-between py-2.5 ${
+                      active
+                        ? "border-primary bg-tint text-tint-foreground"
+                        : ""
+                    }`}
+                  >
+                    <Link href={door.href}>
+                      <span className="font-semibold">{door.role}</span>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        {door.hint}
+                      </span>
+                    </Link>
+                  </Button>
+                );
+              })}
+            </div>
+            <p className="mt-3 text-center text-xs text-muted-foreground">
+              Parents are reviewed by the school office before their dashboard
+              opens.
+            </p>
+          </div>
         </div>
       </main>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  // `useSearchParams` needs a Suspense boundary in the static (mobile) export.
+  return (
+    <Suspense fallback={null}>
+      <Body />
+    </Suspense>
   );
 }
