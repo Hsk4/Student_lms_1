@@ -36,6 +36,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { AccessRequestApplication } from "@lms/shared";
 import type { Question } from "@/db/types";
 
 /* -------------------------------------------------------------------------
@@ -268,8 +269,17 @@ export const accessRequests = pgTable("access_requests", {
   email: text("email").notNull(),
   boardId: uuid("board_id").references(() => boards.id, { onDelete: "set null" }),
   levelId: uuid("level_id").references(() => levels.id, { onDelete: "set null" }),
+  phone: text("phone"),
   note: text("note"),
   requestedRole: accessRequestRole("requested_role"),
+  /*
+   * The role-specific application, stored as JSONB (`TeacherApplication` or
+   * `ParentApplication`, keyed by the role). Nullable: every request filed
+   * before this split is a legacy row whose only application is `note`.
+   */
+  applicationData: jsonb("application_data").$type<AccessRequestApplication>(),
+  /* A teacher also names grade levels; they have no link table, so they stay here. */
+  teacherGradeLevelIds: jsonb("teacher_grade_level_ids").$type<string[]>(),
   state: accessRequestState("state").notNull().default("open"),
   decidedBy: uuid("decided_by").references(() => users.id, { onDelete: "set null" }),
   decidedAt: timestamp("decided_at", { withTimezone: true }),

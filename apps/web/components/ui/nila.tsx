@@ -90,7 +90,7 @@ export function RoleChip({ role }: { role: string | null }) {
   }
   return (
     <span
-      className={`chip ${ROLE_STYLES[role] ?? "border-border text-muted-foreground"}`}
+      className={`chip capitalize ${ROLE_STYLES[role] ?? "border-border text-muted-foreground"}`}
     >
       {role.replace("_", " ")}
     </span>

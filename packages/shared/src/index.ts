@@ -1,6 +1,7 @@
 export * from "./roles";
 export * from "./envelope";
 export * from "./api-types";
+export * from "./access-request";
 export * from "./validators/common";
 export * from "./validators/admin";
 export * from "./validators/catalog";

@@ -23,6 +23,7 @@ import {
   unlinkGuardian,
   assignRole,
   decideAccessRequest,
+  getRequest,
 } from "@/controllers/admin-users";
 
 const admin = [auth(), requireRole("admin", "super_admin")];
@@ -87,6 +88,11 @@ adminRoutes.get(
   "/admin/requests",
   ...admin,
   asyncHandler(async (req, res) => ok(res, await listRequests(req))),
+);
+adminRoutes.get(
+  "/admin/requests/:id",
+  ...admin,
+  asyncHandler(async (req, res) => ok(res, await getRequest(req))),
 );
 adminRoutes.post(
   "/admin/requests/:id/decision",

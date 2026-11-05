@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import {
   assignRoleSchema,
   recordIdSchema,
+  type AdminRequestView,
   rejectUserSchema,
   requestDecisionSchema,
   userActionSchema,
@@ -56,11 +57,12 @@ import { listCoursesView } from "@/controllers/catalog";
 
 /**
  * Admin user management: assign a role, reject, suspend, reinstate, decide a
- * request, sync with Clerk, and the guardian/link-code repair tools.
+ * request, and the guardian/link-code repair tools.
  *
- * These are two-phase: Postgres commits, then Clerk is updated, and if Clerk
- * fails the Postgres half is undone. A Clerk failure must not leave a role
- * granted in the database that the session claims do not reflect.
+ * Postgres is the only authority. A role change is one transaction: the user
+ * row, the access request and the audit entry commit together or not at all,
+ * and `sessionVersion` is bumped so tokens minted before the change stop
+ * working.
  */
 
 function canManage(
@@ -83,6 +85,14 @@ function actorAdmin(
 export async function assignRole(req: Request) {
   const actor = actorAdmin(req);
   const input = assignRoleSchema.parse({ ...req.body, userId: req.params.id });
+  /*
+   * Courses are only meaningful for a teacher. They arrive from the request
+   * decision ("approve as teacher, and these are their classes") so the office
+   * can do the whole job in one click instead of approving and then hunting for
+   * the user again to assign courses.
+   */
+  const courseIds =
+    input.role === "teacher" ? await validatedCourseIds(req.body?.courseIds) : [];
 
   const before: Record<string, unknown> = {};
   await db.transaction(async (tx) => {
@@ -112,6 +122,13 @@ export async function assignRole(req: Request) {
       .update(accessRequests)
       .set({ state: "approved", decidedBy: actor.id, decidedAt: new Date() })
       .where(eq(accessRequests.userId, user.id));
+
+    // Same transaction as the role: a teacher is never activated without the
+    // classes the admin picked, and a failed course write rolls the role back.
+    if (courseIds.length) {
+      await replaceTeacherCourses(user.id, courseIds, tx);
+    }
+
     await writeAudit(
       {
         actorId: actor.id,
@@ -119,11 +136,34 @@ export async function assignRole(req: Request) {
         targetType: "User",
         targetId: user.id,
         before,
-        after: { role: input.role, status: "active" },
+        after: {
+          role: input.role,
+          status: "active",
+          ...(courseIds.length ? { courseIds } : {}),
+        },
       },
       { tx },
     );
   });
+}
+
+/**
+ * Normalise and check the course ids an approval carries.
+ *
+ * Absent means "no courses yet", which is allowed. Present but wrong (unknown
+ * or inactive) is a conflict, so the admin sees why instead of silently getting
+ * a teacher with no classes.
+ */
+async function validatedCourseIds(raw: unknown): Promise<string[]> {
+  const parsed = z.array(recordIdSchema).max(100).safeParse(raw ?? []);
+  if (!parsed.success) throw conflict("One or more courses are not valid");
+  const unique = [...new Set(parsed.data)];
+  if (unique.length === 0) return [];
+  const active = await findActiveCourseIds(unique);
+  if (active.length !== unique.length) {
+    throw conflict("One or more courses are missing or inactive");
+  }
+  return unique;
 }
 
 export async function rejectUser(req: Request) {
@@ -229,7 +269,7 @@ export async function decideAccessRequest(req: Request) {
     throw notFound("Open request not found");
   if (input.decision === "approve") {
     if (!input.role) throw conflict("Pick a role to approve this request");
-    req.body = { role: input.role };
+    req.body = { role: input.role, courseIds: input.courseIds };
     req.params = { ...req.params, id: request.userId };
     return assignRole(req);
   }
@@ -411,10 +451,14 @@ export async function setTeacherCourses(req: Request) {
 /* Admin reads */
 
 export async function listRequests(req: Request) {
-  const state = z
-    .enum(["open", "approved", "rejected"])
-    .parse(req.query.state ?? "open");
-  const requests = await listAccessRequests(state);
+  const query = z
+    .object({
+      state: z.enum(["open", "approved", "rejected"]).default("open"),
+      /** Optional narrowing, applied here because the list is capped at 200. */
+      role: z.enum(["teacher", "parent", "student", "none"]).optional(),
+    })
+    .parse(req.query);
+  const requests = await listAccessRequests(query.state);
   if (requests.length === 0) return [];
 
   const [users, boards, levels, subjects] = await Promise.all([
@@ -427,27 +471,126 @@ export async function listRequests(req: Request) {
   const boardName = new Map(boards.map((b) => [b.id, b.name]));
   const levelName = new Map(levels.map((l) => [l.id, l.name]));
   const subjectName = new Map(subjects.map((s) => [s.id, s.name]));
+  const decidedById = new Map(
+    (
+      await listUsersByIds([
+        ...new Set(
+          requests
+            .map((r) => r.decidedBy)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ])
+    ).map((u) => [u.id, u.name]),
+  );
 
-  return requests.map((request) => {
+  const rows = requests.map((request): AdminRequestView => {
     const user = userById.get(request.userId);
+    const teacher = request.application?.teacher ?? null;
+    const parent = request.application?.parent ?? null;
+    /*
+     * The structured half already carries the ids it was filed with; legacy
+     * rows fall back to the subject and level link tables.
+     */
+    const subjectIds = teacher ? teacher.subjects : request.subjectIds;
+    const gradeLevelIds = teacher
+      ? teacher.gradeLevels
+      : request.levelId
+        ? [request.levelId]
+        : [];
     return {
       id: request.id,
       userId: request.userId,
       name: request.name,
       email: request.email,
+      phone: request.phone ?? null,
       note: request.note ?? undefined,
       state: request.state,
       createdAt: request.createdAt.toISOString(),
       board: request.boardId ? boardName.get(request.boardId) : undefined,
       level: request.levelId ? levelName.get(request.levelId) : undefined,
-      subjects: request.subjectIds
+      subjects: subjectIds
         .map((id) => subjectName.get(id) ?? "-")
         .join(", "),
+      subjectLabels: subjectIds.map((id) => subjectName.get(id) ?? "-"),
+      levelLabels: gradeLevelIds.map((id) => levelName.get(id) ?? "-"),
+      // The ids behind `subjects`, so the approval screen can pre-tick the
+      // matching courses instead of matching on display names.
+      subjectIds,
       userStatus: user?.status ?? "unknown",
       userRole: user?.role ?? null,
       requestedRole: request.requestedRole,
+      application: {
+        teacher,
+        parent,
+      },
+      decidedAt: request.decidedAt?.toISOString() ?? null,
+      decidedBy: request.decidedBy
+        ? (decidedById.get(request.decidedBy) ?? "another admin")
+        : null,
+      decisionReason: request.reason,
     };
   });
+
+  if (!query.role) return rows;
+  /*
+   * "none" is the legacy queue: requests filed before the role was recorded.
+   * They are shown, never hidden — an old application still needs a decision.
+   */
+  return rows.filter((row) =>
+    query.role === "none" ? !row.requestedRole : row.requestedRole === query.role,
+  );
+}
+
+/** `GET /api/v1/admin/requests/:id` — one application, in full. */
+export async function getRequest(req: Request) {
+  actorAdmin(req);
+  const id = recordIdSchema.parse(req.params.id);
+  const request = await findRequestById(id);
+  if (!request) throw notFound("Request not found");
+
+  const [user, boards, levels, subjects, decidedBy] = await Promise.all([
+    findUserById(request.userId),
+    listBoards(),
+    listLevels(),
+    listSubjects(),
+    request.decidedBy ? findUserById(request.decidedBy) : Promise.resolve(null),
+  ]);
+  const boardName = new Map(boards.map((b) => [b.id, b.name]));
+  const levelName = new Map(levels.map((l) => [l.id, l.name]));
+  const subjectName = new Map(subjects.map((s) => [s.id, s.name]));
+  const teacher = request.application?.teacher ?? null;
+  const parent = request.application?.parent ?? null;
+  const subjectIds = teacher ? teacher.subjects : request.subjectIds;
+  const gradeLevelIds = teacher
+    ? teacher.gradeLevels
+    : request.levelId
+      ? [request.levelId]
+      : [];
+
+  const view: AdminRequestView = {
+    id: request.id,
+    userId: request.userId,
+    name: request.name,
+    email: request.email,
+    phone: request.phone,
+    note: request.note ?? undefined,
+    state: request.state,
+    createdAt: request.createdAt.toISOString(),
+    board: request.boardId ? boardName.get(request.boardId) : undefined,
+    level: request.levelId ? levelName.get(request.levelId) : undefined,
+    subjects: subjectIds.map((id) => subjectName.get(id) ?? "-").join(", "),
+    subjectLabels: subjectIds.map((id) => subjectName.get(id) ?? "-"),
+    levelLabels: gradeLevelIds.map((id) => levelName.get(id) ?? "-"),
+    subjectIds,
+    userStatus: user?.status ?? "unknown",
+    userRole: user?.role ?? null,
+    requestedRole: request.requestedRole,
+    application: { teacher, parent },
+    decidedAt: request.decidedAt?.toISOString() ?? null,
+    decidedBy: decidedBy?.name ?? null,
+    decisionReason: request.reason,
+  };
+  return view;
 }
 
 export async function pendingCount() {
@@ -613,7 +756,7 @@ export async function bookCounts() {
   return countBooksByCourse();
 }
 
-/** Analytics: counts straight from Postgres, never from the Clerk API. */
+/** Analytics: counts straight from Postgres. */
 export async function analytics() {
   const [users, courses, books] = await Promise.all([
     listUsersAdminInnerCounts(),

@@ -19,7 +19,10 @@ export async function getTeacherCourseAssignments(
   conn: Tx | typeof db = db,
 ) {
   const [courseRows, links, labels] = await Promise.all([
-    conn.select({ id: courses.id }).from(courses).where(eq(courses.active, true)),
+    conn
+      .select({ id: courses.id, subjectId: courses.subjectId })
+      .from(courses)
+      .where(eq(courses.active, true)),
     listTeacherCourseLinks(conn),
     listCourseLabels({ active: true }, conn),
   ]);
@@ -37,6 +40,9 @@ export async function getTeacherCourseAssignments(
   return courseRows.map((row) => ({
     id: row.id,
     label: labelById.get(row.id) ?? "Course",
+    // Lets the approval screen pre-tick the courses for the subjects an
+    // applicant said they teach, without a second round trip.
+    subjectId: row.subjectId,
     teacherIds: teacherIdsByCourse.get(row.id) ?? [],
   }));
 }

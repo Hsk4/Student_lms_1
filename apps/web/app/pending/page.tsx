@@ -147,7 +147,7 @@ export default function PendingPage() {
                 <Link href="/request">Fill in the request form</Link>
               </Button>
               <Button asChild size="lg" variant="outline">
-                <Link href="/sign-up/parent">I am a parent</Link>
+                <Link href="/request?role=parent">I am a parent</Link>
               </Button>
             </div>
           </div>
