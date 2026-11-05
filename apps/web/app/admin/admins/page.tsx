@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/nila";
 import { useAuth } from "@/lib/auth-context";
+import { webHomeFor } from "@/lib/role-home";
 
 /** Super-admin only. The API rejects every admin-only call from an admin. */
 export default function AdminsPage() {
@@ -15,7 +16,7 @@ export default function AdminsPage() {
       me.user &&
       (me.user.role !== "super_admin" || me.user.status !== "active")
     ) {
-      router.replace(me.user.home);
+      router.replace(webHomeFor(me.user.home));
     }
   }, [me.user, router]);
 

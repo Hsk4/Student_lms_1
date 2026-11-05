@@ -8,6 +8,7 @@ import { ArchNumber } from "@/components/brand/primitives";
 import { Button } from "@/components/ui/button";
 import { PanelShell } from "@/components/shell/shell";
 import { useAuth } from "@/lib/auth-context";
+import { webHomeFor } from "@/lib/role-home";
 import { RequestParentRoleButton } from "./parent-actions";
 
 const STEPS = [
@@ -30,12 +31,18 @@ export default function ParentSignUpPage() {
   const router = useRouter();
   const user = me.user;
 
+  /*
+   * This page is the guardian entry point, so it only redirects accounts that
+   * are already *parents*. A signed-in account with no role (or another role)
+   * stays here: that is the visitor who still has to ask for parent access, and
+   * bouncing them to `/request` is what made "I am a parent" look broken.
+   */
   useEffect(() => {
     if (me.loading || !user) return;
-    if (user.status === "active") {
-      router.replace(user.role === "parent" ? "/parent/link" : user.home);
-    } else if (user.status === "suspended") {
+    if (user.status === "suspended") {
       router.replace("/?error=account_suspended");
+    } else if (user.role === "parent") {
+      router.replace(webHomeFor(user.home));
     }
   }, [me.loading, user, router]);
 
@@ -71,6 +78,32 @@ export default function ParentSignUpPage() {
               <Link href="/sign-in">I already have one</Link>
             </Button>
           </div>
+        </Card>
+      </PanelShell>
+    );
+  }
+
+  /*
+   * A parent who is already approved has been redirected above; this is the
+   * "signed in, still needs to ask" state. An account that already holds a
+   * different role cannot ask for parent access (the API refuses it), so it is
+   * pointed at its own panel instead of a button that would only error.
+   */
+  if (user.role) {
+    return (
+      <PanelShell title="Parents" user={{ name: user.name, role: user.role }}>
+        <PageHeader
+          title={`Welcome, ${user.name}`}
+          description="This account already has a role."
+        />
+        <Card className="space-y-4 p-6">
+          <Notice>
+            Parent access is for guardian accounts. This account is signed in as
+            a {user.role.replace("_", " ")}, so it opens its own panel instead.
+          </Notice>
+          <Button asChild size="xl">
+            <Link href={webHomeFor(user.home)}>Go to my panel</Link>
+          </Button>
         </Card>
       </PanelShell>
     );

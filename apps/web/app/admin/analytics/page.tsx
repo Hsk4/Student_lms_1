@@ -7,6 +7,7 @@ import { StatStrip } from "@/components/shared/stat-strip";
 import { PageHeader, Card } from "@/components/ui/nila";
 import { api } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
+import { webHomeFor } from "@/lib/role-home";
 
 type Analytics = {
   users: number;
@@ -23,7 +24,7 @@ export default function AdminAnalyticsPage() {
   // The super-admin-only screens are UX-gated here; the API enforces it.
   useEffect(() => {
     if (me.user && me.user.role !== "super_admin" && me.user.role !== "admin") {
-      router.replace(me.user.home);
+      router.replace(webHomeFor(me.user.home));
     }
   }, [me.user, router]);
 

@@ -57,6 +57,13 @@ const ROLES: {
   },
 ];
 
+/*
+ * A returning user needs the sign-in form, not the sign-up form. The native
+ * entry screen used to offer only "I already have an account", which is fine
+ * for a student but left a teacher with no labelled way in.
+ */
+const SIGN_IN_HREF = "/sign-in";
+
 function subscribeToPlatform(onChange: () => void) {
   // The bridge appears after hydration; re-read once the page has settled.
   const timer = window.setTimeout(onChange, 0);
@@ -135,12 +142,15 @@ export function NativeWelcome() {
         </ul>
 
         <Link
-          href="/sign-in"
+          href={SIGN_IN_HREF}
           onClick={() => setAnswered(true)}
           className="fastly-primary mt-6 w-full"
         >
           I already have an account
         </Link>
+        <p className="mt-3 text-center text-[12px] text-muted-foreground">
+          Students, parents and teachers all sign in with the same form.
+        </p>
         <div className="fastly-safe-gap" aria-hidden="true" />
       </div>
     </div>

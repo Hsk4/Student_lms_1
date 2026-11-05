@@ -195,6 +195,12 @@ export function HeroIllustration() {
 
 /* ------------------------------------------------------------------- 2 */
 
+/*
+ * The three doors. Each one has a sign-up route and a sign-in route, because a
+ * returning student, parent or teacher needs the second one — the landing page
+ * used to offer only a single generic "Sign in" in the header, which left a
+ * teacher with no obvious way back into their panel.
+ */
 const DOORS = [
   {
     role: "Students",
@@ -203,6 +209,8 @@ const DOORS = [
     line2: "for every class you are enrolled in.",
     cta: "Student sign-up",
     href: "/sign-up",
+    signInHref: "/sign-in",
+    signInLabel: "Student sign in",
     tile: "cobalt" as const,
   },
   {
@@ -212,6 +220,8 @@ const DOORS = [
     line2: "from one dashboard, linked by code.",
     cta: "Parent sign-up",
     href: "/sign-up/parent",
+    signInHref: "/sign-in",
+    signInLabel: "Parent sign in",
     tile: "tint" as const,
   },
   {
@@ -221,6 +231,8 @@ const DOORS = [
     line2: "without chasing paper registers.",
     cta: "Teacher sign-up",
     href: "/sign-up",
+    signInHref: "/sign-in",
+    signInLabel: "Teacher sign in",
     tile: "navy" as const,
   },
 ];
@@ -270,6 +282,12 @@ function ThreeDoors() {
                 >
                   {door.cta}
                   <ArrowRight size={16} strokeWidth={2} />
+                </Link>
+                <Link
+                  href={door.signInHref}
+                  className="mt-2 inline-flex min-h-11 items-center justify-center gap-1.5 text-[13px] font-semibold text-[#1e4db7] hover:underline"
+                >
+                  {door.signInLabel}
                 </Link>
               </article>
             );
@@ -919,23 +937,38 @@ function Footer() {
           </p>
         </div>
 
+        {/*
+         * Every footer link used to point at `/sign-up`, so "Sign in" and
+         * "Link with a code" both opened the student sign-up form. Each entry
+         * now carries its own destination.
+         */}
         {[
           {
             head: "For students",
-            links: ["Sign up", "Sign in", "Courses", "Homework"],
+            links: [
+              { label: "Sign up", href: "/sign-up" },
+              { label: "Sign in", href: "/sign-in" },
+              { label: "Courses", href: "/sign-up" },
+              { label: "Homework", href: "/sign-up" },
+            ],
           },
           {
             head: "For parents",
             links: [
-              "Link with a code",
-              "Fee vouchers",
-              "Attendance",
-              "Meetings",
+              { label: "Link with a code", href: "/sign-up/parent" },
+              { label: "Sign in", href: "/sign-in" },
+              { label: "Fee vouchers", href: "/sign-up/parent" },
+              { label: "Meetings", href: "/sign-up/parent" },
             ],
           },
           {
             head: "For teachers",
-            links: ["Class register", "Publish results", "Support desk"],
+            links: [
+              { label: "Sign up", href: "/sign-up" },
+              { label: "Sign in", href: "/sign-in" },
+              { label: "Class register", href: "/sign-up" },
+              { label: "Support desk", href: "/sign-up" },
+            ],
           },
         ].map((col) => (
           <nav key={col.head} aria-label={col.head}>
@@ -944,12 +977,12 @@ function Footer() {
             </p>
             <ul className="mt-2">
               {col.links.map((l) => (
-                <li key={l}>
+                <li key={l.label}>
                   <Link
-                    href="/sign-up"
+                    href={l.href}
                     className="inline-flex min-h-12 items-center text-[14px] text-white/90 hover:text-[#f4b942] hover:underline"
                   >
-                    {l}
+                    {l.label}
                   </Link>
                 </li>
               ))}
