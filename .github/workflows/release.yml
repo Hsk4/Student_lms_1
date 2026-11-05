@@ -31,7 +31,14 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - uses: android-actions/setup-android@v3
+      # The SDK ships with the runner image; this only makes sure the tools
+      # are on PATH. `android-actions/setup-android` failed here, and the
+      # preinstalled SDK is enough to assemble a debug APK.
+      - name: Locate the Android SDK
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-$ANDROID_SDK_ROOT}" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME"
+          ls "$ANDROID_HOME" || true
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
