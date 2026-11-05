@@ -107,14 +107,18 @@ export function GateShell({
         </div>
       </header>
 
-      {/* The sheet overlaps the band by 28px, the same device the phone screens use. */}
-      <main className="relative -mt-7 flex-1">
+      {/*
+       * The sheet sits *below* the band, not over it. It used to be pulled up
+       * with `-mt-7`, which on a gate page put the card's top edge under the
+       * navy strip and clipped the first line of content.
+       */}
+      <main className="relative flex-1 px-4 pt-8 pb-12 sm:px-6">
         {/*
          * Content-sized, not stretched: without this the block would be the
          * height of `main`, leaving a tall empty slab under the last button on
          * a short page. `main` is a plain block, so this needs no flex tricks.
          */}
-        <div className="fastly-sheet mx-auto mb-12 w-full max-w-3xl border-[1.5px] border-line bg-card px-5 py-8 sm:px-8">
+        <div className="fastly-sheet mx-auto w-full max-w-3xl border-[1.5px] border-line bg-card px-5 py-8 sm:px-8">
           {children}
         </div>
       </main>

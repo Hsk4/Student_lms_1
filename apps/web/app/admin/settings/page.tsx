@@ -31,7 +31,7 @@ export default function AdminSettingsPage() {
             Session
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Sign-out is on the Clerk avatar in the header. Role and status
+            Sign out from the account menu in the header. Role and status
             changes are made by an admin on the Users page.
           </p>
         </Card>

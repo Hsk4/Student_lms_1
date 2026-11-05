@@ -64,7 +64,7 @@ export function UserDetailView({
             <dd className="mt-1">{formatDate(user.createdAt)}</dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Clerk id</dt>
+            <dt className="text-muted-foreground">Account id</dt>
             <dd className="mt-1 break-all font-mono text-xs">{user.clerkId}</dd>
           </div>
           {user.rejectedAt ? (

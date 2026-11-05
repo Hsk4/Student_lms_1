@@ -117,7 +117,7 @@ export default function PendingPage() {
                   </p>
                   <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                     {index === 0
-                      ? "Signed in with Clerk."
+                      ? "Signed in."
                       : index === 1
                         ? assignedRole
                           ? `Your ${user.role?.replace("_", " ")} role is assigned. Waiting for activation.`
