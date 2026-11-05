@@ -8,15 +8,48 @@ admins.
 ```
 apps/
   api/        Express 5 + TypeScript, Drizzle + PostgreSQL, local JWT auth
-  web/        Next.js 16 static export (client only) + Capacitor (Android)
+  web/        Next.js 16 (server-rendered public pages) + Capacitor (Android)
 packages/
   shared/     zod validators, roles/status enums, API types
-qa/           QA screenshots
+docs/         developer handbook — start at docs/00-getting-started.md
 ```
 
 There is one database and one API that owns it. The web app never touches the
-database: it renders client-side, signs in against our API, and calls it with
-a bearer token.
+database: it signs in against our API and calls it with a bearer token.
+
+## Two build targets, one source tree
+
+```
+                    Shared Next.js App
+                           │
+              ┌────────────┴────────────┐
+              │                         │
+             WEB                     MOBILE
+              │                         │
+      Normal Next build          Static export
+              │                         │
+       SSR / SSG / ISR                  out/
+              │                         │
+           Browser                   Capacitor
+              │                         │
+              └──────────┬──────────────┘
+                         │
+                    Existing API
+```
+
+| Command | Output | Used by |
+| --- | --- | --- |
+| `bun run --cwd apps/web build` | `.next/` — a normal Next build | Vercel |
+| `bun run --cwd apps/web build:mobile` | `out/` — a static export | Capacitor |
+
+The public landing page (`/`) is a **server component**, so it ships real HTML
+and metadata to search engines. Every private page (`/admin`, `/student`, …)
+stays a client component: it needs a session and has no SEO value.
+
+`NEXT_TARGET=mobile` is what switches `next.config.ts` to `output: "export"`.
+The application code is identical in both builds — no page checks the target.
+
+Full explanation: [docs/frontend/05-rendering-and-builds.md](docs/frontend/05-rendering-and-builds.md).
 
 ## Install
 
@@ -65,13 +98,21 @@ file you do not commit) so `DATABASE_URL` points there. The script prints only
 the database host, then creates or reconciles the row.
 
 On Render the database variables already exist in the service environment, so
-the seed is the last step of the build command:
+the build command is:
 
 ```bash
-bun run --cwd packages/shared build \
+bun install --frozen-lockfile \
+  && bun run --cwd packages/shared build \
   && bun run --cwd apps/api build \
-  && bun run --cwd apps/api db:migrate \
-  && bun run --cwd apps/api seed:super-admin
+  && bun run --cwd apps/api db:migrate
+```
+
+Seeding is **not** part of the build: a fresh clone has no `apps/api/.env`, so
+the seed would fail the build after the migrations had already committed. Run it
+once from the Render Shell instead:
+
+```bash
+bun run --cwd apps/api seed:super-admin
 ```
 
 Do not pass `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` inline before the
@@ -105,9 +146,10 @@ The catalogue seed adds five exam-board entries, seven levels, fourteen core
 subjects and the corresponding SSC, HSSC and Cambridge course combinations.
 It is idempotent and leaves existing course combinations untouched.
 
-The super-admin seed promotes an already registered local account to
-`super_admin`, activates it and invalidates its old session. It does not create
-an account or set a password. After running it, sign out and sign in again.
+The super-admin seed creates the account if the email is new, or reconciles the
+existing one in place: it sets the role to `super_admin`, activates it, sets the
+password and bumps `session_version` so older tokens stop working. After running
+it, sign out and sign in again.
 
 
 ## Run
@@ -156,11 +198,15 @@ exactly the web origin, with no trailing slash.
 ## Build, lint, test
 
 ```bash
-bun run build        # shared -> api -> web (web writes apps/web/out/)
+bun run build        # shared -> api -> web (normal Next build, for Vercel)
 bun run lint         # eslint in apps/api and apps/web
 bun run lint:colors  # Nila colour gate
 bun run typecheck    # tsc --noEmit in every package
 bun run test         # apps/api vitest suite (needs the test database)
+
+# Mobile: static export into apps/web/out/, then wrap it
+bun run --cwd apps/web build:mobile
+bun run --cwd apps/web cap:sync
 ```
 
 Tests need a throwaway Postgres:
@@ -180,12 +226,16 @@ The Capacitor project lives in `apps/web/android`, wrapping the static export.
 
 ```bash
 cd apps/web
-bun run build             # next build -> out/ (reads .env.production)
+bun run build:mobile      # static export -> out/ (NEXT_TARGET=mobile)
 bun run cap:sync          # copy out/ into the native project
 bun run cap:android       # open Android Studio
 # or build the debug APK directly:
 cd android && ./gradlew assembleDebug
 ```
+
+> `bun run build` (without `:mobile`) produces a **server** build for the web
+> and does not write `out/`. Capacitor needs the static export, so always use
+> `build:mobile` before `cap:sync`.
 
 The APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
 Install it on a running emulator or device with `adb install -r <apk>`.
