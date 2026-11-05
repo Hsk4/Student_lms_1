@@ -30,6 +30,11 @@ const REQUEST_ROLES = [
     label: "Parent",
     hint: "I am a guardian and want to follow my child's schoolwork.",
   },
+  {
+    value: "student",
+    label: "Student",
+    hint: "I am enrolled, or about to enrol, in a class.",
+  },
 ] as const;
 
 type RequestedRole = (typeof REQUEST_ROLES)[number]["value"];
@@ -189,15 +194,17 @@ function SectionTitle({
 
 export function RequestForm({
   defaults,
+  boards,
   levels,
   subjects,
 }: {
   defaults: {
     name: string;
     email: string;
-    /** Pre-filled when the applicant opened "I am a parent". */
+    /** The door the applicant came through (`?role=…`). */
     requestedRole: RequestedRole;
   };
+  boards: CatalogOption[];
   levels: CatalogOption[];
   subjects: CatalogOption[];
 }) {
@@ -296,6 +303,21 @@ export function RequestForm({
                 additionalInformation: text("additionalInformation"),
               },
             };
+          } else if (role === "student") {
+            /*
+             * The legacy student application: the API still accepts it, and
+             * board/level/subjects are what the office needs to place a
+             * student. None is required — a new student may be "not sure yet".
+             */
+            body = {
+              requestedRole: "student",
+              name: base.name,
+              email: base.email,
+              boardId: text("boardId"),
+              levelId: text("levelId"),
+              subjectIds: subjectsPicked,
+              note: text("note"),
+            };
           } else {
             if (!text("relationship"))
               next.relationship = "Choose your relationship to the student.";
@@ -349,7 +371,7 @@ export function RequestForm({
         {/* 1. The role: it decides what the rest of the form asks. */}
         <fieldset>
           <legend className="label">What role are you requesting?</legend>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-3">
             {REQUEST_ROLES.map((option) => {
               const active = role === option.value;
               return (
@@ -587,6 +609,80 @@ export function RequestForm({
               </Field>
             </div>
           </>
+        ) : role === "student" ? (
+          <>
+            {/*
+              * The student application: enough for the office to place them in
+              * a class. Everything here is voluntary — a new student often does
+              * not know their board yet, and the admin confirms it on approval.
+              */}
+            <SectionTitle n={3}>Study details</SectionTitle>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field id="boardId" label="Board" error={errors.boardId}>
+                <select {...inputProps("boardId", errors.boardId)} defaultValue="">
+                  <option value="">Not sure yet</option>
+                  {boards.map((board) => (
+                    <option key={board.id} value={board.id}>
+                      {board.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field id="levelId" label="Level" error={errors.levelId}>
+                <select {...inputProps("levelId", errors.levelId)} defaultValue="">
+                  <option value="">Not sure yet</option>
+                  {levels.map((level) => (
+                    <option key={level.id} value={level.id}>
+                      {level.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+
+            {/* Optional here, unlike a teacher's: the admin confirms the class. */}
+            <fieldset id="subjects">
+              <legend className="label">Subjects you are studying</legend>
+              <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
+                Optional. An admin confirms your classes when they approve you.
+              </p>
+              {subjects.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  The catalog is empty. An admin can add subjects under Courses.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {subjects.map((subject) => {
+                    const active = subjectsPicked.includes(subject.id);
+                    return (
+                      <button
+                        key={subject.id}
+                        type="button"
+                        onClick={() => toggle(setSubjectsPicked, subject.id)}
+                        className={`chip h-8 px-3 transition-colors duration-150 ${
+                          active
+                            ? "border-primary bg-tint text-tint-foreground"
+                            : "border-border text-muted-foreground hover:text-primary"
+                        }`}
+                        aria-pressed={active}
+                      >
+                        {subject.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </fieldset>
+
+            <Field
+              id="note"
+              label="Anything we should know?"
+              hint="Optional."
+              error={errors.note}
+            >
+              <textarea {...textareaProps("note", errors.note)} rows={3} />
+            </Field>
+          </>
         ) : (
           <>
             <SectionTitle n={3}>Parent / guardian profile</SectionTitle>
@@ -670,12 +766,16 @@ export function RequestForm({
               ? "Submitting…"
               : role === "teacher"
                 ? "Submit teacher application"
-                : "Request parent access"}
+                : role === "student"
+                  ? "Submit student request"
+                  : "Request parent access"}
           </button>
           <span className="text-xs text-muted-foreground">
             {role === "teacher"
               ? "Applying as a Teacher."
-              : "Requesting Parent access."}
+              : role === "student"
+                ? "Requesting Student access."
+                : "Requesting Parent access."}
           </span>
         </div>
 

@@ -39,7 +39,8 @@ const ROLES: {
     hint: "Homework, courses and results",
     icon: GraduationCap,
     tone: "cobalt",
-    href: "/sign-up",
+    // The request form defaults to teacher, so a student states the role.
+    href: "/sign-up?role=student",
   },
   {
     label: "I'm a parent",
@@ -53,7 +54,7 @@ const ROLES: {
     hint: "Classes, attendance and marks",
     icon: BookOpen,
     tone: "navy",
-    href: "/sign-up",
+    href: "/sign-up?role=teacher",
   },
 ];
 
@@ -150,6 +151,13 @@ export function NativeWelcome() {
         </Link>
         <p className="mt-3 text-center text-[12px] text-muted-foreground">
           Students, parents and teachers all sign in with the same form.
+        </p>
+        <p className="mt-1 text-center text-[12px] text-muted-foreground">
+          No account yet?{" "}
+          <Link href="/sign-up/parent" className="font-medium text-primary underline">
+            Parents start here
+          </Link>
+          .
         </p>
         <div className="fastly-safe-gap" aria-hidden="true" />
       </div>

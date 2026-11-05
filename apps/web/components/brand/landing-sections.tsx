@@ -220,7 +220,7 @@ const DOORS = [
     line2: "from one dashboard, linked by code.",
     cta: "Parent sign-up",
     href: "/sign-up/parent",
-    signInHref: "/sign-in",
+    signInHref: "/sign-in?role=parent",
     signInLabel: "Parent sign in",
     tile: "tint" as const,
   },
@@ -230,7 +230,7 @@ const DOORS = [
     line1: "Mark attendance and publish results",
     line2: "without chasing paper registers.",
     cta: "Teacher sign-up",
-    href: "/sign-up",
+    href: "/sign-up?role=teacher",
     signInHref: "/sign-in",
     signInLabel: "Teacher sign in",
     tile: "navy" as const,
@@ -964,10 +964,10 @@ function Footer() {
           {
             head: "For teachers",
             links: [
-              { label: "Sign up", href: "/sign-up" },
+              { label: "Sign up", href: "/sign-up?role=teacher" },
               { label: "Sign in", href: "/sign-in" },
-              { label: "Class register", href: "/sign-up" },
-              { label: "Support desk", href: "/sign-up" },
+              { label: "Class register", href: "/sign-up?role=teacher" },
+              { label: "Support desk", href: "/sign-up?role=teacher" },
             ],
           },
         ].map((col) => (

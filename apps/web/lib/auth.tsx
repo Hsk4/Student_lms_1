@@ -72,6 +72,7 @@ function AuthForm({
   busyLabel,
   fields,
   endpoint,
+  nextStepHref,
   footer,
 }: {
   title: string;
@@ -87,6 +88,8 @@ function AuthForm({
     extra?: Record<string, unknown>;
   }[];
   endpoint: "sign-in" | "sign-up";
+  /** Sign-up only: forward the chosen role to `/pending`. */
+  nextStepHref?: string;
   footer: ReactNode;
 }) {
   const router = useRouter();
@@ -137,7 +140,12 @@ function AuthForm({
       );
       // `webHomeFor` sends a parent to the link page instead of the empty
       // children dashboard; every other role keeps the API's `home`.
-      router.replace(webHomeFor(me.home));
+      const home = webHomeFor(me.home);
+      router.replace(
+        nextStepHref && home.startsWith("/pending")
+          ? `${home}?next=${encodeURIComponent(nextStepHref)}`
+          : home,
+      );
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -264,19 +272,60 @@ export function SignIn({
   );
 }
 
+/** The roles an account can ask for at sign-up. Students use the plain form. */
+export type SignUpRole = "student" | "teacher" | "parent";
+
 export function SignUp({
   signInUrl = "/sign-in",
+  role = "student",
 }: {
   signInUrl?: string;
   fallbackRedirectUrl?: string;
+  /**
+   * Which application the new account is for. It only chooses the wording and
+   * where the account lands next (the `/request` form); the API still decides
+   * what the account may do, and an admin still approves the role.
+   */
+  role?: SignUpRole;
 }) {
+  const wording =
+    role === "teacher"
+      ? {
+          title: "Create your teacher account",
+          subtitle:
+            "Next you will fill in a short teaching application. An admin reviews it before your classes open.",
+        }
+      : role === "parent"
+        ? {
+            title: "Create your parent account",
+            subtitle:
+              "Next you will tell us who your child is. An admin reviews it before your dashboard opens.",
+          }
+        : {
+            title: "Create your school account",
+            subtitle:
+              "Your role is confirmed by the school office after you request access.",
+          };
+
   return (
     <AuthForm
-      title="Create your school account"
-      subtitle="Your role is confirmed by the school office after you request access."
+      title={wording.title}
+      subtitle={wording.subtitle}
       submitLabel="Create account"
       busyLabel="Creating account..."
       endpoint="sign-up"
+      /*
+       * A brand-new role-less account lands on `/pending` (the API's `home`).
+       * Carrying the chosen door through tells that page which application the
+       * person meant to fill in, instead of making them pick again.
+       */
+      nextStepHref={
+        role === "teacher"
+          ? "/request?role=teacher"
+          : role === "parent"
+            ? "/request?role=parent"
+            : undefined
+      }
       fields={[
         {
           name: "name",

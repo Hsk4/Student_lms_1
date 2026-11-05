@@ -19,9 +19,15 @@ function Body() {
   const search = useSearchParams();
   const user = me.user;
 
-  // `/request?role=parent` opens straight onto the parent application; the
-  // parent sign-up page links here. Anything else starts on teacher.
-  const initialRole = search.get("role") === "parent" ? "parent" : "teacher";
+  /*
+   * The door the applicant came through decides the first form:
+   * `/request?role=parent` is the parent application and `?role=student` the
+   * legacy student form (still accepted by the API for enrolled students).
+   * Anything else — including the teacher door — starts on teacher.
+   */
+  const roleParam = search.get("role");
+  const initialRole: "teacher" | "parent" | "student" =
+    roleParam === "parent" || roleParam === "student" ? roleParam : "teacher";
 
   const optionsQuery = useAsync(
     () =>
@@ -99,6 +105,7 @@ function Body() {
             email: user.email,
             requestedRole: initialRole,
           }}
+          boards={options.boards}
           levels={options.levels}
           subjects={options.subjects}
         />
