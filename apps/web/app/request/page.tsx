@@ -66,20 +66,27 @@ function Body() {
       title="Access request"
       user={{ name: user.name, role: user.role }}
     >
-      <PageHeader
-        title="Request access"
-        description="An admin reviews every request. You will get a role only after they approve it."
-      />
-      <p className="mb-4 flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-cobalt">
-        <ArchNumber n={1} size={24} tone="cobalt" />
-        Your details
-      </p>
-      <RequestForm
-        defaults={{ name: user.name, email: user.email }}
-        boards={options.boards}
-        levels={options.levels}
-        subjects={options.subjects}
-      />
+      {/*
+       * A single-column form, so it is centred and capped rather than stretched
+       * across the full panel width — at 7xl the fields sat against the left
+       * edge with a wide empty gutter beside them.
+       */}
+      <div className="mx-auto w-full max-w-2xl">
+        <PageHeader
+          title="Request access"
+          description="An admin reviews every request. You will get a role only after they approve it."
+        />
+        <p className="mb-4 flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-cobalt">
+          <ArchNumber n={1} size={24} tone="cobalt" />
+          Your details
+        </p>
+        <RequestForm
+          defaults={{ name: user.name, email: user.email }}
+          boards={options.boards}
+          levels={options.levels}
+          subjects={options.subjects}
+        />
+      </div>
     </PanelShell>
   );
 }

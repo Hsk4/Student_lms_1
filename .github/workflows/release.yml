@@ -1,4 +1,4 @@
-name: Release
+ name: Release
 
 # Publishes a GitHub release with the Android APK attached.
 #
