@@ -157,6 +157,7 @@ export default function AdminUsersPage() {
               }}
             />
           }
+          loading={usersQuery.loading && users.length === 0}
           empty={users.length === 0}
           emptyTitle="No users match"
           emptyDescription="Try a different search or clear the filters."

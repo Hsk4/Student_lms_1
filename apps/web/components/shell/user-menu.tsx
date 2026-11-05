@@ -5,6 +5,7 @@ import { LogOut, Settings, UserRound } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/lib/auth-context";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,9 +40,12 @@ export interface UserMenuProps {
 }
 
 /**
- * Avatar dropdown from the reference kit. Sign-out is handled by the local
- * `UserButton` in `lib/auth`, so this menu only surfaces the account details
- * and any panel-specific actions passed as children.
+ * Avatar dropdown from the reference kit: account details, sign-out, and any
+ * panel-specific actions passed as children.
+ *
+ * Sign-out lives here rather than in a second avatar button beside it. Two
+ * identical initials circles sat side by side in the header, and the menu had
+ * to explain "sign out with the avatar button" to tell them apart.
  */
 export function UserMenu({
   name,
@@ -50,6 +54,9 @@ export function UserMenu({
   children,
   className,
 }: UserMenuProps) {
+  const { signOut } = useAuth();
+  const onSignOut = () => signOut();
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -90,9 +97,9 @@ export function UserMenu({
           <Settings />
           Account settings
         </DropdownMenuItem>
-        <DropdownMenuItem disabled className="text-muted-foreground">
+        <DropdownMenuItem onSelect={onSignOut}>
           <LogOut />
-          Sign out with the avatar button
+          Sign out
         </DropdownMenuItem>
         {children ? (
           <>

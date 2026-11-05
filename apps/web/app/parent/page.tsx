@@ -52,8 +52,12 @@ export default function ParentDashboardPage() {
         title="My children"
         description="A read-only view of each child's teacher, progress, attendance and fees."
       >
+        {/*
+         * The form is on this page, so this scrolls to it. It used to link to
+         * /parent/meetings, which offered the same action a second time.
+         */}
         <Button asChild size="xl">
-          <Link href="/parent/meetings">Request a meeting</Link>
+          <a href="#request-meeting">Request a meeting</a>
         </Button>
       </PageHeader>
 
@@ -192,15 +196,17 @@ export default function ParentDashboardPage() {
             ))}
           </div>
 
-          <Card className="mt-8 p-5">
-            <SectionHeader title="Request a meeting with a teacher" />
-            <div className="max-w-md">
-              <RequestMeetingForm
-                onDone={childrenQuery.reload}
-                childRows={children.map(({ id, name }) => ({ id, name }))}
-              />
-            </div>
-          </Card>
+          <div id="request-meeting" className="scroll-mt-24">
+            <Card className="mt-8 p-5">
+              <SectionHeader title="Request a meeting with a teacher" />
+              <div className="max-w-md">
+                <RequestMeetingForm
+                  onDone={childrenQuery.reload}
+                  childRows={children.map(({ id, name }) => ({ id, name }))}
+                />
+              </div>
+            </Card>
+          </div>
 
           {children.some((child) => child.teachers.length === 0) ? (
             <div className="mt-6">

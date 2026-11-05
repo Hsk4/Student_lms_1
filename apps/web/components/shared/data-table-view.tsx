@@ -9,6 +9,12 @@ interface DataTableViewProps {
   /** Rendered under the table (pagination, totals). */
   footer?: React.ReactNode;
   empty?: boolean;
+  /**
+   * The first load is still in flight. Without this a page that passes
+   * `empty={rows.length === 0}` shows "nothing here" for a second before the
+   * rows arrive, which reads as "your data is gone".
+   */
+  loading?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
   emptyIcon?: React.ComponentType<{ className?: string }>;
@@ -37,6 +43,7 @@ export function DataTableView({
   toolbar,
   footer,
   empty = false,
+  loading = false,
   emptyTitle,
   emptyDescription,
   emptyIcon,
@@ -47,7 +54,24 @@ export function DataTableView({
   return (
     <div className={cn("flex flex-col gap-4", className)}>
       {toolbar}
-      {empty ? (
+      {loading ? (
+        <div
+          className="rounded-xl border border-border bg-card p-6 shadow-sm"
+          aria-busy="true"
+          aria-live="polite"
+        >
+          <div className="space-y-3">
+            {[0, 1, 2, 3].map((row) => (
+              <div
+                key={row}
+                className="h-9 animate-pulse rounded-md bg-muted"
+                style={{ opacity: 1 - row * 0.18 }}
+              />
+            ))}
+          </div>
+          <span className="sr-only">Loading</span>
+        </div>
+      ) : empty ? (
         <EmptyState
           title={emptyTitle}
           description={emptyDescription}

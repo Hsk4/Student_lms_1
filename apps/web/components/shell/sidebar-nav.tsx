@@ -54,7 +54,12 @@ export function SidebarNav({
         aria-hidden="true"
       />
 
-      <div className="relative flex min-h-full flex-col px-3 py-5">
+      {/*
+       * `h-full` (not `min-h-full`): the column is exactly the panel height, so
+       * `mt-auto` on the footer pins it to the bottom edge instead of pushing it
+       * past the scroll area, where it was clipped mid-word.
+       */}
+      <div className="relative flex h-full flex-col px-3 py-5">
         <Link
           href={`/${panel}`}
           onClick={onNavigate}
@@ -121,7 +126,12 @@ export function SidebarNav({
           ))}
         </nav>
 
-        <p className="mt-6 border-t-[1.5px] border-on-navy-line px-3 pt-4 text-[11px] leading-relaxed text-white/56">
+        {/*
+         * Pinned to the bottom of the panel. As a plain last child it was
+         * pushed below the fold on a short viewport and clipped mid-word, which
+         * reads as a broken layout rather than a scrollable one.
+         */}
+        <p className="mt-auto shrink-0 border-t-[1.5px] border-on-navy-line px-3 pt-4 pb-1 text-[11px] leading-relaxed text-white/56">
           {SCHOOL_NAME}
         </p>
       </div>

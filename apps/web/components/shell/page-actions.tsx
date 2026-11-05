@@ -3,7 +3,6 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import { Check, Monitor, MonitorCog, Moon, Sun } from "lucide-react";
-import { UserButton } from "@/lib/auth";
 
 import { UserMenu } from "@/components/shell/user-menu";
 import { Button } from "@/components/ui/button";
@@ -258,7 +257,6 @@ export function PageActions({
           {isSettings ? "Settings open" : user.status.replace("_", " ")}
         </DropdownMenuItem>
       </UserMenu>
-      <UserButton />
     </div>
   );
 }

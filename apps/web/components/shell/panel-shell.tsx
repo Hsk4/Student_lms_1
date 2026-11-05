@@ -77,7 +77,13 @@ export function PanelShell({
 
   return (
     <div className="flex min-h-screen bg-background">
-      <aside className="hidden w-64 shrink-0 lg:block">
+      {/*
+       * The nav itself is `sticky h-screen`, so on a long page it stays put
+       * while the content scrolls. The column carries the same navy so the
+       * space below the nav reads as part of the sidebar instead of a stray
+       * block of background.
+       */}
+      <aside className="fastly-sidebar hidden w-64 shrink-0 lg:block">
         <div className="sticky top-0 h-screen">
           <SidebarNav panel={panel} groups={groups} badges={badges} />
         </div>
@@ -136,9 +142,15 @@ export function PanelShell({
             </div>
 
             {!hasBottomTabs ? (
+              /*
+               * The strip scrolls sideways on a phone. Without a hint the last
+               * visible item looks like the end of the list, so a fade on the
+               * right edge says "there is more this way".
+               */
+              <div className="relative lg:hidden">
               <nav
                 aria-label="Sections"
-                className="quiet-scroll relative flex gap-1 overflow-x-auto border-t-[1.5px] border-on-navy-line px-3 py-2 lg:hidden"
+                className="quiet-scroll relative flex gap-1 overflow-x-auto border-t-[1.5px] border-on-navy-line px-3 py-2"
               >
                 {flatItems.map((item) => {
                   const active = isNavItemActive(pathname, item);
@@ -159,6 +171,11 @@ export function PanelShell({
                   );
                 })}
               </nav>
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[var(--fastly-navy)] to-transparent"
+              />
+              </div>
             ) : null}
           </div>
         </header>
