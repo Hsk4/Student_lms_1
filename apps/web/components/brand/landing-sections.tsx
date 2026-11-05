@@ -1,8 +1,6 @@
-﻿"use client";
-
-import Link from "next/link";
+﻿import Link from "next/link";
 import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { SuspendedNotice } from "./suspended-notice";
 import {
   ArrowRight,
   Bell,
@@ -992,19 +990,18 @@ function Footer() {
 /**
  * The whole landing page. A signed-in visitor is sent home by `AuthRedirector`,
  * so the hero's calls to action are all plain links to the auth routes.
+ *
+ * Server component: this is the page search engines index, so it must render
+ * to real HTML. The one browser-only piece — the `?error=` banner — is a small
+ * client island (`SuspendedNotice`).
  */
 export function FastlyLanding() {
-  const params = useSearchParams();
-  const error = params.get("error");
-
   return (
     <div className="flex flex-1 flex-col bg-white font-sans">
       <SiteHeader />
-      {error === "account_suspended" ? (
-        <div className="bg-status-red-soft px-6 py-3 text-center text-sm font-medium text-status-red">
-          This account is suspended. Contact the school office.
-        </div>
-      ) : null}
+      <Suspense fallback={null}>
+        <SuspendedNotice />
+      </Suspense>
       <main className="flex-1">
         <Hero />
         <ThreeDoors />
@@ -1071,15 +1068,5 @@ function SiteHeader() {
 }
 
 export default function LandingPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex flex-1 items-center justify-center bg-white p-10 text-sm text-ink-soft">
-          Loading…
-        </div>
-      }
-    >
-      <FastlyLanding />
-    </Suspense>
-  );
+  return <FastlyLanding />;
 }
