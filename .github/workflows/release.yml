@@ -1,0 +1,79 @@
+name: Release
+
+# Publishes a GitHub release with the Android APK attached.
+#
+# Runs on a version tag (`v1.0.2`) or on demand. It uses the workflow's own
+# GITHUB_TOKEN, so no personal access token has to be stored anywhere.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (must already exist)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build the web export
+        env:
+          # Baked into the bundle at build time; the APK talks to the same API
+          # as the web build.
+          NEXT_PUBLIC_API_URL: https://student-lms-1-g0xa.onrender.com/api/v1
+        run: |
+          bun run --cwd packages/shared build
+          bun run --cwd apps/web build
+
+      - name: Sync the export into the Android project
+        run: bun run --cwd apps/web cap:sync
+
+      - name: Build the debug APK
+        run: |
+          cd apps/web/android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Name the artifact after the version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "$GITHUB_REF_NAME" ]; then
+            VERSION="${{ github.event.inputs.tag }}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          cp apps/web/android/app/build/outputs/apk/debug/app-debug.apk \
+             "fastly-lms-v${VERSION}-debug.apk"
+          sha256sum "fastly-lms-v${VERSION}-debug.apk" \
+             > "fastly-lms-v${VERSION}-debug.apk.sha256"
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: Fastly LMS v${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            fastly-lms-v${{ steps.version.outputs.version }}-debug.apk
+            fastly-lms-v${{ steps.version.outputs.version }}-debug.apk.sha256
