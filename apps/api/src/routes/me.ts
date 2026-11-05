@@ -13,9 +13,14 @@ import { ok } from "@/lib/respond";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { sendPasswordResetEmail } from "@/lib/password-reset-email";
 
+/*
+ * 10 attempts per 15 minutes per IP is the production rule. A test run signs in
+ * many times on purpose, so the limit is configurable — never raised in
+ * production, where the default stands.
+ */
 const authAttemptLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: Number(process.env.AUTH_ATTEMPT_LIMIT ?? 10),
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: { ok: false, error: "Too many authentication attempts. Try again later." },

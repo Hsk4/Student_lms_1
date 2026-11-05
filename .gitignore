@@ -43,3 +43,6 @@ apps/web/android/app/src/main/assets/public/
 apps/web/android/app/src/main/assets/capacitor.config.json
 apps/web/android/app/src/main/assets/capacitor.plugins.json
 apps/web/android/capacitor-cordova-android-plugins/
+
+# Local QA scratch (screenshots, one-off scripts)
+qa-tmp/
